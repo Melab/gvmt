@@ -1,0 +1,134 @@
+#!/bin/bash
+
+echo "10 queens"
+echo "GVMT scheme"
+./gvmt_scheme  benchmarks/queens.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme benchmarks/queens.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme benchmarks/queens.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme benchmarks/queens.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme benchmarks/queens.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme benchmarks/queens.scm  > /dev/null	
+echo "GVMT scheme -i"
+/usr/bin/time -f "%E" ./gvmt_scheme -j benchmarks/queens.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme -j benchmarks/queens.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme -j benchmarks/queens.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme -j benchmarks/queens.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme -j benchmarks/queens.scm  > /dev/null	
+echo "mzscheme"                                  
+~/plt/bin/mzscheme -f  benchmarks/queens.scm > /dev/null   
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -f  benchmarks/queens.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -f  benchmarks/queens.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -f  benchmarks/queens.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -f  benchmarks/queens.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -f  benchmarks/queens.scm > /dev/null
+echo "mzscheme -i"                                  
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -j -f  benchmarks/queens.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -j -f  benchmarks/queens.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -j -f  benchmarks/queens.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -j -f  benchmarks/queens.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -j -f  benchmarks/queens.scm > /dev/null
+export SISC_HOME=/home/mark/sisc/sisc-1.16.6      
+echo "SISC"
+sisc -x benchmarks/queens.scm > /dev/null    
+/usr/bin/time -f "%E" sisc -x benchmarks/queens.scm > /dev/null
+/usr/bin/time -f "%E" sisc -x benchmarks/queens.scm > /dev/null
+/usr/bin/time -f "%E" sisc -x benchmarks/queens.scm > /dev/null
+/usr/bin/time -f "%E" sisc -x benchmarks/queens.scm > /dev/null
+/usr/bin/time -f "%E" sisc -x benchmarks/queens.scm > /dev/null
+echo "(module queens)" | cat - benchmarks/queens.scm > temp.scm
+bigloo -O2 temp.scm
+echo "bigloo"
+/usr/bin/time -f "%E" ./a.out > /dev/null
+/usr/bin/time -f "%E" ./a.out > /dev/null
+/usr/bin/time -f "%E" ./a.out > /dev/null
+/usr/bin/time -f "%E" ./a.out > /dev/null
+/usr/bin/time -f "%E" ./a.out > /dev/null
+echo ""                           
+echo "binary_trees"               
+echo "GVMT scheme"
+./gvmt_scheme benchmarks/binary-trees.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme benchmarks/binary-trees.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme benchmarks/binary-trees.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme benchmarks/binary-trees.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme benchmarks/binary-trees.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme benchmarks/binary-trees.scm  > /dev/null	
+echo "GVMT scheme -i"
+/usr/bin/time -f "%E" ./gvmt_scheme -j benchmarks/binary-trees.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme -j benchmarks/binary-trees.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme -j benchmarks/binary-trees.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme -j benchmarks/binary-trees.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme -j benchmarks/binary-trees.scm  > /dev/null	
+echo "mzscheme"
+~/plt/bin/mzscheme -f  benchmarks/binary-trees.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -f benchmarks/binary-trees.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -f benchmarks/binary-trees.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -f benchmarks/binary-trees.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -f benchmarks/binary-trees.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -f benchmarks/binary-trees.scm > /dev/null
+echo "mzscheme -i"
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -j -f benchmarks/binary-trees.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -j -f benchmarks/binary-trees.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -j -f benchmarks/binary-trees.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -j -f benchmarks/binary-trees.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -j -f benchmarks/binary-trees.scm > /dev/null
+export SISC_HOME=/home/mark/sisc/sisc-1.16.6
+echo "SISC"
+sisc -x benchmarks/binary-trees.scm > /dev/null
+/usr/bin/time -f "%E" sisc -x benchmarks/binary-trees.scm > /dev/null
+/usr/bin/time -f "%E" sisc -x benchmarks/binary-trees.scm > /dev/null
+/usr/bin/time -f "%E" sisc -x benchmarks/binary-trees.scm > /dev/null
+/usr/bin/time -f "%E" sisc -x benchmarks/binary-trees.scm > /dev/null
+/usr/bin/time -f "%E" sisc -x benchmarks/binary-trees.scm > /dev/null
+echo "(module benchmarks/binary)" | cat - benchmarks/binary-trees.scm > temp.scm
+bigloo -O2 temp.scm
+echo "bigloo"
+/usr/bin/time -f "%E" ./a.out > /dev/null
+/usr/bin/time -f "%E" ./a.out > /dev/null
+/usr/bin/time -f "%E" ./a.out > /dev/null
+/usr/bin/time -f "%E" ./a.out > /dev/null
+/usr/bin/time -f "%E" ./a.out > /dev/null
+echo ""
+echo "benchmarks/fannkuch"
+echo "GVMT scheme"
+./gvmt_scheme benchmarks/fannkuch.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme benchmarks/fannkuch.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme benchmarks/fannkuch.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme benchmarks/fannkuch.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme benchmarks/fannkuch.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme benchmarks/fannkuch.scm  > /dev/null	
+echo "GVMT scheme -j"
+/usr/bin/time -f "%E" ./gvmt_scheme -j benchmarks/fannkuch.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme -j benchmarks/fannkuch.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme -j benchmarks/fannkuch.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme -j benchmarks/fannkuch.scm  > /dev/null
+/usr/bin/time -f "%E" ./gvmt_scheme -j benchmarks/fannkuch.scm  > /dev/null	
+echo "mzscheme"
+~/plt/bin/mzscheme -f  benchmarks/fannkuch.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -f  benchmarks/fannkuch.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -f  benchmarks/fannkuch.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -f  benchmarks/fannkuch.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -f  benchmarks/fannkuch.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -f  benchmarks/fannkuch.scm > /dev/null
+echo "mzscheme -j"
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -j -f  benchmarks/fannkuch.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -j -f  benchmarks/fannkuch.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -j -f  benchmarks/fannkuch.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -j -f  benchmarks/fannkuch.scm > /dev/null
+/usr/bin/time -f "%E" ~/plt/bin/mzscheme -j -f  benchmarks/fannkuch.scm > /dev/null
+export SISC_HOME=/home/mark/sisc/sisc-1.16.6
+echo "SISC"
+sisc -x benchmarks/fannkuch.scm > /dev/null
+/usr/bin/time -f "%E" sisc -x benchmarks/fannkuch.scm > /dev/null
+/usr/bin/time -f "%E" sisc -x benchmarks/fannkuch.scm > /dev/null
+/usr/bin/time -f "%E" sisc -x benchmarks/fannkuch.scm > /dev/null
+/usr/bin/time -f "%E" sisc -x benchmarks/fannkuch.scm > /dev/null
+/usr/bin/time -f "%E" sisc -x benchmarks/fannkuch.scm > /dev/null
+echo "(module benchmarks/fann) (define (add1 x) (+ x 1)) (define (sub1 x) (- x 1))" | cat - benchmarks/fannkuch.scm > temp.scm
+bigloo -O2 temp.scm
+echo "bigloo"
+/usr/bin/time -f "%E" ./a.out > /dev/null
+/usr/bin/time -f "%E" ./a.out > /dev/null
+/usr/bin/time -f "%E" ./a.out > /dev/null
+/usr/bin/time -f "%E" ./a.out > /dev/null
+/usr/bin/time -f "%E" ./a.out > /dev/null
+

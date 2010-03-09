@@ -1,0 +1,44 @@
+#include <inttypes.h>
+#include <gvmt/gvmt.h>
+#include "example.h"
+
+// Cleans up jumps to jumps and jumps to returns.
+
+locals {
+    GVMT_Object modified;
+}
+
+__preamble [private] (-- ) {
+    modified = FALSE;
+}
+
+__postamble [private](--) {
+    gvmt_ireturn_r(modified);
+}
+
+jump(int ##offset -- ) {
+    uint8_t* ip = gvmt_ip();   
+    while (ip[offset] == op(nop))
+        offset++;
+    if (ip[offset] == op(return)) {
+        ip[0] = op(return);
+        ip[1] = ip[2] = op(nop);
+        modified = TRUE;
+    } else if (ip[offset] == op(jump) || 
+               ip[offset] == op(branch_t) || 
+               ip[offset] == op(branch_f)) {
+        int16_t new_offset = offset + ((int16_t)((ip[1] << 8) + ip[2]));
+        ip[0] = ip[offset];
+        ip[1] = new_offset >> 8;
+        ip[2] = new_offset;
+        modified = TRUE;
+    }
+}
+
+release_frame(--) {
+    uint8_t* ip = gvmt_ip();
+    if (ip[1]  == op(return)) {
+        ip[0] = op(return);
+        modified = TRUE;   
+    }
+}

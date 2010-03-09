@@ -1,0 +1,56 @@
+#include <inttypes.h>
+#include <gvmt/gvmt.h>
+#include "example.h"
+#include <assert.h>
+
+// Replace apply byte code with `recurse' for simply-recursive calls
+// and with `tail_apply' for other tail-calls.
+
+locals {
+    uint8_t* ip_start;
+    R_closure self;
+    int inlining;
+}
+
+__preamble [private] (R_closure c -- ) {
+     assert(c->type == &type_closure);
+     ip_start = gvmt_ip();  
+     self = c;
+     inlining = 0;
+ //    printf("Optimising closure ");
+//    print((GVMT_Object)c);
+ //    printf("\n");
+}
+
+__postamble [private](--) {
+    gvmt_ireturn_i(inlining);
+}
+    
+load_global(int ##index -- ) {
+    GVMT_Object o = globals->values[index]; 
+    uint8_t* ip = gvmt_ip(); 
+    if (ip[3] == op(apply) && ip[5] == op(return)) {
+        if (o == (GVMT_Object)self) {
+            int offset = ip_start+2-ip;
+//            printf("Matching closure ");
+       //     print(o);
+//            printf("\n");
+            ip[0] = op(recurse);
+            ip[1] = (offset >> 8) & 0xff;
+            ip[2] = offset & 0xff;
+            ip[3] = op(nop);
+            ip[4] = op(nop);
+        }
+    }
+}
+ 
+apply(int #op -- ) {
+    uint8_t* ip = gvmt_ip();   
+    int index = 2;
+    while (ip[index] == op(nop))
+        index++;
+    if (ip[index] == op(return)) {
+        ip[0] = op(tail_apply);
+    }
+}
+

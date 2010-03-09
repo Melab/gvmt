@@ -1,0 +1,3 @@
+#!/bin/bash
+export PYTHONPATH=/usr/local/lib/gvmt
+python /usr/local/lib/gvmt/gvmtcc.py $@

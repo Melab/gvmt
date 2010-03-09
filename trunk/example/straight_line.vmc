@@ -1,0 +1,37 @@
+#include <stdlib.h>
+#include <assert.h>
+#include <gvmt/gvmt.h>
+#include "example.h"
+
+// Returns TRUE or FALSE depending on 
+// whether or not this closure is straight-line (branch-free) code.
+
+__preamble [private] ( -- ) {
+}
+
+__postamble [private](--) {
+    gvmt_ireturn_r(TRUE);
+}
+
+jump(int ##offset--) {
+   gvmt_ireturn_r(FALSE);    
+}
+
+branch_f:jump ;
+branch_t:jump ;
+ 
+make_closure( -- ) {
+    // Cannot happen.
+    abort();
+}
+ 
+apply(int #op -- ) {
+    uint8_t* ip = gvmt_ip();   
+    int index = 2;
+    while (ip[index] == op(nop))
+        index++;
+    if (ip[index] == op(return)) {
+        gvmt_ireturn_r(FALSE);
+    }
+}
+

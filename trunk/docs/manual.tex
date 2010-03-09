@@ -1,0 +1,88 @@
+\documentclass[a4paper,10pt]{report}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\newcommand{\gvmtic}{\textsc{gvmtic}}
+\newcommand{\gvmtc}{\textsc{gvmtc}}
+\newcommand{\glink}{\textsc{gvmtlink}}
+\newcommand{\gvmtas}{\textsc{gvmtas}}
+\newcommand{\gvmtcc}{\textsc{gvmtcc}}
+\newcommand{\gvmtxc}{\textsc{gvmtxc}}
+
+% Title Page
+\title{The Glasgow Virtual Machine Toolkit Manual}
+\author{Mark Shannon}
+\date{ } 
+
+\begin{document}
+\maketitle 
+
+\begin{abstract}
+The GVMT is a toolkit for building virtual machines. The GVMT does not dictate the overall design of the virtual machine, but it does eliminate a lot of implementation details. 
+
+The developer needs to develop an interpreter and supoorting code, as normal. The toolkit handles garbage collection transparently
+and can automatically create a just-in-time compiler from the interpreter source code.
+
+This manual covers the components of the Glasgow Virtual Machine Toolkit, hereafter called the GVMT, and their use. 
+
+Convertion of source-code to bytecodes is not handled by the GVMT, that is up to the developer.
+
+\tableofcontents
+
+\end{abstract}
+
+
+\chapter{Introduction}
+
+\input{./intro.tex}
+
+\chapter{The tools\label{chap:tools}}
+
+\input{./tools.tex}
+
+\chapter{GVMT Execution Model\label{chap:abstract}}
+
+\input{./model.tex}
+
+\chapter{Building a VM using the Toolkit}
+
+\section{Before you start}
+Before starting a virtual machine, you will need to generate some bytecode programs to execute. If you are targetting a pre-existing VM format, this is straightforward. If you are creating a new language you will need a parser. \gvmtic{} can produce a C header file containing definitions for all the opcodes: the C macro for the opcode for instruction `xxx' is \verb|GVMT_OPCODE(xxx)|.
+
+\section{Defining the components}
+For GVMT to build a VM, you will need to define:
+\begin{itemize}
+\item An interpreter. See section \ref{sect:gvmtic}
+\item Any other support code that your interpreter calls. See section \ref{sect:gvmtc}
+\end{itemize}
+You will also need to define a small number of functions required by the GVMT. The header file for these can be found in /include/user.h and sample implementations can be found in \verb|/example/native.s| and \verb|/example/support.c|
+It may also be useful to specify:
+\begin{itemize}
+\item The object layout for heap objects. See section \ref{sect:objects}
+\end{itemize}
+
+Once these are defined, the VM is built as follows, see figure \ref{fig:build}: The \verb|.gsc| files for the interpreter and other support code is created by running \gvmtic{} and \gvmtc{} respectively. These  \verb|.gsc| files are converted to \verb|.gso| with \gvmtas. All the  \verb|.gso| files are then linked together using \glink{} to form as single object file, which can be linked with any native object files to form an executable using the standard linker.
+
+\section{Debugging}
+Although the toolkit maintains symbolic information from the source to the executable, some variables may get renamed. 
+The signatures of functions may appear different in the debugging, although their names should be unaltered.
+The execution stack can be accessed via the stack pointer, the name of which is \verb|gvmt_sp|.
+
+\section{Adding a compiler}
+It is probable best to have a working interpreter before adding the compiler. To generate the compiler simply run \gvmtcc{} on the output file from \gvmtic. The resulting C++ file should be compiled and linked using the system C++ compiler. See section \ref{sect:gvmtcc} for more details.
+
+\chapter{User interface}
+\input{./user.tex}
+
+\appendix
+
+\chapter{Installing the GVMT}
+
+\input{./install.tex}
+
+\chapter{GSC Instruction set\label{app:inst}}
+\small
+
+\input{./instructions.tex}
+
+\end{document}

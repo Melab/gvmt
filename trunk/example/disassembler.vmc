@@ -1,0 +1,108 @@
+#include <inttypes.h>
+
+// Disassembles bytecode - For debugging or to help understand the VM */
+
+locals {
+    FILE* out;
+    uint8_t* ip_start;
+}
+
+__preamble [private] (FILE* output -- ) {
+    out = output;  
+    ip_start = gvmt_ip(); 
+}
+
+__postamble [private]: 0 RETURN_R;
+
+op_name[private]( -- ) {
+    int location = gvmt_ip() - ip_start;
+    fprintf(out, "%-7d:", location);
+    fprintf(out, "%s ", gvmt_opcode_names_interpreter[*gvmt_ip()]);
+}
+
+nl[private]( -- ) {
+    fprintf(out, "\n");
+}
+
+op[private](unsigned #op -- ) {
+    fprintf(out, "%d ", op);   
+}
+
+s_op[private](int8_t #op -- ) {
+    fprintf(out, "%d ", op);   
+}
+
+s_op2[private](int16_t ##op -- ) {
+    fprintf(out, "%d ", op);   
+}       
+
+op2[private](unsigned ##op -- ) {
+    fprintf(out, "%d ", op);   
+}       
+    
+nop: op_name  nl;
+i_shift: op_name  nl;
+negate: op_name  nl;
+add: op_name  nl;
+sub: op_name  nl;
+mul: op_name  nl;
+band: op_name  nl;
+bor: op_name  nl;
+div: op_name  nl;
+mod: op_name  nl;
+i_eq: op_name  nl;
+i_ne: op_name  nl;
+i_le: op_name  nl;
+i_ge: op_name  nl;
+i_lt: op_name  nl;
+i_gt: op_name  nl;
+equal: op_name  nl;
+vec_get: op_name  nl;
+vec_set: op_name  nl;
+vec_len: op_name  nl;
+make_vector: op_name  nl;
+nil: op_name nl;
+zero: op_name nl;
+one: op_name nl;
+new_frame: op_name op nl;
+vector: op_name op nl;
+release_frame: op_name nl;
+make_closure: op_name nl;
+store_local: op_name op nl;
+store_global: op_name op2 nl;
+load_local: op_name op nl;
+load_global: op_name op2 nl;
+literal: op_name op nl;
+str_to_num: op_name nl;
+load_deref: op_name op op nl;
+define_syntax: op_name nl;
+apply: op_name op nl;
+cons: op_name nl;
+car: op_name nl;
+cdr: op_name nl;
+display: op_name nl;
+void: op_name nl;
+undefined: op_name nl;
+drop: op_name nl;
+stop: op_name nl;
+return: op_name nl;
+byte: op_name s_op nl;
+short: op_name s_op2 nl;
+tail_apply: op_name op nl;
+list_to_vec: op_name nl;
+vec_to_list: op_name nl;
+vector_copy: op_name nl;
+is: op_name nl;
+is_null: op_name nl;
+is_symbol: op_name nl;
+not: op_name nl;
+swap: op_name nl;
+copy: op_name nl;
+branch_t: op_name s_op2 nl;
+branch_f: op_name s_op2 nl;
+jump: op_name s_op2 nl;
+
+recurse: op_name s_op2 nl; 
+pick: op_name op nl;
+drop_under: op_name nl;
+
