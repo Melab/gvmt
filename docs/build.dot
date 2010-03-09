@@ -1,0 +1,120 @@
+digraph g {
+    graph [
+    rankdir = "TB"
+    ];
+    node [
+    fontsize = "12"
+    shape = "rectangle"
+    ];
+    edge [
+    ];
+    
+    secondary_def [
+        label = "Secondary interpreter definition"
+        shape = "rectangle"
+    ]
+    
+    int_def [
+        fontname = "bold"
+        label = "Interpreter definition file"
+        shape = "rectangle"
+    ]
+
+    int_gsc [
+        label = "Interpreter GSC file"
+        shape = "rectangle"
+    ]
+
+    secondary_gsc [
+        label = "Secondary interpreter GSC file"
+        shape = "rectangle"
+    ]
+    
+    support_c1 [
+        label = "Supporting C code"
+        shape = "rectangle"
+    ]
+    
+    support_c2 [
+        label = "Supporting C code"
+        shape = "rectangle"
+    ]
+    
+    "support_gsc2" [
+        label = "GSC file"
+        shape = "rectangle"
+    ]
+    
+    "support_gsc1" [
+        label = "GSC file"
+        shape = "rectangle"
+    ]
+    
+    "gso1" [
+        label = "GVMT object file"
+        shape = "rectangle"
+    ]
+    
+    "gso2" [
+        label = "GVMT object file"
+        shape = "rectangle"
+    ]
+    
+    "gsoi" [
+        label = "GVMT object file"
+        shape = "rectangle"
+    ]
+    
+    "gsos" [
+        label = "GVMT object file"
+        shape = "rectangle"
+    ]
+    
+    "obj" [
+       label = "Native object file"
+       shape = "rectangle"
+    ]
+    
+    "obj2" [
+       label = "Native object file"
+       shape = "rectangle"
+    ]
+    
+    gc_lib [
+       label = "GVMT GC library"
+       shape = "rectangle"
+    ]
+    
+    comp_lib [
+       label = "GVMT compiler library"
+       shape = "rectangle"
+    ]
+
+     exe [
+       label = "Executable program"
+       shape = "rectangle"
+    ]
+   
+    {rank=same; int_def support_c1 support_c2 secondary_def }
+    int_def -> int_gsc [ label = "gvmtic" ]   
+    int_gsc -> compiler [ label = "gvmtcc" ]
+    secondary_def -> secondary_gsc [ label = "gvmtxc" ]
+    int_gsc -> secondary_gsc [ label = "gvmtxc" ]
+    support_c1 -> support_gsc1  [ label = "gvmtc" ]
+    support_c2 -> support_gsc2  [ label = "gvmtc" ]
+    support_gsc1 -> gso1  [ label = "gvmtas" ]
+    support_gsc2 -> gso2  [ label = "gvmtas" ]
+    int_gsc -> gsoi  [ label = "gvmtas" ]
+    secondary_gsc -> gsos  [ label = "gvmtas" ]
+    gso1 -> obj [ label = "gvmtlink" ]
+    gso2 -> obj [ label = "gvmtlink" ]
+    gsoi -> obj [ label = "gvmtlink" ]
+    gsos -> obj [ label = "gvmtlink" ]
+    compiler -> obj2  [ label = "C++ compiler" ]
+    obj -> exe [ label = "System linker" ]
+    obj2 -> exe [ label = "System linker" ]
+    gc_lib -> exe [ label = "System linker" ]
+    comp_lib -> exe [ label = "System linker" ]
+    
+ 
+}

@@ -1,0 +1,107 @@
+#include <stdlib.h>
+#include <assert.h>
+#include <gvmt/gvmt.h>
+#include "example.h"
+
+// Pass to remove frames. 
+// Either completely removes frames
+// or coallesces all frames into one.
+// This improves performance as all derefs can be replaced by a load
+// and only one allocation takes place.
+
+locals {
+    uint8_t* top_frame;
+    int depth;
+    int *offset_table;
+    int top_frame_required;
+    GVMT_Object single_block;
+}
+
+
+__preamble [private] ( -- ) {
+     depth = -1;
+     top_frame = 0;
+     top_frame_required = 0;
+     offset_table = (int*)malloc(sizeof(int)*16);
+     offset_table[0] = 0;
+     single_block = TRUE;
+}
+
+__postamble [private](--) {
+    if (!top_frame_required && top_frame) {
+        top_frame[0] = op(nop);
+        top_frame[1] = op(nop);
+    }
+    free(offset_table);
+    gvmt_ireturn_r(single_block);
+}
+
+jump(int ##offset--) {
+   single_block = FALSE;    
+}
+
+branch_f:jump ;
+branch_t:jump ;
+    
+tail_apply(int #count -- ) {
+    single_block = FALSE;    
+}
+
+make_closure( -- ) {
+    // Cannot happen.
+    abort();
+}
+
+new_frame(int #count -- ) {
+    uint8_t* ip = gvmt_ip();
+    depth++;
+    if (depth == 0) {
+        top_frame = ip;
+        offset_table[1] = count;
+    } else {
+        int new_size = count + offset_table[depth];
+        offset_table[depth+1] = new_size;
+        if (top_frame[1] < new_size)
+            top_frame[1] =  new_size;
+        ip[0] = op(nop);
+        ip[1] = op(nop);
+    }
+}
+
+release_frame(--) {
+    uint8_t* ip = gvmt_ip();
+    ip[0] = op(nop);
+    depth--;
+}
+
+return (--) {
+}
+
+
+load_local(int #index -- ) {
+    uint8_t* ip = gvmt_ip();
+    assert(depth >= 0);
+    top_frame_required = 1;
+    ip[1] = index + offset_table[depth];
+}
+    
+store_local(int #index -- ) {
+    uint8_t* ip = gvmt_ip();
+    assert(depth >= 0);
+    top_frame_required = 1;
+    ip[1] = index + offset_table[depth];   
+}
+
+load_deref(int #deref, int #index -- ) {
+    uint8_t* ip = gvmt_ip();
+    top_frame_required = 1;
+    assert(depth >= 0);
+    assert(deref > 0);
+    if (deref > depth) {
+        ip[1] = deref-depth;
+    } else {
+        ip[0] = op(load_local);
+        ip[1] = index + offset_table[depth-deref]; 
+        ip[2] = op(nop);
+    }
+}

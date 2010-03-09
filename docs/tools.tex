@@ -1,0 +1,184 @@
+
+
+GVMT is, as the name suggests, supplies a number of tools. Six of these form the core of the toolkit. 
+
+As mentioned in the previous chapter, the GVMT tools can be grouped into front-end and back-end tools. The front-end tools convert source code into code for the GVMT Abstract Machine. Back-end tools convert the abstract representation into real manchine code.
+
+\section {Core tools}
+The six core tools are:
+\begin{itemize}
+ \item Front end tools
+\begin{itemize}
+\item \gvmtic
+\item \gvmtc
+\item \gvmtxc
+\end{itemize}
+ \item Back end tools
+\begin{itemize}
+\item \gvmtas
+\item \gvmtcc
+\item \glink
+\end{itemize}
+\end{itemize}
+
+\gvmtic{} and \gvmtc{} form the front-end and are used to translate the C-based interpreter description and standard C files, respectively, into GSC format.
+
+\gvmtas{} converts these GSC files to object files and \glink{} links them together.
+\gvmtcc{} takes the GSC file produced by \gvmtic{} and produces a compiler from it.
+
+\subsection{Interpreter description file}
+An interpreter description file consists of bytecode definitions plus the local variables shared by all bytecodes.
+
+Each bytecode can be defined by its stack effect plus a snippet of C code or as a sequence of other bytecodes and predefined GVMT abstract stack machine codes.
+
+Usually there is one primary interpreter description file that defines the bytecode format. Secondary interpreters (see Sect. \ref{sect:gvmtxc} will be guaranteed to use the same bytecode format. However it is possible to have several independent primary interpreters. For example a virtual machine might use one bytecode format for its interpreter and compiler and an entirely different format for its regular-expression engine. Each primary interpreter may have secondary interpreters.
+
+Interpreters are fully re-entrant and thread-safe. The interpreter description file  defines not only the behaviour of the interpreter, but the behaviour of the GVMT-generated compiler as well.
+
+\subsubsection{Format}
+
+The interpreter description file consists of a locals block and any number of bytecode declarations in any order. 
+\subsubsection{Interpreter-local variables}
+Interpreter-locals variables are declared in a locals section:
+\begin{verbatim}
+locals {
+        type name;
+\end{verbatim}
+\nopagebreak
+        \vdots
+\begin{verbatim}
+}
+\end{verbatim}
+
+Interpreter-local variables are visible within all bytecode definitions, and can be accessed indirectly via the interpreter frame on the control stack. Interpreter-local variables (and the interpreter frame) have the same lifetime as the invocation of the interpreter.
+
+\subsubsection{Bytecode definitions}
+Bytecodes can be defined either in C or directly in GSC. Both types of definition can be used in the same interpreter.
+
+C-bytecode definitions are in the form
+
+\begin{verbatim}
+name (`[' qualifier* `]')?  `(' stack_comment `)' [ `=' <int> ] `{'
+    Arbitrary C code
+`}'
+\end{verbatim}
+
+Legal qualifiers are:
+\begin{description}
+\item [private] This bytecode is not visible at the interpreter level.
+\item [protected] This bytecode is acceptable to the interpreter, but not to any verification code. It is only to be used internally as an optimisation. The meaning of `protected' is largely conventional. GVMT will ignore it.
+\item [nocomp] This bytecode will not appear in bytecode passed to the compiler. If this bytecode is seen by the compiler it will abort.
+Useful for reducing the size of the compiler.
+\item [componly] This bytecode will only be passed to the compiler. It will cause the interpreter to abort. Useful for reducing the size of the interpreter.
+\end{description}
+
+The \verb|stack_comment| is of the form:
+ \begin{verbatim}
+type id (`,' type, id)* -- type id (`,' type, id)*)
+\end{verbatim}
+
+Where \verb|type| is any legal C type and \verb|id| is any legal C identifier, or a legal C identifier prefixed with \verb|#|. Variables prefixed with \verb|#| are fetched from the instruction stream, not popped from the stack. When referred to in the C code, the \verb|#| prefix is dropped.
+
+The integer at the end of the header line is the actual numerical value of this bytecode. If not supplied, GVMT will allocate bytecode numbers starting from 1.
+
+Compound instructions are in the form:
+\begin{verbatim}
+name (`[' qualifier* `]')?  '(' stack comment ')' [ `=' <int> ] `:'
+   instruction*
+`;'
+\end{verbatim}
+
+Where \verb|instruction| is a legal GSC or user-defined instruction.
+
+To allow user defined instructions to do anything useful, a large number of builtin instructions are provided. All are private, that is they must be used inside a compound instruction to be visible at the interpreter level. 
+
+Instruction stream manipulation operators are provided:
+\verb|#@| Removes a byte from the instructino stream and pushes it to the evaluation stack.
+\verb|#N| where N is a one-byte integers pushes N into the front of the instruction stream.
+\verb|#[N]| Pushes a copy of the N\textsuperscript{th} item, starting at zero, in the instruction stream into the front of the instruction stream.
+\verb|#+| or \verb|#-| Adds or subtracts, respectively the first two values from the instruction stream  and pushes the result back to the front of the instruction stream.
+
+Appendix \ref{app:inst} contains a full list of all abstract machine instructions 
+
+There are three bytecode names which are treated specially by the GVMT, these are:
+\begin{itemize}
+\item \_\_preamble 
+\item \_\_postamble
+\item \_\_trace
+\end{itemize}
+\verb|__preamble| is executed when the interpreter is called, before any bytecodes are executed.
+
+\verb|__postamble| is executed when the interpreter reaches the end of the bytecodes. Interpreters with a \verb|__postamble| instruction expect a second parameter, the end of the bytecode sequence. This is useful for `interpreters' which analyse code rather than executing it.
+
+\verb|__trace| is executed before the main bytecode definition for every bytecode executed.
+
+
+\subsubsection*{Examples}
+
+
+TO DO -- Put a couple of examples here. 1 C, 1 vmc.
+
+
+
+\subsection{The interpreter generator \gvmtic{}\label{sect:gvmtic}}
+\gvmtic{} comiles an interpreter description file, as described above, into a GSC file.
+
+\gvmtic{} takes the following options:
+
+\input{gvmtic_options.tex}
+
+\subsection{The C compiler \gvmtc{}\label{sect:gvmtc}}
+\gvmtc{} takes a standard C89 file as its input and outputs a GSC file.
+
+\gvmtc{} takes the following options:
+
+\input{gvmtc_options.tex}
+
+\subsection{The GSC assembler \gvmtas{}\label{sect:gvmtas}}
+\gvmtas{} takes a GSC file and assembles it to a GVMT object file (.gso is the expected file extension)
+
+\gvmtas{} takes the following options:
+
+\input{gvmtas_options.tex}
+
+\subsection{The compiler generator \gvmtcc{}\label{sect:gvmtcc}}
+\gvmtcc{} Takes a GSC file produced by \gvmtic{} and produces a compiler. The generated compiler is in C++ and relies on LLVM (http://llvm.org/).
+It will need to be compiled with the system C++ compiler.
+
+It may be possible to generate compilers using other code-generator back-ends in the future, but there is currently no plan to do so.
+
+\gvmtcc{} takes the following options:
+
+\input{gvmtcc_options.tex}
+
+\subsection{The linker \glink{}\label{sect:glink}}
+\glink{} takes any number of GVMT object (.gso) files and links them to form a single native object file.
+This object file can be linked with the GC object file and compiler object file (if required)
+using the system linker to form an executable.
+
+\glink{} takes the following options:
+
+\input{gvmtlink_options.tex}
+
+\subsection{lcc-gvmt\label{sect:lcc}}
+Both \gvmtic{} and \gvmtc{} use a modified version of lcc as their C-to-GSC compiler. This compiler uses the standard lcc front-end and a custom back-end. The back-end operates in four passes. The first pass labels the IR forests with the C type for that expression, as much as can be derived without the explicit casts present in the source code. The second pass is a bottom pass which labels the trees with the set 
+of possible GSC types it may take. The third pass is a top-down pass which attempts to find the exact GSC type of each node. The fourth pass emits the GSC.
+
+\section{Other tools}
+
+\subsection{The bytecode-processor generator \gvmtxc\label{sect:gvmtxc}}
+\gvmtxc\ Takes a (partial) interpreter description file and a master GSC file (produced by \gvmtic) and produces a GSC file representing an interpreter. This interpreter is guaranteed to accept the same bytecode format as the master interpreter.
+For a partial interpreter description file, the generate interpreter skips over the omitted bytecodes.
+
+\gvmtxc{} takes the following options:
+
+\input{gvmtxc_options.tex}
+
+
+\subsection{The object layout tool\label{sect:objects}}
+
+The object layout tool is an optional tool to help manage heap object layout. It can create C structs, shape vectors and marshalling to GSC files for objects all from a single specification.
+This tool is designed as an extensible Python script rather than a stand-alone tool, although it can be used as such.
+When used as a standalone tool it has takes the following options:
+
+\input{objects_options.tex}

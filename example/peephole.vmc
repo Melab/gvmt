@@ -1,0 +1,82 @@
+#include <inttypes.h>
+#include <gvmt/gvmt.h>
+#include "example.h"
+#include <assert.h>
+
+
+
+// Simple peephole optimiser
+// Remove dead stores and convert 
+// store-load pairs to copy-store
+// and load-load pairs to load-copy. */
+ 
+locals {
+    uint8_t* dead_store;
+    int dead_store_index;
+    GVMT_Object safe_to_remove_frames;
+}
+
+__preamble [private] ( -- ) {
+     safe_to_remove_frames = TRUE;
+     dead_store = 0;
+}
+
+__postamble [private](--) {
+    gvmt_ireturn_r(0);
+}
+
+make_closure( -- ) {
+    safe_to_remove_frames = FALSE;
+}
+
+jump(int ##offset--) {
+   dead_store = 0;    
+}
+
+branch_f:jump ;
+branch_t:jump ;
+
+apply(int #count -- ) {
+   dead_store = 0;    
+}
+    
+skip[private](int #ignore -- ) {    
+}
+
+release_frame: return;
+tail_apply: skip return;
+recurse: skip skip return;    
+
+return (--) {
+    if (safe_to_remove_frames == TRUE && dead_store) {
+        dead_store[0] = op(drop);
+        dead_store[1] = op(nop);
+    }
+    dead_store = 0;      
+}
+
+load_local(int #index -- ) {
+    uint8_t* ip = gvmt_ip();   
+    if (ip[2] == op(load_local) &&
+        ip[3] == index) {
+        ip[2] = op(copy);
+        ip[3] = op(nop);
+    }
+    if (index == dead_store_index)
+        dead_store = 0;
+}
+
+store_local(int #index -- ) {
+    uint8_t* ip = gvmt_ip();
+    if (ip[2] == op(load_local) &&
+        ip[3] == index) {
+        ip[0] = op(copy);
+        ip[1] = op(nop);
+        ip[2] = op(store_local); 
+        dead_store = ip + 2;
+    } else {
+        dead_store = ip;
+    }
+    dead_store_index = index;
+}
+

@@ -1,0 +1,571 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://web.resource.org/cc/"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://inkscape.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   version="1.2"
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 2100 2970"
+   id="svg2"
+   sodipodi:version="0.32"
+   inkscape:version="0.43"
+   sodipodi:docname="gsc_types.svg"
+   sodipodi:docbase="/home/mark/Desktop">
+  <metadata
+     id="metadata167">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs165" />
+  <sodipodi:namedview
+     inkscape:window-height="998"
+     inkscape:window-width="1241"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     borderopacity="1.0"
+     bordercolor="#666666"
+     pagecolor="#ffffff"
+     id="base"
+     inkscape:zoom="2.5681913"
+     inkscape:cx="238.1529"
+     inkscape:cy="806.75219"
+     inkscape:window-x="31"
+     inkscape:window-y="0"
+     inkscape:current-layer="svg2" />
+  <text
+     style="font-size:14;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="100"
+     y="73"
+     id="id1">Line 2</text>
+  <text
+     style="font-size:14;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="100"
+     y="93"
+     id="id2">Line 3</text>
+  <line
+     style="stroke: black;"
+     x1="560"
+     y1="110"
+     x2="480"
+     y2="170"
+     id="line6" />
+  <line
+     style="stroke: black;"
+     x1="560"
+     y1="350"
+     x2="560"
+     y2="410"
+     id="line8" />
+  <line
+     style="stroke: black;"
+     x1="640"
+     y1="290"
+     x2="560"
+     y2="350"
+     id="line10" />
+  <line
+     style="stroke: black;"
+     x1="640"
+     y1="290"
+     x2="720"
+     y2="350"
+     id="line12" />
+  <line
+     style="stroke: black;"
+     x1="640"
+     y1="230"
+     x2="640"
+     y2="290"
+     id="line14" />
+  <line
+     style="stroke: black;"
+     x1="640"
+     y1="170"
+     x2="640"
+     y2="230"
+     id="line16" />
+  <line
+     style="stroke: black;"
+     x1="560"
+     y1="110"
+     x2="640"
+     y2="170"
+     id="line18" />
+  <rect
+     style="stroke: black; fill: white;"
+     x="510"
+     y="90"
+     width="100"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect20" />
+  <text
+     style="font-size:14;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="530"
+     y="113"
+     id="id3">ASGNI4{ int }</text>
+  <rect
+     style="stroke: black; fill: white;"
+     x="425"
+     y="150"
+     width="110"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect23" />
+  <text
+     style="font-size:14;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="445"
+     y="173"
+     id="id4">ADDRL l { int* } </text>
+  <rect
+     style="stroke: black; fill: white;"
+     x="595"
+     y="150"
+     width="90"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect26" />
+  <text
+     style="font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="615"
+     y="173"
+     id="id5">CVUI4 { int }</text>
+  <rect
+     style="stroke: black; fill: white;"
+     x="585"
+     y="210"
+     width="110"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect29" />
+  <text
+     style="font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="605"
+     y="233"
+     id="id6">INDIRU4 { int } </text>
+  <rect
+     style="stroke: black; fill: white;"
+     x="595"
+     y="270"
+     width="90"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect32" />
+  <text
+     style="font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="615"
+     y="293"
+     id="id7">ADDP4  { member }</text>
+  <rect
+     style="stroke: black; fill: white;"
+     x="505"
+     y="330"
+     width="110"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect35" />
+  <text
+     style="font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="527.88562"
+     y="350.65814"
+     id="id8">INDIRP4 { ref }</text>
+  <rect
+     style="stroke: black; fill: white;"
+     x="505"
+     y="390"
+     width="110"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect38" />
+  <text
+     style="font-size:14;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="525"
+     y="413"
+     id="id9">ADDRF s { ref* }</text>
+  <rect
+     style="stroke: black; fill: white;"
+     x="670"
+     y="330"
+     width="100"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect41" />
+  <text
+     style="font-size:14;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="690"
+     y="353"
+     id="id10">CNST 4 { int }</text>
+  <text
+     style="font-size:14;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="100"
+     y="503"
+     id="id11">Line 4</text>
+  <line
+     style="stroke: black;"
+     x1="560"
+     y1="520"
+     x2="480"
+     y2="580"
+     id="line45" />
+  <line
+     style="stroke: black;"
+     x1="560"
+     y1="640"
+     x2="560"
+     y2="700"
+     id="line47" />
+  <line
+     style="stroke: black;"
+     x1="640"
+     y1="580"
+     x2="560"
+     y2="640"
+     id="line49" />
+  <line
+     style="stroke: black;"
+     x1="640"
+     y1="580"
+     x2="720"
+     y2="640"
+     id="line51" />
+  <line
+     style="stroke: black;"
+     x1="560"
+     y1="520"
+     x2="640"
+     y2="580"
+     id="line53" />
+  <rect
+     style="stroke: black; fill: white;"
+     x="510"
+     y="500"
+     width="100"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect55" />
+  <text
+     style="font-size:14;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="530"
+     y="523"
+     id="id12">ASGNP4 { }</text>
+  <rect
+     style="stroke: black; fill: white;"
+     x="425"
+     y="560"
+     width="110"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect58" />
+  <text
+     style="font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="441.76147"
+     y="580.33984"
+     id="id13">ADDRL p { int** }</text>
+  <rect
+     style="stroke: black; fill: white;"
+     x="595"
+     y="560"
+     width="90"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect61" />
+  <text
+     style="font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="615"
+     y="579.70325"
+     id="id14">ADDP4 { member }</text>
+  <rect
+     style="fill:#ffffff;stroke:#000000"
+     x="497.48184"
+     y="621.87952"
+     width="110"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect64" />
+  <text
+     style="font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="522.88361"
+     y="641.43872"
+     id="id15">INDIRP4 { ref }</text>
+  <rect
+     style="stroke: black; fill: white;"
+     x="505"
+     y="680"
+     width="110"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect67" />
+  <text
+     style="font-size:14;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="525"
+     y="703"
+     id="id16">ADDRF s { ref* }</text>
+  <rect
+     style="stroke: black; fill: white;"
+     x="665"
+     y="620"
+     width="110"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect70" />
+  <text
+     style="font-size:14;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="685"
+     y="643"
+     id="id17">CNST 12 { int }</text>
+  <text
+     style="font-size:14;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="100"
+     y="793"
+     id="id18">Line 5</text>
+  <line
+     style="stroke: black;"
+     x1="520"
+     y1="810"
+     x2="440"
+     y2="870"
+     id="line74" />
+  <line
+     style="stroke:#000000"
+     x1="362.19781"
+     y1="991.97589"
+     x2="362.19781"
+     y2="1051.9758"
+     id="line76" />
+  <line
+     style="stroke:#000000"
+     x1="442.19781"
+     y1="931.97589"
+     x2="362.19781"
+     y2="991.97589"
+     id="line78" />
+  <line
+     style="stroke:#000000"
+     x1="442.19781"
+     y1="931.97589"
+     x2="522.19781"
+     y2="991.97589"
+     id="line80" />
+  <line
+     style="stroke:#000000"
+     x1="602.19781"
+     y1="871.97589"
+     x2="442.19781"
+     y2="931.97589"
+     id="line82" />
+  <line
+     style="stroke:#000000"
+     x1="682.19781"
+     y1="991.97589"
+     x2="682.19781"
+     y2="1051.9758"
+     id="line84" />
+  <line
+     style="stroke:#000000"
+     x1="762.19781"
+     y1="931.97589"
+     x2="682.19781"
+     y2="991.97589"
+     id="line86" />
+  <line
+     style="stroke:#000000"
+     x1="762.19781"
+     y1="931.97589"
+     x2="842.19781"
+     y2="991.97589"
+     id="line88" />
+  <line
+     style="stroke:#000000"
+     x1="602.19781"
+     y1="871.97589"
+     x2="762.19781"
+     y2="931.97589"
+     id="line90" />
+  <line
+     style="stroke: black;"
+     x1="520"
+     y1="810"
+     x2="600"
+     y2="870"
+     id="line98" />
+  <rect
+     style="stroke: black; fill: white;"
+     x="470"
+     y="790"
+     width="100"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect100" />
+  <text
+     style="font-size:14;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="490"
+     y="813"
+     id="id19">ASGNI1 [opaque]{ opaque int }</text>
+  <rect
+     style="fill:#ffffff;stroke:#000000"
+     x="368.08417"
+     y="851.87952"
+     width="110"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect103" />
+  <text
+     style="font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="394.57782"
+     y="870.33984"
+     id="id20">ADDRL c { int* } </text>
+  <rect
+     style="fill:#ffffff;stroke:#000000"
+     x="557.19781"
+     y="851.97589"
+     width="90"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect115" />
+  <text
+     style="font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="577.19781"
+     y="874.97589"
+     id="id24">ADDP4 { member }</text>
+  <rect
+     style="fill:#ffffff;stroke:#000000"
+     x="397.19781"
+     y="911.97589"
+     width="90"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect118" />
+  <text
+     style="font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="417.19781"
+     y="934.97589"
+     id="id25">SUBI4 { int }</text>
+  <rect
+     style="fill:#ffffff;stroke:#000000"
+     x="307.19781"
+     y="971.97589"
+     width="110"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect121" />
+  <text
+     style="font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="326.1059"
+     y="992.31573"
+     id="id26">INDIRI4 { int }</text>
+  <rect
+     style="fill:#ffffff;stroke:#000000"
+     x="307.19781"
+     y="1031.9758"
+     width="110"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect124" />
+  <text
+     style="font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="327.19781"
+     y="1054.9758"
+     id="id27">ADDRL l { int* }</text>
+  <rect
+     style="fill:#ffffff;stroke:#000000"
+     x="472.19781"
+     y="971.97589"
+     width="100"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect127" />
+  <text
+     style="font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="492.1142"
+     y="990.11798"
+     id="id28">CNST 1 { int }</text>
+  <rect
+     style="fill:#ffffff;stroke:#000000"
+     x="717.19781"
+     y="911.97589"
+     width="90"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect130" />
+  <text
+     style="font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="737.19781"
+     y="934.97589"
+     id="id29">ADDP4 { member }</text>
+  <rect
+     style="fill:#ffffff;stroke:#000000"
+     x="621.5592"
+     y="974.60577"
+     width="110"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect133" />
+  <text
+     style="font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="645.9549"
+     y="994.9455"
+     id="id30">INDIRP4 { ref }</text>
+  <rect
+     style="fill:#ffffff;stroke:#000000"
+     x="623.43872"
+     y="1039.494"
+     width="110"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect136" />
+  <text
+     style="font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="643.43872"
+     y="1058.7349"
+     id="id31">ADDRF s { ref* }</text>
+  <rect
+     style="fill:#ffffff;stroke:#000000"
+     x="779.36139"
+     y="976.8642"
+     width="110"
+     height="30"
+     rx="20"
+     ry="20"
+     id="rect139" />
+  <text
+     style="font-size:14px;font-style:normal;font-weight:normal;text-anchor:start;fill:#000000;font-family:sans"
+     x="796.84521"
+     y="995.00616"
+     id="id32">CNST 12 { int }</text>
+</svg>

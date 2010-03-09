@@ -1,0 +1,41 @@
+
+
+extern int sprintf ( char * str, const char * format, ... );
+
+uint32_t execution_count[256];
+#define TRACE_FILE stderr
+
+EXTERNALS
+
+extern uint8_t *gvmt_user_bytecode_start(GVMT_Object o);
+
+extern void user_trace(char* opname, uint8_t* ip, ...);
+
+#if GVMT_TOS_REGS > 0
+__attribute__((fastcall))
+#endif
+RETURN_TYPE
+
+#if GVMT_TOS_REGS == 2
+ gvmt_interpreter(void* tos, void* tos) {
+#elif GVMT_TOS_REGS == 1  
+ gvmt_interpreter(void* tos) {
+#else
+ gvmt_interpreter(void) {
+#endif
+
+    register uint8_t* IP; 
+    uint8_t* ip_start;
+    // Init frame
+#if GVMT_TOS_REGS > 0
+    IP = gvmt_user_bytecode_start((GVMT_Object)tos);
+#else
+    IP = gvmt_user_bytecode_start(gvmt_sp[0].o);
+#endif
+    ip_start = IP;
+    GVMT_StackItem return_value;
+    
+    INSTRUCTIONS
+    
+} /* End */
+

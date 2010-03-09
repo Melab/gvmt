@@ -1,0 +1,60 @@
+\documentclass[a4paper,10pt]{article}
+
+
+%opening
+\title{GMVT Interface}
+\author{Mark Shannon}
+\date{ }
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+The GVMT provides a set of tools and a library for building Virtual Machines. In fact it can be used to develop any program, where precise garbage collection, exception handling and reflection capabilities are required. In order for the library code and tool-generated code to interact correctly, the user needs to provide a number of functions.
+\end{abstract}
+
+\section{User provided code}
+
+\subsection{Garbage collection}
+In order for the tooolkit to provide precise garbage collection, the layout of all heap objects must be known. The developer must provide one function and one integer value to allow GVMT to perform \emph{precise} garbage collection.
+\begin{description}
+\item [GVMT\_MAX\_SHAPE\_SIZE] The maximum number of entries required to represent any shape (including terminating zero).
+\item [int* shape(GVMT\_Object object, int* buf)] This function returns the shape, as defined elsewhere, of the object. The int array buf can be used to store the shape if required. The buffer, \verb|buf| is guaranteed to include at least MAX\_SHAPE\_VECTOR\_LENGTH entries.
+\end{description}
+
+
+\subsection{The Marshalling Interface}
+In order to support marshalling the user must provide a function \\
+ \verb|gvmt_write_func get_marshaller_for_object(GVMT_Object object)| to give a write function for each object. The toolkit can create a write function for any object declaration, but it is unable to determine which function should be applied to which object at runtime. In order to determine which objects should be 
+To assist marshalling to GSC code, the user should also provide the \verb|char* gvmt_object_name(void* object, char *buffer)| function to provide meaningful names for objects.
+
+\section{Runtime information}
+In order to support debugging and reflection, the GVMT provides functions to traverse the call stack and examine local variables.
+All local variables 
+
+\subsection{Trace-backs}
+Two trace back functions are provided.
+\begin{itemize}
+\item [] \verb|typedef GVMT_Object (*trace_func_t)(GVMT_Object previous, uint32_t ip, ...);|
+\item [] \verb|GVMT_Object gvmt_partial_trace(trace_func_t trace_func, GVMT_Object init)|
+\item [] \verb|GVMT_Object gvmt_full_trace(trace_func_t trace_func, GVMT_Object init|
+\end{itemize}
+Both functions take a user defined function and an initial trace object and call the function repeatedly for each frame in the call stack.
+\verb|gvmt_partial_trace| calls \verb|trace_func| for each call frame until the first frame which is \emph{protected} is reached.
+\verb|gvmt_full_trace| calls \verb|trace_func| for each call frame in the call stack.
+The parameters passed to \verb|trace_func| are the object returned by the previous call to \verb|trace_func|, followed by the interpreter instruction pointer, followed by the local variables in alphabetical order.
+
+\subsection{Examining frames}
+\begin{itemize}
+\item [] \verb|GVMT_Frame gvmt_top_frame(void)| returns an opaque pointer to the top frame.
+\item []  \verb|GVMT_Frame gvmt_next_frame(GVMT_Frame frame)| returns an opaque pointer to the caller frame to the one passed as an argument.
+\item []  \verb|X_type gvmt_local_variable_x(GVMT_Frame frame, char* name)| returns a local variable of type X.
+\end{itemize}
+If the same local variable is required often, it is faster to get an index for the local variable and use that to get the value.
+\begin{itemize}
+\item []  \verb|int gvmt_local_variable_index(char* name)| returns an index for the local variable. This index is fixed for the duration of the program, but its exact meaning is implementation defined and should only used as input for the following function.
+\item []  \verb|X_type gvmt_local_variable_by_index_x(GVMT_Frame frame, int index)| returns a local variable of type X, by index.
+\end{itemize}
+
+\end{document}

@@ -1,0 +1,149 @@
+
+The GVMT assists in building a virtual machine(VM) for a high-level language(HLL). 
+Like any virtual machine, the user-defined VM must execute on a lower-level machine (usually a hardware machine). The GVMT defines an abstract stack-based machine (The GVMT Abstract Machine) that has well defined semantics, but is abstract in the sense that it cannot execute any programs. It is designed to both assist in implementing stack-based virtual machine and allow translation to efficient machine-code.
+
+\section{Components}
+The GVMT Abstract Machine consists of two parts:
+
+\begin{enumerate}
+\item A set of executing threads
+\item A shared heap
+\end{enumerate}
+
+Each thread of execution consists of five components:
+\begin{enumerate}
+\item Temporary registers
+\item Control stack
+\item Evaluation stack
+\item Thread-local variables
+\item Exception handling stack
+\end{enumerate}
+
+When the GVMT Abstract Machine is started it consists of one thread only.
+
+\section{Threads}
+Each thread is independent, the number of concurrently executing threads is limited only by the hardware. Threads share the heap, but have their own stacks, thread-local variables and temporary registers.
+
+\subsection{Execution Model}
+The execution model executes abstract HLL virtual machine instructions. Each HLL VM instruction is defined in terms of GSC instructions.
+GSC instructions can be grouped into three categories:
+\begin{description}
+\item[Evaluation] Instructions that take values on the Evaluation stack and place results there, such as addition.
+\item[Flow control] Instructions that alter the flow of control, both within HLL-VM instructions and between HLL-VM instructions.
+\item[Stack manipulation] Instructions that explicitly manipulate or describe the status of the evaluation and control stacks.
+\end{description}
+
+Appendix \ref{app:inst} contains a list of all the GSC instructions.
+
+\subsection{GC Safe points}
+The GC safe instruction declares that the executing thread can be interupted for garbage collection. In order for this to be safe, the following restrictions must be observed:
+\begin{enumerate}
+\item No non-reference values are on the execution stack.
+\item All heap objects reachable from this thread are in a scannable state.\footnote{Usually this means that the header(class) of any newly created object will have been initialised.}
+\end{enumerate}
+The front-end tools \gvmtc{} and \gvmtic{} automatically ensure that condition 1 is true for all C code.
+The toolkit ensures that all virtual stack items are reachable by the garbage-collector.
+Condition 2 can be ensure simply by initialising all objects immediately after allocation.
+
+\subsection{The control stack}
+The control stack is an opaque structure used to handle procedure calls and returns, exception handling and storing of temporary variable, across calls. Interpreter frames are also allocated on the control stack. Memory can be allocated on the call-stack, but subsequent allocation are not guaranteed to be contiguous. Parameters are also passed to native code using the control stack.
+The control stack will usually map directly onto the native C stack.
+
+\subsection{Evaluation stack}
+
+        \begin{center}
+        \includegraphics[scale = 0.8]{Stack.eps}
+% Diagram1.eps: 300dpi, width=3.29cm, height=4.97cm, bb=0 0 388 587
+        \end{center}
+
+
+The evaluation stack is where all arithmetic operations takes place. The top part of the evaluation stack may be virtualised, that is stored in registers or other discrete values. The evaluation stack is continuous across calls, and is used for passing parameters. Parameters are pushed to the stack by the caller and popped by the calle. See the GSC instruction \verb|STACK| for more details on how to access the in-memory stack directly.
+
+\subsection{Thread-local variables}
+Each thread has thread-locals variables, the number and type of these variables are determined by the developer.
+
+\section{The heap}
+The GVMT Abstract Machine heap is a garbage collected heap. The toolkit user needs to provide a function \verb|gvmt_shape| which supplies the garbage collector with information for scanning of objects. See section \ref{sect:user-shape}.
+Static roots of the heap can either be defined when the VM is built or added at runtime, see section\ref{sect:user-roots}.
+
+\subsection{Shape\label{sect:shape}}
+During tracing the garbage collector needs to know both the extent of an object and which fields are references to other objects, and which are not. The developer communicates this information to the toolkit via a `shape' vector (array).
+This shape is a zero-terminated vector of integers. Each integers represents either N successive references or N successive words of non-references. References are represented by positive numbers, non-references by negative numbers (zero is the terminator).
+For example the shape [ 2, -2, 1, 0 ] represents an object of total extent 5 words, the first 2 and last of which are references.
+The following C declaration (taken from the example Scheme VM):
+\begin{verbatim}
+GVMT_OBJECT(cons) {   
+    struct type *type;   // Opaque (non-GC) pointer
+    GVMT_Object car;     // Reference to heap object
+    GVMT_Object cdr;     // Reference to heap object
+};
+\end{verbatim}
+defines \verb|cons| objects. These \verb|cons| objects would have a shape of [ -1, 2, 0 ].
+
+\subsection{Garbage collection}
+No garbage collection algorithm is specified for the GVMT. However, since the GVMT can support both read and write barriers as well as the declaration of GC safe points, a wide range of collectors should be feasible.
+Currently both generational and non-generational collectors are available, although only `stop-the-world' collectors have been implemented. The GVMT garbage collectors also support tagging, which allows non-references to be stored in reference slots by setting one or more `tag' bits.
+Read and write barriers are implemented via the RLOAD\_R and RSTORE\_R instructions respectively. 
+
+\subsection{Exception handling}
+The GVMT exception handling model uses an explicit stack, rather than tables. These means that using exceptions has a runtime cost even when the exceptions are not used as a means of flow control transfer, but that exception handling itself is much faster than for table-based approaches. The GVMT exception handling mechanism is similar to the C setjump-longjump mechanism.
+The three GSC instructions involved are (See section \ref{sect:user-except} for the matching intrinsics)
+\begin{itemize}
+\item [PROTECT] pushes a handler onto the exception stack. This handler holds the following information: The current execution point(immediately after the PROTECT instruction), the stack depth, and the current control stack frame. Finally it pushes NULL onto the evaluation stack. 
+\item [UNPROTECT] pops a handler from the exception stack.
+\item [RAISE] Pops the value from the TOS and stores it. The exception handler on top of the exception stack is examined and the thread execution state (evaluation and control stack pointers) restored to the values held in the handler. The stored value is pushed onto the evaluation stack. Finally, execution resumes from the location stored in the exceptino handler.
+\end{itemize}
+It is an error (resulting in a probable crash) to leave an exception handler on the exception stack after the procedure in which it was pushed has returned.
+There is no concept of catching only some sorts of exceptions in the GVMT. All exceptions are caught; exceptions that should be handled elsewhere must be explicitly reraised. 
+
+Exceptions work as expected in interpreted (and compiled) code. The interpreter instruction pointer is stored along with the machine instruction pointer.
+
+\section{Concurrency\label{sect:conc}}
+
+The GVMT is concurrency friendly, all generated code and library code is thread-safe. The GVMT does not provide a thread library, so the developer will have to use the underlying operating system library.
+Concurrency is at the thread level, the GVMT is unaware of processes.
+
+In order that the toolkit can operate correctly, it must be informed of the creation and destruction of threads.
+The toolkit provides functions for this purpose, see Section \ref{sect:user-threads} for more details.
+The developer should also be aware that heap allocation may block, waiting for a collection, so locks should not be held across an allocation.
+
+The GVMT also provides fast locks for synchronisation in the case where contention is expected to be rare. This functionality is provided by the  LOCK and UNLOCK abstract machine instructions. 
+
+The intrinsic functions \verb|gvmt_lock(gvmt_lock_t *lock)| and \verb|gvmt_unlock(gvmt_lock_t *lock)| are translated to the LOCK and UNLOCK instructions, respectively.
+
+\emph{Warning:} GVMT locks are not automatically unlocked by the RAISE instruction. The developer must ensure that either a RAISE cannot occur between a LOCK and UNLOCK, or that the LOCK UNLOCK pair are PROTECTed. A safe LOCK/UNLOCK sequence is:
+\begin{verbatim}
+gvmt_lock_t lock = GVMT_LOCK_INITIALIZER;
+GVMT_Object ex;
+gvmt_lock(&lock)
+GVMT_BEGIN_TRY(ex)
+\end{verbatim}
+\nopagebreak[4]
+        \vdots
+\nopagebreak[4]
+\begin{verbatim}
+gvmt_unlock(&lock)
+GVMT_CATCH
+gvmt_unlock(&lock)
+gvmt_raise(ex)
+GVMT_END_TRY
+\end{verbatim}
+
+\subsection{Memory model}
+As all threads share the same heap, they may access heap objects concurrently. The following guarantees are made about the state of the heap and roots seen from one thread when modified by another thread:
+
+All writes to pointers(P), references(R) and integers(I) not larger than a pointer are atomic.
+
+
+The order in which changes to memory appear to one thread are the same as for another. Ie, thread 1 writes to A, then writes to B. Thread 2 will not see a change in B before it sees a change in A.
+
+
+In between synchronisation points, the delay between a write being made by one thread and a write being seen by another thread is indefinite.
+
+\section{GVMT Stack Code}
+GVMT Stack Code (GSC) is the instruction set of the GVMT Abstract Machine.
+GSC should be viewed as a sort of abstract assembly language. It is possible to define a virtual machine entirely in C, as the front-end tools, \gvmtic{} and \gvmtc, compile C into GSC.
+It is useful, however to have some awareness of GVMT Stack Code when using the GVMT.
+To get a better idea of how GSC is used, have a look at the output of \gvmtc and \gvmtic in the \verb|/example| directory.
+
+Appendix \ref{app:inst} contains a full list of GSC instructions.

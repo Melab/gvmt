@@ -1,0 +1,53 @@
+#include <stdlib.h>
+#include <assert.h>
+
+// Not used 
+// Inlining is too complex, need guards to check that definitions haven't changed.
+
+locals {
+    int count;
+}
+
+__preamble [private] ( -- R_function f) {
+    count = f->length;
+}
+
+__postamble [private](--) {
+    gvmt_ireturn_i(count < 8);
+}
+
+make_closure( -- ) {
+    gvmt_ireturn_i(0);   
+}
+
+recurse(int ##offset --) {
+    gvmt_ireturn_i(0);   
+}
+
+apply(int #count --) {
+    gvmt_ireturn_i(0);   
+}
+
+tail_apply: apply;
+
+new_frame(int #count -- ) {
+    // Probably removable once inlined
+    count--;
+}
+
+release_frame(--) {
+    count--;
+}
+
+nop(--) {
+    count--;   
+}
+
+copy(--) {
+    count--;   
+}
+
+drop(--) {
+    count--;   
+}
+

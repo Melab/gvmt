@@ -1,0 +1,530 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <gvmt/gvmt.h>
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
+#include "example.h"
+
+// The interpreter (and JIT compiler) bytecode definition file.
+
+// TOS stands for Top-Of-Stack
+// NOS stands for Next-On-Stack
+
+locals {
+    R_frame start_frame;
+    R_frame frame;   
+    R_frame literals;
+}
+
+// Note that TOS is on the right.
+__preamble [private](R_closure c -- ) {
+    start_frame = frame = c->frame;   
+    literals = c->function->literals;
+}
+__trace [private](--) {
+    interpreter_trace(gvmt_ip());
+}
+
+nop = 0 (--) {
+}
+
+// Shift (int) TOS left by (int) in NOS. 
+i_shift(R_object o1, R_object o2 -- int result) {
+    int i1, i2;
+    if(!gvmt_is_tagged(o1))
+        not_an_integer(o1);
+    if(!gvmt_is_tagged(o2))
+        not_an_integer(o2);
+    i1 = as_int(o1);
+    i2 = as_int(o2);
+    if (i1 > 0)
+        result = ((i2-1) << ((i1-1)>>1)) + 1;
+    else
+        result = ((i2-1) >> ((1-i1)>>1)) | 1;        
+}
+
+// Negate number TOS */
+negate(R_object o -- GVMT_Object result) {
+    if(!gvmt_is_tagged(o)) {
+        result = o->type->negate(o);
+    } else {
+        int i = as_int(o);
+        result = gvmt_tag(2-i);
+    }
+}
+
+// Pop TOS, Pop NOS, Push TOS + NOS
+add(R_object o1, R_object o2 -- GVMT_Object result) {
+    if(!gvmt_is_tagged(o1))
+        result = o1->type->add(o1, o2);
+    else if(!gvmt_is_tagged(o2))
+        result = o2->type->add(o2, o1);
+    else {
+        int i1 = as_int(o1);
+        int i2 = as_int(o2);
+        result = gvmt_tag(i1 + i2-1);
+    }
+}
+
+// Pop TOS, Pop NOS, Push TOS - NOS
+sub(R_object o1, R_object o2 -- GVMT_Object result) {
+    if(!gvmt_is_tagged(o2)) {
+        result = o2->type->sub(o2, o1);
+    } else if(!gvmt_is_tagged(o1)) {
+        R_object temp = (R_object)o1->type->sub(o1, o2);
+        int i = as_int(temp);
+        if (i & 1)
+            result = gvmt_tag(2-i);
+        else
+            result = temp->type->negate(temp);
+    } else {
+        int i1 = as_int(o1);
+        int i2 = as_int(o2);
+        result = gvmt_tag((i2-i1)+1);
+    }
+}
+
+// Pop TOS, Pop NOS, Push TOS * NOS
+mul(R_object o1, R_object o2 -- GVMT_Object result) {
+    if(!gvmt_is_tagged(o1))
+        result = o1->type->mul(o1, o2);
+    else if(!gvmt_is_tagged(o2))
+        result = o2->type->mul(o2, o1);
+    else {
+        int i1 = as_int(o1);
+        int i2 = as_int(o2);
+        result = gvmt_tag((i1-1) * ((i2-1)>>1) + 1);
+    }
+}
+
+// Pop TOS, Pop NOS, Push TOS & NOS
+band(R_object o1, R_object o2 -- int result) {
+    if(!gvmt_is_tagged(o1))
+        not_an_integer(o1);
+    if(!gvmt_is_tagged(o2))
+        not_an_integer(o2);
+    result = as_int(o1) & as_int(o2);
+}
+
+// Pop TOS, Pop NOS, Push TOS ^ NOS
+bor(R_object o1, R_object o2 -- int result) {
+    if(!gvmt_is_tagged(o1))
+        not_an_integer(o1);
+    if(!gvmt_is_tagged(o2))
+        not_an_integer(o2);
+    result = as_int(o1) | as_int(o2);
+}
+
+// Pop TOS, Pop NOS, Push TOS / NOS
+div(R_object o1, R_object o2 -- GVMT_Object result) {
+    int i1, i2, u, v;
+    if(!gvmt_is_tagged(o1))
+        result = o1->type->div(o1, o2);
+    if(!gvmt_is_tagged(o2))
+        not_an_integer(o2);
+    i1 = as_int(o1);
+    i2 = as_int(o2);
+    v = (i1-1)>>1;
+    u = (i2-1)>>1;
+    if (v) {
+        result = gvmt_tag(((u/v)<<1) + 1);
+    } else {
+        error("Division by ", gvmt_tag(1));
+        result = 0;
+    }
+}
+
+// Pop TOS, Pop NOS, Push TOS modulo NOS
+mod(R_object o1, R_object o2 -- int result) {
+    int u, v;
+    if(!gvmt_is_tagged(o1))
+        not_an_integer(o1);
+    if(!gvmt_is_tagged(o2))
+        not_an_integer(o2);
+    v = (as_int(o1)-1)>>1;
+    u = (as_int(o2)-1)>>1;
+    if (v) {
+        result = ((u%v)<<1) + 1;
+    } else {
+        error("Modulo by ", gvmt_tag(1));
+        result = 0;
+    }
+}
+
+// Pop TOS, Pop NOS, Push TOS < NOS
+i_lt(R_object o1, R_object o2 -- GVMT_Object result) {
+    if(!gvmt_is_tagged(o2))
+        result = o2->type->compare(o2, o1) < 0 ? TRUE : FALSE;
+    else if(!gvmt_is_tagged(o1))             
+        result = o1->type->compare(o1, o2) > 0 ? TRUE : FALSE;
+    else {
+        int i1 = as_int(o1);
+        int i2 = as_int(o2);
+        result = (i2 < i1 ? TRUE : FALSE);
+    }
+}
+
+// Pop TOS, Pop NOS, Push TOS > NOS
+i_gt(R_object o1, R_object o2 -- GVMT_Object result) {
+    if(!gvmt_is_tagged(o2))
+        result = o2->type->compare(o2, o1) > 0 ? TRUE : FALSE;
+    else if(!gvmt_is_tagged(o1))             
+        result = o1->type->compare(o1, o2) < 0 ? TRUE : FALSE;
+    else {
+        int i1 = as_int(o1);
+        int i2 = as_int(o2);
+        result = (i2 > i1 ? TRUE : FALSE);
+    }
+}
+
+// Pop TOS, Pop NOS, Push TOS <= NOS
+i_le(R_object o1, R_object o2 -- GVMT_Object result) {
+    if(!gvmt_is_tagged(o2))
+        result = o2->type->compare(o2, o1) <= 0 ? TRUE : FALSE;
+    else if(!gvmt_is_tagged(o1))             
+        result = o1->type->compare(o1, o2) >= 0 ? TRUE : FALSE;
+    else {
+        int i1 = as_int(o1);
+        int i2 = as_int(o2);
+        result = (i2 <= i1 ? TRUE : FALSE);
+    }
+}
+
+// Pop TOS, Pop NOS, Push TOS >= NOS
+i_ge(R_object o1, R_object o2 -- GVMT_Object result) {
+    if(!gvmt_is_tagged(o2))
+        result = o2->type->compare(o2, o1) >= 0 ? TRUE : FALSE;
+    else if(!gvmt_is_tagged(o1))             
+        result = o1->type->compare(o1, o2) <= 0 ? TRUE : FALSE;
+    else {
+        int i1 = as_int(o1);
+        int i2 = as_int(o2);
+        result = (i2 >= i1 ? TRUE : FALSE);
+    }
+}
+
+// Pop TOS, Pop NOS, Push TOS == NOS (unordered equality )
+equal(GVMT_Object o1, GVMT_Object o2 -- GVMT_Object b) {
+    b = (equal(o1, o2) ? TRUE : FALSE);
+}
+
+// Pop TOS, Pop NOS, Push TOS == NOS (ordered equality)
+i_eq(R_object o1, R_object o2 -- GVMT_Object result) {
+    if(!gvmt_is_tagged(o2))
+        result = o2->type->compare(o2, o1) == 0 ? TRUE : FALSE;
+    else if(!gvmt_is_tagged(o1))             
+        result = o1->type->compare(o1, o2) == 0 ? TRUE : FALSE;
+    else {
+        int i1 = as_int(o1);
+        int i2 = as_int(o2);
+        result = (i2 == i1 ? TRUE : FALSE);
+    }
+}
+
+// Pop TOS, Pop NOS, Push TOS != NOS (ordered equality)
+i_ne(R_object o1, R_object o2 -- GVMT_Object result) {
+    if(!gvmt_is_tagged(o2))
+        result = o2->type->compare(o2, o1) != 0 ? TRUE : FALSE;
+    else if(!gvmt_is_tagged(o1))             
+        result = o1->type->compare(o1, o2) != 0 ? TRUE : FALSE;
+    else {
+        int i1 = as_int(o1);
+        int i2 = as_int(o2);
+        result = (i2 != i1 ? TRUE : FALSE);
+    }
+}
+
+// Pop TOS, Pop NOS, Push TOS[NOS]
+vec_get(R_object index, R_frame vector -- GVMT_Object item) {
+    int i;
+    if (gvmt_is_tagged(vector) || vector->type != &type_vector)
+        not_a_vector((GVMT_Object)vector);
+    if (!gvmt_is_tagged(index))
+        not_an_integer(index);
+    i = (as_int(index)-1)>>1;
+    if (((unsigned)i) >= vector->size)
+        out_of_bounds(index);
+    item = vector->values[i];
+}
+
+// Pop TOS, Pop NOS, Pop 3OS, TOS[NOS] = 3OS
+vec_set(GVMT_Object item, R_object index, R_frame vector -- ) {
+    int i;
+    if (gvmt_is_tagged(vector) || vector->type != &type_vector)
+        not_a_vector((GVMT_Object)vector);
+    if (!gvmt_is_tagged(index))
+        not_an_integer(index);
+    i = (as_int(index)-1)>>1;
+    if (((unsigned)i) >= vector->size)
+        out_of_bounds(index);
+    vector->values[i] = item;
+}
+
+// Pop TOS, Push length(TOS)
+vec_len(R_frame vector -- int len) {
+    if (gvmt_is_tagged(vector) || vector->type != &type_vector)
+        not_a_vector((GVMT_Object)vector);
+    len = (vector->size << 1) + 1;
+}
+
+vector_copy(R_object src_end, R_object src_start, R_frame src, R_object dest_start, R_frame dest -- ) {
+    int i;
+    if (gvmt_is_tagged(src) || src->type != &type_vector)
+        not_a_vector((GVMT_Object)src);
+    if (gvmt_is_tagged(dest) || dest->type != &type_vector)
+        not_a_vector((GVMT_Object)dest);
+    if (!gvmt_is_tagged(src_start))
+        not_an_integer(src_start);
+    if (!gvmt_is_tagged(dest_start))
+        not_an_integer(dest_start);
+    if (!gvmt_is_tagged(src_end))
+        not_an_integer(src_end);
+    vector_copy(dest, (as_int(dest_start)-1)>>1, src, 
+                (as_int(src_start)-1)>>1, (as_int(src_end)-1)>>1);   
+}
+
+make_vector(GVMT_Object value, R_object len -- R_frame vector) {
+    int i, vlen;
+    if (!gvmt_is_tagged(len))
+        not_an_integer(len);
+    vlen = (as_int(len)-1) >> 1;
+    vector = make_vector(vlen);
+    for (i = 0; i < vlen; i++)
+        vector->values[i] = value;
+}
+
+nil( -- GVMT_Object n) {
+    n = EMPTY_LIST;   
+}
+
+zero( -- int i) {
+    i = 1;
+}
+
+one( -- int i) {
+    i = 3;   
+}
+
+new_frame(int #count -- ) {
+    R_frame new_frame = (R_frame) gvmt_malloc(sizeof(GVMT_OBJECT(frame)) + sizeof(GVMT_Object)*count);
+    struct type* t = &type_frame;
+    new_frame->type = t;
+    new_frame->size = count + 1;
+    new_frame->values[0] = (GVMT_Object)frame;
+    frame = new_frame;
+}
+
+vector(... values, int #count -- R_frame v) {
+    int i;
+    v = make_vector(count);
+    for(i = 0; i < count; i++) {
+        v->values[i] = values[i];
+    }
+    gvmt_drop(count);
+}
+
+release_frame( -- ) {
+    frame = (R_frame)frame->values[0];
+}
+
+make_closure(R_function func -- R_closure c) {
+    c = make_closure(func, frame);
+}
+
+store_local(GVMT_Object o, int #index -- ) {
+    frame->values[index] = o;   
+}
+
+store_global(GVMT_Object o, int ##index -- ) {
+    globals->values[index] = o;   
+}
+
+load_deref(int #deref, int #index -- GVMT_Object o) {
+    R_frame f = frame;
+    while (deref) {
+        f = (R_frame)f->values[0];
+        deref--;
+    }
+    o = f->values[index]; 
+}
+
+define_syntax(GVMT_Object o, R_symbol name -- ) {
+    R_user_syntax us = make_user_syntax(o, name);
+    // Create a user_syntax object
+    // Then bind it in the global environment
+    bind_s(global_environment, name, (GVMT_Object)us);
+}
+
+load_local(int #index -- GVMT_Object o) {
+    o = frame->values[index]; 
+}
+
+load_global(int ##index -- GVMT_Object o) {
+    o = globals->values[index]; 
+}
+
+set_frame[private]( -- ) {
+    frame->values[0] = (GVMT_Object)start_frame;
+}
+
+recurse: set_frame JUMP;
+
+literal(int #index -- GVMT_Object lit) {
+    lit = literals->values[index];
+}
+
+str_to_num(R_symbol string -- int number) {
+    int x = string_to_number(string);
+    number = (x << 1) + 1;
+}
+
+apply_check[private](R_closure c, int #count -- R_closure c) {
+    struct type *t = &type_closure; 
+    if (gvmt_is_tagged((GVMT_Object)c)|| c->type != t) {
+        not_a_closure((GVMT_Object)c);
+    } else {
+        R_function func = c->function;
+        if (func->parameters != count) {
+            incorrect_parameters(func, count);
+        }  
+    }
+}
+
+call[private](R_closure c -- ) {
+    ++recursion_depth;
+    if (recursion_depth >= recursion_limit) {
+        recursion_too_deep();
+    }
+    do {
+        c = c->function->execute(c);
+    } while (c);
+    --recursion_depth;
+}
+
+apply: apply_check call;
+    
+tail_call[private](R_closure c --) {
+    gvmt_ireturn_r((GVMT_Object)c);
+}
+
+tail_apply: apply_check tail_call;
+
+cons(GVMT_Object cdr, GVMT_Object car -- R_cons result) {
+    struct type *t = &type_cons;
+    result = (R_cons)gvmt_malloc(sizeof(GVMT_OBJECT(cons)));
+    result->type = t;
+    result->car = car;
+    result->cdr = cdr;
+}
+
+car(R_cons cons -- GVMT_Object result) {
+    if (gvmt_is_tagged((GVMT_Object)cons) || cons->type != &type_cons)
+        not_a_cons((GVMT_Object)cons);
+    result = cons->car;   
+}
+
+cdr(R_cons cons -- GVMT_Object result) {
+    if (gvmt_is_tagged((GVMT_Object)cons) || cons->type != &type_cons)
+        not_a_cons((GVMT_Object)cons);
+    result = cons->cdr;
+}
+
+display(GVMT_Object o -- ) {
+    print(o);
+}
+
+void( -- GVMT_Object u) {
+    u = VOID;   
+}
+
+undefined( -- GVMT_Object u) {
+    u = UNDEFINED;   
+}
+
+drop(GVMT_Object o -- ) {
+}
+
+drop_under(GVMT_Object x, GVMT_Object tos -- GVMT_Object tos) {
+}
+
+stop(--) {
+    exit(0);
+}
+
+return (--) {
+    gvmt_ireturn_r(NULL);
+}
+
+byte(int8_t #value -- int i) {
+    i = 2*value + 1;
+}
+
+short(int16_t ##value -- int i) {
+    i = 2*value + 1;
+}
+
+list_to_vec(GVMT_Object l -- GVMT_Object v) {
+    v = list_to_vector(l);
+}
+
+vec_to_list(R_frame v -- GVMT_Object l) {
+    l = vector_to_list(v);
+}
+
+jump: JUMP;
+    
+is_true[private](GVMT_Object o -- int t) {
+    t = o != FALSE;
+}
+    
+is_false[private](GVMT_Object o -- int t) {
+    t = o == FALSE;
+}
+    
+is(GVMT_Object o1, GVMT_Object o2 -- GVMT_Object b) {
+    if (o1 == o2) {
+        b = TRUE;
+    } else {
+        b = FALSE;   
+    }
+}
+
+is_null(GVMT_Object o -- GVMT_Object b) {
+    if (o == EMPTY_LIST) {
+        b = TRUE;
+    } else {
+        b = FALSE;
+    }
+}
+
+is_symbol(GVMT_Object o -- GVMT_Object b) {
+    if (is_symbol(o)) {
+        b = TRUE;
+    } else {
+        b = FALSE;
+    }
+}
+    
+not(GVMT_Object o1 -- GVMT_Object b) {
+    if (o1 == FALSE) {
+        b = TRUE;
+    } else {
+        b = FALSE;
+    }
+}
+    
+swap(GVMT_Object o1, GVMT_Object o2 -- GVMT_Object o2, GVMT_Object o1){
+}
+    
+copy(GVMT_Object o1 -- GVMT_Object o1, GVMT_Object o1){
+}
+
+branch[private]: IF JUMP ELSE #@ DROP #@ DROP ENDIF ;
+    
+branch_t: is_true branch ;
+
+branch_f: is_false branch ;
+    
+pick: PICK;
+

@@ -1,0 +1,24 @@
+#include <inttypes.h>
+#include <gvmt/gvmt.h>
+#include "example.h"
+#include <assert.h>
+
+// Returns TRUE or FALSE depending on 
+// whether it is safe to remove frames for this closure.
+
+locals {
+    GVMT_Object safe_to_remove_frames;
+}
+
+__preamble [private] ( -- ) {
+     safe_to_remove_frames = TRUE;
+}
+
+__postamble [private](--) {
+    gvmt_ireturn_r(safe_to_remove_frames);
+}
+
+make_closure( -- ) {
+    safe_to_remove_frames = FALSE;
+}
+

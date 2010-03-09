@@ -1,0 +1,71 @@
+/** Non-generational collector using GC framework */
+#include "gvmt/internal/gc.hpp"
+#include "gvmt/internal/gc_threads.hpp"
+#include "gvmt/internal/gc_templates.hpp"
+#include "gvmt/internal/gc_semispace.hpp"
+
+char copy_non_gen_name[] = "copy";
+ 
+class Copy {  // Collection
+public:
+    
+    static inline bool wants(GVMT_Object p) {
+        if (p == NULL) {
+            return false;
+        }
+        return !gc::opaque(p);        
+    }
+    
+    static inline GVMT_Object apply(GVMT_Object p) {
+        return semispace::copy(p);
+    }
+    
+    static inline bool is_live(GVMT_Object p) {
+        return semispace::forwarded(p);
+    }
+};
+
+void gvmt_do_collection(void) {
+    int64_t t0, t1;
+    t0 = high_res_time();
+    semispace::swap_spaces();
+    gc::process_roots<Copy>();
+    semispace::scan<Copy>();
+    gc::process_finalisers<Copy>();
+    semispace::scan<Copy>();
+    gc::process_weak_refs<Copy>();
+    allocator::free = semispace::free;
+    allocator::limit = semispace::top_of_space;
+    t1 = high_res_time();
+    gvmt_major_collections++;
+    gvmt_major_collection_time += (t1 - t0);
+    gvmt_total_collection_time += (t1 - t0);
+}
+
+/** GVMT GC interface */
+extern "C" {
+
+    char* gvmt_gc_name = &copy_non_gen_name[0];
+    
+    void gvmt_malloc_init(uint32_t s, float residency) {
+        int64_t t0, t1;
+        t0 = high_res_time();
+        char* heap = (char*)get_virtual_memory(s);
+        semispace::init(heap, s);
+        uint32_t movable_size = &gvmt_end_heap-&gvmt_start_heap;
+        semispace::free = semispace::to_space + movable_size;
+        allocator::free = semispace::free;
+        allocator::limit = semispace::top_of_space;
+        finalizer::init();
+        collector::init();
+        t1 = high_res_time();
+        gvmt_total_collection_time += (t1 - t0);
+    }
+    
+    GVMT_Object gvmt_copy_threads_malloc(GVMT_StackItem* sp, GVMT_Frame fp, uintptr_t size) {
+        return (GVMT_Object)allocator::malloc(sp, fp, size);
+    }
+    
+}
+    
+    

@@ -1,0 +1,245 @@
+#include <stdlib.h>
+#include <assert.h>
+#include <gvmt/gvmt.h>
+#include "example.h"
+
+locals {
+    uint8_t* compact;
+    uint8_t* end;
+    uint8_t* start;
+    int top_depth;
+    int** locals_stack;
+    int* locals_depth_stack;
+    int nesting;
+    int* locals_count_stack;
+}
+
+
+__preamble [private] (int parameters -- ) {
+    locals_stack = malloc(sizeof(int*)* 16);
+    locals_count_stack = malloc(sizeof(int)* 16);
+    locals_depth_stack = malloc(sizeof(int)* 16);
+    compact = gvmt_ip();
+    top_depth = parameters;
+    end = 0;
+    nesting = -1;   
+}
+
+__postamble [private](--) {
+    uint8_t* ip = gvmt_ip();
+    while (end < ip) {
+        end[0] = op(return);
+        end++;
+    }
+    free(locals_stack);
+    free(locals_count_stack);
+    free(locals_depth_stack);
+    locals_stack = NULL;
+    locals_count_stack = NULL;
+    locals_depth_stack = NULL;
+    gvmt_ireturn_r(0);
+}
+   
+error[private]( -- ) {
+    // Cannot happen.
+    abort();
+}
+
+skip2[private](int ##x --) {
+}
+
+jump: skip2 error;
+    
+branch_f:jump ;
+branch_t:jump ;
+recurse: jump;
+     
+make_closure: error;
+
+new_frame(int #count -- ) {
+    uint8_t* ip = gvmt_ip();
+    int i;
+    if (count != top_depth) {
+        // Failure - Need to restore previous version...
+        // To do.
+        abort();
+    }
+    nesting++;
+    locals_stack[nesting] = (int*)malloc(sizeof(int)*(count+1));
+    locals_stack[nesting][0] = -10000;
+    for(i = 1; i <= top_depth; i++) {
+        assert(ip[i*2] == op(store_local));
+        assert(ip[i*2+1] == i);
+        locals_stack[nesting][i] = i-1;
+    }
+    start = ip + top_depth*2 + 2;
+    assert(nesting < 16);
+    locals_count_stack[nesting] = count;
+    locals_depth_stack[nesting] = count;
+    top_depth = 0;
+}
+
+release_frame(--) {
+    int i;
+    assert(top_depth == 1);
+    for (i = 0; i < locals_depth_stack[nesting]; i++) {
+        compact[0] = op(drop_under);
+        compact++;
+    }
+    free(locals_stack[nesting]);
+    nesting--;
+}
+
+return (--) {
+    uint8_t* ip = gvmt_ip();
+    int i;
+    assert(nesting == 0);
+    if (end == 0) {
+        assert(top_depth = 1);
+        for (i = 0; i < locals_depth_stack[0]; i++) {
+            compact[0] = op(drop_under);
+            compact++;
+        }
+        compact[0] = ip[0];
+        compact++;
+        end = compact;
+        assert(compact <= gvmt_ip());
+    }
+}
+
+load_local(int #index -- ) {
+    int offset = top_depth + locals_stack[nesting][index];
+//    printf("load_local %d -> pick %d stack-depth=%d \n", index, offset, top_depth);
+    compact[0] = op(pick);
+    compact[1] = offset;
+    compact += 2;
+    top_depth++;
+}
+    
+store_local(int #index -- ) {
+    int i, t;
+    if (gvmt_ip() >= start) {
+        assert(top_depth == 1);
+        for(i = 0; i < locals_count_stack[nesting]; i++) {
+            t = locals_stack[nesting][i];
+            locals_stack[nesting][i] = t + 1;
+        }
+        locals_stack[nesting][index] = 0;
+        t = locals_depth_stack[nesting];
+        locals_depth_stack[nesting] = t + 1;
+        top_depth = 0;
+    }
+}
+
+load_deref(int #deref, int #index -- ) {
+    assert(deref > 0);
+    if (deref > nesting) {
+        compact[0] = op(load_deref);
+        compact[1] = deref-nesting;
+        compact[2] = index;
+        compact += 3;
+    } else {
+        int i;
+        int offset = top_depth;
+        for(i = 0; i < deref; i++)
+            offset += locals_depth_stack[nesting-i];
+        offset += locals_stack[nesting-deref][index];
+        compact[0] = op(pick);
+        compact[1] = offset;
+        compact += 2;
+    }
+    top_depth++;
+}
+
+plus1[private](--) {
+    top_depth++;   
+}
+
+minus1[private](--) {
+    top_depth--;   
+}
+    
+copy_minusN[private](int #count -- ) {
+    uint8_t* ip = gvmt_ip();
+    compact[0] = ip[0];
+    compact[1] = count;
+    compact += 2;
+    top_depth -= count;
+}
+
+copy1[private](--) {
+    uint8_t* ip = gvmt_ip();
+    compact[0] = ip[0];
+    compact++;
+}
+
+copy2[private](int #op1 --) {
+    uint8_t* ip = gvmt_ip();
+    compact[0] = ip[0];
+    compact[1] = op1;
+    compact += 2;
+}
+
+copy3[private](int #op1, int #op2 --) {
+    uint8_t* ip = gvmt_ip();
+    compact[0] = ip[0];
+    compact[1] = op1;
+    compact[2] = op2;
+    compact += 3;
+}
+
+minus2[private]: minus1 minus1;
+negate: copy1 ;
+nop: ;
+i_shift: copy1 minus1;   
+add: copy1 minus1;  
+sub: copy1 minus1;
+mul: copy1 minus1;  
+div: copy1 minus1;
+band: copy1 minus1;  
+bor: copy1 minus1;
+mod: copy1 minus1;  
+i_eq: copy1 minus1;  
+i_ne: copy1 minus1;  
+i_le: copy1 minus1;  
+i_ge: copy1 minus1;  
+i_gt: copy1 minus1;  
+i_lt: copy1 minus1;  
+equal: copy1 minus1;  
+vec_get: copy1 minus1;
+vec_set: copy1 minus2 minus1;
+vec_len: copy1 ;
+vector_copy: copy1 minus2 minus2 minus1;
+make_vector: copy1 minus1;
+nil: copy1 plus1;
+zero: copy1 plus1;
+one: copy1 plus1;
+vector: copy_minusN plus1;
+str_to_num: copy1;
+store_global: copy3 minus1;
+load_global: copy3 plus1;
+define_syntax: copy1 minus2;
+literal: copy2 plus1;
+apply: copy_minusN;
+tail_apply: copy2 error;
+cons: copy1 minus1;
+car: copy1;
+cdr: copy1;
+display: copy1 minus1;
+void: copy1 plus1;
+undefined: copy1 plus1;
+drop_under: error;
+stop: copy1 ;
+drop: copy1 minus1;
+byte: copy2 plus1;
+short: copy3 plus1;
+list_to_vec: copy1;
+vec_to_list: copy1;
+is: copy1 minus1;
+is_null: copy1;
+is_symbol: copy1;
+not: copy1;
+swap: copy1;
+copy: copy1;
+pick: copy2 error;
+

@@ -1,0 +1,15 @@
+Currently the GVMT has only been tested on the x86-linux platform, but it should work on any posix-compliant x86 platform.
+GVMT can be installed in the following steps:
+\begin{enumerate}
+\item Download GVMT from \url{http://code.google.com/p/gvmt/}
+\item Unpack into a clean directory, \$(GVMT)
+\item Install llvm (version2.5) from \url{http://llvm.org/releases/download.html\#2.5}
+\item Type \verb|make|
+\begin{enumerate}
+\item[] The build process will fetch lcc using wget. If you do not have wget installed or wget fails then you will have to download lcc from  \url{http://sites.google.com/site/lccretargetablecompiler/downloads/4.2.tar.gz} and save it as \$(GVMT)/lcc.tar.gz
+\end{enumerate}
+\item Type \verb|sudo make install| (You will need write privileges to /usr/local in order to install the tools)
+\end{enumerate}
+
+If it doesn't work, then email me: marks@dcs.gla.ac.uk
+

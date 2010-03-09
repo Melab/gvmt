@@ -1,0 +1,39 @@
+\documentclass[a4paper,10pt]{article}
+
+
+%opening
+\title{The GVMT Lightweight compiler}
+\author{Mark Shannon}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+The GVMT lightweight compiler is a simple, fast and easily portable compiler for the GVMT.
+The code generated is a cross between a context-threaded interpreter and fully compiled code.
+\end{abstract}
+
+\section{Build-time analysis}
+The GVMT lightwieght-compiler-generator analyses each bytecode in turn. A compound instruction (bytecode) can be compiled if all of its sub-codes can be compiled. A list of compilable builtin instructions in include in the appendix.
+
+If a compound-instruction cannot compiled, then it is analysed to determine:
+\begin{itemize}
+\item its stack effect
+\item how many operands it takes from the instruction stream
+\item if it accesses the frame.
+\item if it returns
+\item if it performs a jump
+\end{itemize}
+
+From this information the parameters and return value of the function to execute the compound instruction are determined:
+\subsection{Stack Effect}
+If a compound instruction takes a fixed number of values from the stack and replaces them with either zero or one value, then those values are passed as parameters and return value (if any) and the compiled code takes care of modifying the stack-pointer. The function may treat the stack-pointer as a callee-save register.
+Otherwise the all values are passed and returned on the GVMT stack.
+\subsection{Frame pointer}
+If the compound instruction does not accesses the frame, then function may treat the frame-pointer as a callee-save register.
+\subsection{Operands}
+If the number of parameters so far, plus the number of operands does not exceed the number of parameters that can be passed in registers, then the operands are passed as parameters, otherwise a single parameter pointing to the operands is passed in.
+
+\end{document}

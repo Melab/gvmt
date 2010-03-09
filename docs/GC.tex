@@ -1,0 +1,30 @@
+\documentclass[a4paper,10pt]{article}
+
+
+%opening
+\title{Acurate Garbage Collection in the GVMT}
+\author{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+
+\end{abstract}
+
+\section{Garbage Collection Requirements}
+There are many different types of garbage collectors, but there are two fundamentally different types: Tracing collectors and reference counting.
+Modern tracing collectors are superior is almost every way to reference counting, but reference counting does have some uses.
+
+\subsection{Requirements for a tracing collector}
+For all a simple tracing collector all that is required is that the collector can find all the roots of the heap. All can acurately trace all pointers in the heap.
+
+For more sophisticated collectors, such as generational or concurrent collectors, the collector may require special code to be inserted whenever a pointer within a heap object is read or written.
+
+GVMT supports fully tracing collectors. At any GC\_SAFE instruction all references on the stacks can be unambiguously identified and all static roots of the heap are kept in the \verb|roots| section.
+
+In order to support advanced collectors \emph{all} reads and writes to references within objects must be done via the RLOAD and RSTORE instructions. Generation of code for these instructions is delegated to the garbage collector implementation. 
+
+
+\end{document}
