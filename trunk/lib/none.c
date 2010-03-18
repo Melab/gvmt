@@ -25,7 +25,9 @@ void gvmt_malloc_init(uint32_t s, float residency) {
 GVMT_Object gvmt_none_malloc(GVMT_StackItem* sp, GVMT_Frame fp, uintptr_t size) {
     void* new_object = next;
     assert(initialised);
+    size = (size+(sizeof(void*)-1))&(-sizeof(void*));
     next += size;
+    assert((((int)new_object)&(sizeof(void*)-1)) == 0);
     if (next >= limit)
         __gvmt_fatal("Out of memory");
     return (GVMT_Object)new_object;
