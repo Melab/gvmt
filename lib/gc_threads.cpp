@@ -152,7 +152,7 @@ namespace finalizer {
         sp -= 4;
         sp[0].p = sp[1].p = sp[2].p = sp[3].p = NULL;
         // Protect against exceptions raised in user_finalise_object.
-        GvmtExceptionHandler handler = gvmt_push_handler();
+        GvmtExceptionHandler handler = gvmt_create_and_push_handler();
         gvmt_setjump(&handler->registers);
         // Don't care if exeception was raised or not, just carry on
         do {   

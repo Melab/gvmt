@@ -698,13 +698,37 @@ class Protect(Instruction):
         self.name = 'PROTECT'
         self.inputs = [  ]
         self.outputs = [ 'value' ]
-        self.__doc__ = ('Pushes a protect-object to the protection stack and '
+        self.__doc__ = ('Pushes a new protect-object to the protection stack and '
         'pushes 0 to TOS, when initially executed. '
         'When execution resumes after a RAISE, the value that was TOS when the ' 
         'RAISE instruction was exceuted is pushed to TOS.')
         
     def process(self, mode):
         mode.stack_push(mode.protect())
+        
+class Protect_Push(Instruction):
+    
+    def __init__(self):
+        self.name = 'PROTECT_PUSH'
+        self.inputs = [ 'protect' ]
+        self.outputs = [ ]
+        self.__doc__ = ('Pushes a pre-exisiting protect-object '
+                         'to the protection stack.')
+        
+    def process(self, mode):
+        mode.protect_push(mode.stack_pop())
+        
+class Protect_Pop(Instruction):
+    
+    def __init__(self):
+        self.name = 'PROTECT_PUSH'
+        self.inputs = [ ]
+        self.outputs = [ 'protect' ]
+        self.__doc__ = ('Pops the protect-object '
+                         'from the protection stack.')
+        
+    def process(self, mode):
+        mode.stack_push(mode.protect_pop())
          
 class Unprotect(Instruction):
     
@@ -712,7 +736,7 @@ class Unprotect(Instruction):
         self.name = 'UNPROTECT'
         self.inputs = [  ]
         self.outputs = [ 'value' ]
-        self.__doc__ = 'Removes previously pushed PROTECT from exception stack.'
+        self.__doc__ = 'Pops and destroys the protect-object on top of the exception stack.'
         
     def process(self, mode):
         mode.unprotect()
@@ -1101,6 +1125,7 @@ def _init():
     
     for cls in [ Jump, Sign, GC_Malloc, GC_Malloc_Call, Protect, Raise, Drop, 
                GC_Safe, GC_Safe_Call, Flush, Stack, IP_Fetch, Insert,
+               Protect_Push, Protect_Pop,
                Unprotect, IP, Pick, Zero, DropN, Symbol, FarJump, ZeroMemory, 
                GC_FreePointerStore, GC_FreePointerLoad, Frame, GC_Malloc_Fast,
                GC_LimitPointerStore, GC_LimitPointerLoad, Next_IP, 

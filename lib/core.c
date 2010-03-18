@@ -146,7 +146,7 @@ static void gvmt_start(size_t stack_space, gvmt_func_ptr func,
                        int pcount, va_list ap) {  
     gvmt_init_thread(stack_space);
     GVMT_StackItem* sp = gvmt_exit_native();
-    GvmtExceptionHandler h = gvmt_push_handler();
+    GvmtExceptionHandler h = gvmt_create_and_push_handler();
     void *ex = gvmt_setjump(&h->registers);
     if (ex == NULL) {
         gvmt_call(sp, 0, func, pcount, ap);

@@ -196,6 +196,12 @@ class FirstPassMode(object):
     def protect(self):
         pass
     
+    def protect_pop(self):
+        pass
+    
+    def protect_push(self, value):
+        pass
+    
     def unprotect(self):
         pass
     

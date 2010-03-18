@@ -1002,9 +1002,9 @@ class CMode(object):
 #        self.stack.comment(self.out)
         self.stack.flush_to_memory(self.out)
         
-    def push_handler(self):
+    def create_and_push_handler(self):
         self.stack.flush_to_memory(self.out)
-        fmt = ' GvmtExceptionHandler __handler_%d = gvmt_push_handler();'
+        fmt = ' GvmtExceptionHandler __handler_%d = gvmt_create_and_push_handler();'
         self.out << fmt % _uid
         self.out << ' __handler_%d->sp = gvmt_sp;' % _uid
         
@@ -1017,16 +1017,27 @@ class CMode(object):
         self.out << fmt % (c, _uid)
         return c 
         
+    def protect_push(self, value):
+        self.out << '((GvmtExceptionHandler)%s)->link = gvmt_exception_stack; ' % value.cast(gtypes.p)
+        self.out << 'gvmt_exception_stack = ((GvmtExceptionHandler)%s); ' % value.cast(gtypes.p)
+        
+    def protect_pop(self):
+        global _uid
+        _uid += 1
+        self.out << 'GvmtExceptionHandler h_%d = gvmt_exception_stack; ' % _uid
+        self.out << 'gvmt_exception_stack = h_%d->link; ' % _uid
+        return Simple(gtype.p, '((void*)h_%d' %_uid)
+        
     def protect(self):
         global _uid
         _uid += 1
-        self.push_handler()
+        self.create_and_push_handler()
         c = self.setjump()
-        self.out << ' gvmt_sp = gvmt_thread_exception_handler->sp;'
+        self.out << ' gvmt_sp = gvmt_exception_stack->sp;'
         return c
-    
+
     def unprotect(self):
-        self.out << ' gvmt_pop_handler();'
+        self.out << ' gvmt_pop_and_free_handler();'
     
     def _raise(self, value):
         self.stack.flush_to_memory(self.out)
@@ -1088,10 +1099,10 @@ class IMode(CMode):
     def protect(self):
         global _uid
         _uid += 1
-        self.push_handler()
+        self.create_and_push_handler()
         self.out << ' __handler_%d->ip = _gvmt_ip;' % _uid
         c = self.setjump()
-        self.out << ' __handler_%d = gvmt_thread_exception_handler;' % _uid
+        self.out << ' __handler_%d = gvmt_exception_stack;' % _uid
         self.out << ' gvmt_sp = __handler_%d->sp;' % _uid
         self.out << ' _gvmt_ip = __handler_%d->ip;' % _uid
         return c

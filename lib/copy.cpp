@@ -19,14 +19,14 @@ namespace copy {
     int in_malloc = 0;
     
     void finalise(GVMT_StackItem* sp, GVMT_Frame fp, GVMT_Object obj) {
-        GvmtExceptionHandler handler = gvmt_push_handler();       
+        GvmtExceptionHandler handler = gvmt_create_and_push_handler();       
         void *ex = gvmt_setjump(&handler->registers);
         if (ex == 0) {
             sp--;
             sp->o = obj;
             user_finalise_object(sp, fp);               
         }
-        gvmt_pop_handler();
+        gvmt_pop_and_free_handler();
     }
     
     inline void* malloc(GVMT_StackItem* sp, GVMT_Frame fp, size_t size) {

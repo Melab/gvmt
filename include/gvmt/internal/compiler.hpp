@@ -57,7 +57,9 @@ class CompilerStack {
 
 class Architecture {
     static llvm::Value *current_frame(llvm::Module *mod);
+    static llvm::Function *create_and_push_handler(llvm::Module *mod);
     static llvm::Function *push_handler(llvm::Module *mod);
+    static llvm::Function *pop_handler(llvm::Module *mod);
     static llvm::Function *no_args_func(std::string name, const llvm::Type* type, llvm::Module *mod);
     static llvm::Function *void_no_args_func(std::string name, llvm::Module *mod);
     static llvm::Function *raise_exception(llvm::Module *mod);
@@ -71,6 +73,8 @@ class Architecture {
     static llvm::Function *GC_SAFE_POINT;
     static llvm::Function *POP_HANDLER;
     static llvm::Function *PUSH_HANDLER;
+    static llvm::Function *POP_AND_FREE_HANDLER;
+    static llvm::Function *CREATE_AND_PUSH_HANDLER;
     static llvm::Function *RAISE_EXCEPTION;
     static llvm::Function *SET_JUMP;
     static llvm::FunctionType* FUNCTION_TYPE;
@@ -100,6 +104,8 @@ class BaseCompiler {
     llvm::Value* gc_malloc(llvm::Value* size, llvm::BasicBlock* bb);
     llvm::Value* gc_malloc_fast(llvm::Value* size, llvm::BasicBlock* bb);
     llvm::Value* protect(llvm::BasicBlock* bb);
+    llvm::Value* pop_protect(llvm::BasicBlock* bb);
+    void push_protect(llvm::Value* handler, llvm::BasicBlock* bb);
     llvm::Value* ref_temp(int index, llvm::BasicBlock* bb);
     void zero_memory(llvm::Value* object, llvm::Value* size, llvm::BasicBlock* bb);
     void lock(llvm::Value* lock, llvm::BasicBlock* bb);
