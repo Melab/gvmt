@@ -3,38 +3,42 @@
 #include <stdlib.h>
 #include <assert.h>
 
-GVMT_THREAD_LOCAL GvmtExceptionHandler gvmt_thread_exception_handler;
+GVMT_THREAD_LOCAL GvmtExceptionHandler gvmt_exception_stack;
+GVMT_THREAD_LOCAL GvmtExceptionHandler gvmt_exception_free_list;
 
-void gvmt_pop_handler(void) {
-    assert(gvmt_thread_exception_handler != gvmt_thread_exception_handler->pop);
-    gvmt_thread_exception_handler = gvmt_thread_exception_handler->pop;
+static GvmtExceptionHandler gvmt_pop_handler(void) {
+    GvmtExceptionHandler h = gvmt_exception_stack;
+    gvmt_exception_stack = h->link;
+    h->link = NULL; // Is this necessary?
+    return h;
 }
 
-static GvmtExceptionHandler gvmt_push_new_handler(void) {
-    GvmtExceptionHandler new_handler = malloc(sizeof(struct gvmt_exception_handler));
-    GvmtExceptionHandler current = gvmt_thread_exception_handler;
-    new_handler->pop = current;
-    new_handler->push = 0;
-    current->push = new_handler;
-    gvmt_thread_exception_handler = new_handler;
-    return new_handler;
+void gvmt_pop_and_free_handler(void) {
+    GvmtExceptionHandler h = gvmt_pop_handler();
+    h->link = gvmt_exception_free_list;
+    gvmt_exception_free_list = h;
 }
 
-GvmtExceptionHandler gvmt_push_handler(void) {
-    GvmtExceptionHandler current = gvmt_thread_exception_handler;
-    GvmtExceptionHandler handler = current->push;
+static void gvmt_push_handler(GvmtExceptionHandler handler) {
+    handler->link = gvmt_exception_stack;
+    gvmt_exception_stack = handler;
+}
+
+GvmtExceptionHandler gvmt_create_and_push_handler(void) {
+    GvmtExceptionHandler handler = gvmt_exception_free_list;
     if (handler) 
-        gvmt_thread_exception_handler = handler;
+        gvmt_exception_free_list = handler->link;
     else
-        handler = gvmt_push_new_handler();
+        handler = malloc(sizeof(struct gvmt_exception_handler));
+    gvmt_push_handler(handler);
     return handler;
 }
 
 void initialise_exception_stack(void) {
     GvmtExceptionHandler base = malloc(sizeof(struct gvmt_exception_handler));
-    base->pop = base;
-    base->push = 0;
-    gvmt_thread_exception_handler = base;
+    base->link = 0;
+    gvmt_exception_stack = base;
+    gvmt_exception_free_list = NULL;
     GVMT_StackItem* sp = gvmt_stack_pointer;
     void *ex = gvmt_setjump(&base->registers);
     if (ex) {
@@ -50,7 +54,7 @@ void initialise_exception_stack(void) {
 }
 
 void gvmt_raise_exception(GVMT_Object ex) {
-    gvmt_longjump(&gvmt_thread_exception_handler->registers, ex);
+    gvmt_longjump(&gvmt_exception_stack->registers, ex);
 }
 
 void gvmt_raise_native(void* ex_root) {
@@ -59,6 +63,6 @@ void gvmt_raise_native(void* ex_root) {
         gvmt_exit_native();
     assert(gvmt_thread_non_native == 1);
     GVMT_Object ex = *((GVMT_Object*)ex_root);
-    gvmt_longjump(&gvmt_thread_exception_handler->registers, ex);
+    gvmt_longjump(&gvmt_exception_stack->registers, ex);
 }
 

@@ -53,6 +53,8 @@ Value *BaseCompiler::ZERO;
 
 Value *Architecture::WORD_SIZE;
 Value *Architecture::CURRENT_FRAME;
+Function *Architecture::POP_AND_FREE_HANDLER;
+Function *Architecture::CREATE_AND_PUSH_HANDLER;
 Function *Architecture::POP_HANDLER;
 Function *Architecture::PUSH_HANDLER;
 Function *Architecture::RAISE_EXCEPTION;
@@ -278,11 +280,13 @@ Value* CompilerStack::insert(int offset, llvm::Value* count, BasicBlock* bb) {
 
 void Architecture::init(Module *module) {
     CURRENT_FRAME = Architecture::current_frame(module);
-    POP_HANDLER = Architecture::void_no_args_func("gvmt_pop_handler", module);
     EXIT_NATIVE = Architecture::void_no_args_func("gvmt_exit_native", module);
     ENTER_NATIVE = Architecture::void_no_args_func("gvmt_enter_native", module);
     GC_SAFE_POINT = Architecture::void_no_args_func("gvmt_gc_safe_point", module);
+    POP_HANDLER = Architecture::void_no_args_func("gvmt_pop_handler", module);
     PUSH_HANDLER = Architecture::push_handler(module);
+    POP_AND_FREE_HANDLER = Architecture::void_no_args_func("gvmt_pop_and_free_handler", module);
+    CREATE_AND_PUSH_HANDLER = Architecture::create_and_push_handler(module);
     SET_JUMP = Architecture::set_jump(module);
     RAISE_EXCEPTION = Architecture::raise_exception(module);
     WORD_SIZE = ConstantInt::get(APInt(32, 4, true));
@@ -320,8 +324,21 @@ Function* Architecture::raise_exception(Module *mod) {
 
 Function* Architecture::push_handler(Module *mod) {
     std::vector< const Type * >args;
-    FunctionType * ftype = FunctionType::get(BaseCompiler::TYPE_P, args, false);
+    args.push_back(BaseCompiler::TYPE_P);
+    FunctionType * ftype = FunctionType::get(Type::VoidTy, args, false);
     return Function::Create(ftype, GlobalValue::ExternalLinkage, "gvmt_push_handler", mod);
+}
+
+Function* Architecture::pop_handler(Module *mod) {
+    std::vector< const Type * >args;
+    FunctionType * ftype = FunctionType::get(BaseCompiler::TYPE_P, args, false);
+    return Function::Create(ftype, GlobalValue::ExternalLinkage, "gvmt_pop_handler", mod);
+}
+
+Function* Architecture::create_and_push_handler(Module *mod) {
+    std::vector< const Type * >args;
+    FunctionType * ftype = FunctionType::get(BaseCompiler::TYPE_P, args, false);
+    return Function::Create(ftype, GlobalValue::ExternalLinkage, "gvmt_create_and_push_handler", mod);
 }
 
 Function* Architecture::void_no_args_func(std::string name, Module *mod) {
@@ -435,7 +452,7 @@ void BaseCompiler::emit_print(int x, BasicBlock* bb) {
   * probably because handler_sp has such a short lifespan. Problem is that this is awkward to fix 
   * until LLVM supports TLS for x86 */
 Value* BaseCompiler::protect(BasicBlock* bb) {
-    Value* handler = CallInst::Create(Architecture::PUSH_HANDLER, &NO_ARGS[0], &NO_ARGS[0], "x", bb);
+    Value* handler = CallInst::Create(Architecture::CREATE_AND_PUSH_HANDLER, &NO_ARGS[0], &NO_ARGS[0], "x", bb);
     Value* handler_sp = ELEMENT_ADDR(gvmt_exception_handler, sp, handler, bb);
     Value* sp = stack->get_pointer(bb);
     handler_sp = new BitCastInst(handler_sp, PointerType::get(sp->getType(), 0), "x", bb);
@@ -446,6 +463,19 @@ Value* BaseCompiler::protect(BasicBlock* bb) {
     protect->setCallingConv(CallingConv::X86_FastCall);
     stack->store_pointer(new LoadInst(handler_sp, "", bb), bb);
     return protect;
+}
+
+Value* BaseCompiler::pop_protect(BasicBlock* bb) {
+    CallInst* pop = CallInst::Create(Architecture::POP_HANDLER, &NO_ARGS[0], 
+                                     &NO_ARGS[0], "", current_block);
+    pop->setCallingConv(CallingConv::X86_FastCall);
+    return pop;
+}
+
+void BaseCompiler::push_protect(Value* handler, BasicBlock* bb) {
+    Value* args[] = { handler, 0 };
+    CallInst::Create(Architecture::PUSH_HANDLER, &args[0], &args[1], 
+        "", current_block)->setCallingConv(CallingConv::X86_FastCall);
 }
 
 Value* BaseCompiler::gc_read(Value* object, Value* offset, BasicBlock* bb) {

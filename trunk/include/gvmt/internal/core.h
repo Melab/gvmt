@@ -52,8 +52,7 @@ typedef union gvmt_double_stack_item {
 #endif
 
 struct gvmt_exception_handler {
-    struct gvmt_exception_handler* pop; 
-    struct gvmt_exception_handler* push; 
+    struct gvmt_exception_handler* link; 
     GVMT_StackItem* sp;
     uint8_t* ip;  // INTERPRETER ip.
     struct gvmt_registers registers;
@@ -65,7 +64,9 @@ typedef struct gvmt_exception_handler *GvmtExceptionHandler;
 
 typedef struct gvmt_frame* GVMT_Frame;
 
-extern GVMT_THREAD_LOCAL GvmtExceptionHandler gvmt_thread_exception_handler;
+extern GVMT_THREAD_LOCAL GvmtExceptionHandler gvmt_exception_stack;
+extern GVMT_THREAD_LOCAL GvmtExceptionHandler gvmt_exception_free_list;
+
 extern GVMT_THREAD_LOCAL GVMT_Frame gvmt_frame_pointer;
 extern GVMT_THREAD_LOCAL GVMT_StackItem* gvmt_stack_pointer; // Evaluation stack pointer
 
@@ -119,8 +120,8 @@ GVMT_Object gvmt_set_handler(void);
 /** Pushes a new <emph>unitialised</emph> handler to the exception handler 
  *  Use gvmt_sejump to initialise handler. The effect of calling gvmt_raise()
  * are undefined until gvmt_setjump() is called */
-GvmtExceptionHandler gvmt_push_handler(void);
-void gvmt_pop_handler(void);
+GvmtExceptionHandler gvmt_create_and_push_handler(void);
+void gvmt_pop_and_free_handler(void);
 
 #define GVMT_LINKAGE_0(proc) GVMT_CALL GVMT_StackItem* proc(GVMT_StackItem* gvmt_sp, GVMT_Frame fp) { 
 #define GVMT_LINKAGE_1(proc, p0) GVMT_CALL GVMT_StackItem* proc(GVMT_StackItem* gvmt_sp, GVMT_Frame fp) { p0 = gvmt_sp[0].p; gvmt_sp += 1;
