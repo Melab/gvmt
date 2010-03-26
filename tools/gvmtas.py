@@ -108,7 +108,8 @@ uint32_t execution_count[256];
     for i in bytecodes.instructions:
         if i.name == '__preamble':
             temp = Buffer()
-            preamble << '  {\n'
+            # Use do { } while (0) to allow far_jump in preamble
+            preamble << ' do { /* Start __preamble */\n'
             mode = IMode(temp, externals, gc_name, bytecodes.func_name)
             for x in range(popped):
                 mode.stack_pop()
@@ -119,12 +120,13 @@ uint32_t execution_count[256];
             if max_refs < mode.ref_temps_max:
                 max_refs = mode.ref_temps_max
             preamble << temp
-            preamble << '  } /* End __preamble */\n'
+            preamble << '  } while (0); /* End __preamble */\n'
             if post_check:
                 preamble << 'if (_gvmt_ip >= gvmt_ip_end) goto gvmt_postamble;\n' 
             flushed = True
         elif i.name == '__postamble':
             temp = Buffer()
+            # far_jump is not allowed here.
             postamble << '  gvmt_postamble: {\n'
             mode = IMode(temp, externals, gc_name, bytecodes.func_name)
             i.top_level(mode)
