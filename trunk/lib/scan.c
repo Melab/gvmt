@@ -8,7 +8,7 @@
 
 void gvmt_write_ref(FILE* out, GVMT_Object object) {
     char* buf = alloca(GVMT_MAX_OBJECT_NAME_LENGTH);
-    if (object == NULL) {
+    if (object == NULL_R) {
         fprintf(out, "%s", "address 0\n");
     } else {
         gvmt_readable_name(object, buf);

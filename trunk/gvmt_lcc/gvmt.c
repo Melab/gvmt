@@ -26,6 +26,7 @@ static char *N_ARGS[100];
 static char **n_args = N_ARGS;
 
 static int insert_gc_safe_point = 0;
+static int emit_dot_file = 0;
 
 /** Do not insert GC_SAFE and use N_CALL_NO_GC rather than N_CALL */ 
 static int requested_no_gc = 0;
@@ -152,6 +153,7 @@ small_set OPAQUE_SET = { 1 << OPAQUE_TYPE }; // OPAQUE
 small_set INTEGER_SET = { 1 << INTEGER_TYPE  }; // INTEGER
 small_set EMPTY_SET = { 0 };
 small_set MEMBERS_SET = { (1 << REFERENCE_TYPE) | (1 << INTEGER_TYPE) | (1 << OPAQUE_TYPE) };
+small_set NULL_SET = { (1 << REFERENCE_TYPE) | (1 << INTEGER_TYPE) | (1 << POINTER(OPAQUE_TYPE)) }; 
 
 #define NON_OPAQUES 0x33333333
 #define ALL_OPAQUES 0xcccccccc
@@ -240,10 +242,26 @@ void print_type_set(small_set s) {
     print("}");
 }
 
+static int is_null(Node p) {
+    int gen = generic(p->op);
+    if (gen != CNST)
+        return 0;
+    switch(optype(p->op)) {
+    case I: case U:
+        if (p->syms[0]->u.c.v.i == 0) {
+            return 1;
+        } 
+    }
+    return 0;
+}
+
 int legal_bits_for_node(Node n) {
     switch(optype(n->op)) {
     case I: case U:
-        return (1 << OPAQUE_TYPE) | (1 << INTEGER_TYPE);
+        if (is_null(n)) 
+            return NULL_SET.bits;
+        else
+            return (1 << OPAQUE_TYPE) | (1 << INTEGER_TYPE);        
     case F:
         return 1 << OPAQUE_TYPE;
     case P:
@@ -435,10 +453,10 @@ void label_error(Node n, small_set possibles) {
     if (is_empty(x)) {
         small_set legals;
         legals.bits = legal_bits_for_node(n);
-//        if (!is_empty(possibles)) {
-//            print_type_set(stderr, possibles);
-//            print_type_set(stderr, legals);
-//        }
+        if (!is_empty(possibles)) {
+            print_type_set(possibles);
+            print_type_set(legals);
+        }
         n->x.error = stringf("No legal typing found for expression\n");
     } else {
         n->x.error = stringf("Ambiguous typing for expression. Insert temporary variable and simplify.\n", opname(n->op));
@@ -535,10 +553,12 @@ static small_set equals(int t1, int t2, Type type) {
 static small_set comp_func(int t1, int t2, Type t) {
     if (t1 == t2 || 
         (t1 == INTEGER_TYPE && t2 == OPAQUE_TYPE) ||
-        (t1 == OPAQUE_TYPE && t2 == INTEGER_TYPE))
+        (t1 == OPAQUE_TYPE && t2 == INTEGER_TYPE) ||
+        (t1 >= POINTER(OPAQUE_TYPE) && t2 >= POINTER(OPAQUE_TYPE)))
         return OPAQUE_SET;
-    else 
+    else {
         return EMPTY_SET;
+    }
 }
 
 static small_set add_func(int t1, int t2, Type type) {
@@ -763,12 +783,14 @@ void gvmt_function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
     }
 	gencode(caller, callee);
 	preamble(f, caller, callee, ncalls);
-	emitcode();   
-    if (bytecodes)
-        print("DROP ");
-    else
-        print("RETURN_%s ", return_type_ext(freturn(f->type)));
-    print(";\n");
+	emitcode();  
+	if (!emit_dot_file) {
+        if (bytecodes)
+            print("DROP ");
+        else
+            print("RETURN_%s ", return_type_ext(freturn(f->type)));
+        print(";\n");
+    }
 }
 
 char * pointer_type(int t);
@@ -828,15 +850,19 @@ static void preamble(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
     int pcount = 0;
     int i = 0;
     Symbol *p;
+    if (emit_dot_file)
+        print("//");
+    else 
+        print("\n");
     if (is_native(f->type) && !bytecodes) {
         currentline = f->src.y;
         gvmt_error("%s is a native function, compile using native compiler\n", f->name);
         exit(1);
-    }
+    }\
     if (strncmp("gvmt_lcc_", f->x.name, 9) == 0)
-        print("\n%s", f->x.name+9);
+        print("%s", f->x.name+9);
     else
-    	print("\n%s", f->x.name);
+    	print("%s", f->x.name);
     if (f->sclass == STATIC) 
         print(" [private] ");
     print(": ");
@@ -880,56 +906,61 @@ static void preamble(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
 }
 
 static void gvmt_defconst(int suffix, int size, Value v) {
-    char buf[40];
-    switch(suffix) {
-    case P:
-       if (v.i)
-            gvmt_error("Cannot use integral value as pointer\n");
-        // Intentional fall through
-    case I: case U:
-        print("int%d %d\n", size*8, v.i);
-        break;
-    case F:
-        if (size == 8) {
-            sprintf(buf, "%.20e", (double)v.d);
-            print("float64 %s\n", buf);
-        } else {
-            sprintf(buf, "%.10e", (float)v.d);
-            print("float32 %s\n", buf);
+    if (!emit_dot_file) {
+        char buf[40];
+        switch(suffix) {
+        case P:
+           if (v.i)
+                gvmt_error("Cannot use integral value as pointer\n");
+            // Intentional fall through
+        case I: case U:
+            print("int%d %d\n", size*8, v.i);
+            break;
+        case F:
+            if (size == 8) {
+                sprintf(buf, "%.20e", (double)v.d);
+                print("float64 %s\n", buf);
+            } else {
+                sprintf(buf, "%.10e", (float)v.d);
+                print("float32 %s\n", buf);
+            }
+            break;
         }
-        break;
     }
 }
 
 void gvmt_defaddress(Symbol p) {
-    print("address %s\n", p->x.name);
+    if (!emit_dot_file)
+        print("address %s\n", p->x.name);
 }
 
 static void gvmt_defstring(int n, char *str) {
-    int i;
-    print("string \"");
-    for (i = 0; i < n; i++) {
-        char c = str[i];
-        if (c == '\n')
-            print("\\n");
-        else if (c == '\t')
-            print("\\t");
-        else if (c == '\"')
-            print("\\\"");
-        else if (c == '\'')
-            print("\\\'");
-        else if (c == '\\')
-            print("\\\\");
-        else if (((unsigned char)c) > 126)
-            print("\\%o", (unsigned char)c);
-        else if (((unsigned char)c) < 8)
-            print("\\00%o", (unsigned char)c);
-        else if (((unsigned char)c) < 32)
-            print("\\0%o", (unsigned char)c);
-        else
-            putc(c, stdout);
+    if (!emit_dot_file) {
+        int i;
+        print("string \"");
+        for (i = 0; i < n; i++) {
+            char c = str[i];
+            if (c == '\n')
+                print("\\n");
+            else if (c == '\t')
+                print("\\t");
+            else if (c == '\"')
+                print("\\\"");
+            else if (c == '\'')
+                print("\\\'");
+            else if (c == '\\')
+                print("\\\\");
+            else if (((unsigned char)c) > 126)
+                print("\\%o", (unsigned char)c);
+            else if (((unsigned char)c) < 8)
+                print("\\00%o", (unsigned char)c);
+            else if (((unsigned char)c) < 32)
+                print("\\0%o", (unsigned char)c);
+            else
+                putc(c, stdout);
+        }
+        print("\"\n", stdout);
     }
-    print("\"\n", stdout);
 }
 
 static void gvmt_export(Symbol p) {
@@ -1012,57 +1043,61 @@ static int segment = 0;
 static int in_object = 0;
 
 void gvmt_global(Symbol p) {
-    Type t = p->type;
-    type_info(t);
-    if (strcmp(p->x.name, "gvmt_lcc_ip_fetch") == 0)
-        return;
-    print ("\n");
-    int new_segment;
-    char* segment_title;
-    if (isstruct(t) && !opaque_struct(t)) {
-        new_segment = LIT;  
-        segment_title = ".heap\n"; //  ...
-    } else if (is_ref(t) || isarray(t) && is_ref(t->type)) {
-        new_segment = ROOTS;
-        segment_title = ".roots\n";
-    } else {
-        new_segment = DATA;
-        segment_title = ".opaque\n";
-    }
-    if (new_segment != segment) {
-        if (in_object) {
-            in_object = 0;
-            print(".end\n");
+    if (!emit_dot_file) {
+        Type t = p->type;
+        type_info(t);
+        if (strcmp(p->x.name, "gvmt_lcc_ip_fetch") == 0)
+            return;
+        print ("\n");
+        int new_segment;
+        char* segment_title;
+        if (isstruct(t) && !opaque_struct(t)) {
+            new_segment = LIT;  
+            segment_title = ".heap\n"; //  ...
+        } else if (is_ref(t) || isarray(t) && is_ref(t->type)) {
+            new_segment = ROOTS;
+            segment_title = ".roots\n";
+        } else {
+            new_segment = DATA;
+            segment_title = ".opaque\n";
         }
-        segment == new_segment;
-        print(segment_title);
-    }
-    if (p->x.export)
-        print (".public %s\n", p->x.name);
-    if (isstruct(t) && !opaque_struct(t)) {
-        print (".object %s\n", p->x.name);   
-        in_object = 1;
-    } else {
-        print (".label %s\n", p->x.name);
+        if (new_segment != segment) {
+            if (in_object) {
+                in_object = 0;
+                print(".end\n");
+            }
+            segment == new_segment;
+            print(segment_title);
+        }
+        if (p->x.export)
+            print (".public %s\n", p->x.name);
+        if (isstruct(t) && !opaque_struct(t)) {
+            print (".object %s\n", p->x.name);   
+            in_object = 1;
+        } else {
+            print (".label %s\n", p->x.name);
+        }
     }
 }
-	
+
 static void gvmt_segment(int n) {
-    switch (n) {
-    case CODE:
-        if (in_object) {
-            in_object = 0;
-            print(".end\n");
+    if (!emit_dot_file) {
+        switch (n) {
+        case CODE:
+            if (in_object) {
+                in_object = 0;
+                print(".end\n");
+            }
+            segment = CODE;
+            if (bytecodes)
+                print(".bytecodes\n");            
+            else
+                print(".code\n");  
+            break;
+        case LIT: case DATA: case BSS: 
+            segment = 0;
+            break;
         }
-        segment = CODE;
-        if (bytecodes)
-            print(".bytecodes\n");            
-        else
-            print(".code\n");  
-        break;
-    case LIT: case DATA: case BSS: 
-        segment = 0;
-        break;
     }
 }
          
@@ -1112,6 +1147,8 @@ void gvmt_stabinit(char *file, int argc, char *argv[]) {
 
 /* stabline - emit stab entry for source coordinate *cp */
 void gvmt_stabline(Coordinate *cp) {
+    if (emit_dot_file)
+        print("//");
     if (cp->file && cp->file != currentfile) {
             print("FILE(\"%s\") ", cp->file);
             currentfile = cp->file;
@@ -1132,6 +1169,9 @@ static void gvmt_progbeg(int argc, char *argv[]) {
             bytecodes = 1;
         } else if (strcmp(argv[i], "-xgcsafe") == 0) {
             insert_gc_safe_point = 1;
+        } else if (strcmp(argv[i], "-xdot") == 0) {
+            emit_dot_file = 1;
+            print("digraph g {\n");
         }
     }
 }
@@ -1143,12 +1183,16 @@ static void gvmt_blockend(Env* env) {
 }
 
 static void gvmt_progend(void) {
-    if (bytecodes && local_struct) {
-        print(".bytecodes\n");
-        print_locals(local_struct);
+    if (emit_dot_file) {
+        print("}\n");
+    } else {
+        if (bytecodes && local_struct) {
+            print(".bytecodes\n");
+            print_locals(local_struct);
+        }
+        print("\n");
+        print_type_info();
     }
-    print("\n");
-    print_type_info();
 }
 
 static int string_eq(char* c1, char* c2) {
@@ -1213,7 +1257,7 @@ int get_type(Type t) {
     if (isptr(t)) {
         t = unqual(deref(t));
         if (t->op == VOID) {
-            result = OPAQUE_TYPE;
+            result = make_pointer(OPAQUE_TYPE);
         } else {
             int x = get_type(t);
             assert(valid_type(x));
@@ -1390,9 +1434,14 @@ static void top_down_node(Node p) {
     case DIV: case MUL: case MOD:
         top_down2(p, p->x.exact_type, binary_op);
         break;
- 	case EQ: case NE: case GT: case GE: case LE: case LT:
-		assert(p->kids[0]);
-		assert(p->kids[1]);
+ 	case EQ: case NE:
+		//Special case for comparison to 0/NULL.
+		if (is_null(p->kids[0]))
+		     p->kids[0]->x.type_set = NULL_SET;   
+		if (is_null(p->kids[1]))
+		     p->kids[1]->x.type_set = NULL_SET;
+    case GT: case GE: case LE: case LT:
+		p->x.exact_type = OPAQUE_TYPE;
         top_down2(p, p->x.exact_type, comp_func);
         break;
     case JUMP: 
@@ -1540,11 +1589,12 @@ static void bottom_up_node(Node p) {
 	case CNST: 
         switch(optype(p->op)) {
         case I: case U:
-            if (p->syms[0]->u.c.v.i == 0) {
-                p->x.type_set = MEMBERS_SET;
-            } else {
-                p->x.type_set = INTEGER_SET;
-            }
+//            if (p->syms[0]->u.c.v.i == 0) {
+//                p->x.type_set = MEMBERS_SET;
+//            } else {
+//                p->x.type_set = INTEGER_SET;
+//            }
+            p->x.type_set = INTEGER_SET;
             break;
         case P:
             p->x.type_set = typeset_from_symbol(p->syms[0], &p->x.error);
@@ -1553,7 +1603,13 @@ static void bottom_up_node(Node p) {
             p->x.type_set = OPAQUE_SET;
         }
         break;
-    case ADDRG: case ADDRF: case ADDRL:
+    case ADDRG: 
+        if (strcmp(p->syms[0]->name, "NULL") == 0) {
+            p->x.type_set.bits = 1 << REFERENCE_TYPE | 1 << POINTER(OPAQUE_TYPE);
+            break;
+        }
+        // Intentional fall through
+    case ADDRF: case ADDRL:
 		assert(!p->kids[0]);
 		assert(!p->kids[1]);
         if (p->x.ptype) 
@@ -1980,10 +2036,17 @@ static void emit_subtree(Node p) {
         return;
     case CNST: 
         switch(optype(p->op)) {
-        case I:
+        case U: case I:
             print("%d ", p->syms[0]->u.c.v.i);
+            if (opsize(p->op) > sizeof(void*)) {
+                gvmt_warning("Large (double word) integer may be truncated\n");
+                if (optype(p->op) == I) 
+                    print("SIGN ");
+                else
+                    print("ZERO ");
+            }
             return;
-        case U: case P:
+        case P:
             print("%u ", p->syms[0]->u.c.v.i);
             return;
         default:
@@ -2184,6 +2247,31 @@ static void emit_subtree(Node p) {
         assert(0);
     }
 }        
+
+static void emit_link(int from, int to) {
+    print ("node_%d -> node_%d\n", from, to);   
+}
+
+static int emit_dot_node(Node p) {
+    static int next_node = 1;
+    int node = next_node++;
+    print("\"node_%d\" [\n", node);
+    print("shape = \"record\"\n");
+    print("label = \"%s |", opname(p->op));
+    print(" %s | ", type_name(p->x.exact_type));
+    print_type_set(p->x.type_set);
+    print("\"\n]\n");
+    return node;
+}
+
+static int emit_dot_tree(Node p) {
+    int label = emit_dot_node(p);
+    if (p->kids[0])
+         emit_link(label, emit_dot_tree(p->kids[0]));
+    if (p->kids[1])
+         emit_link(label, emit_dot_tree(p->kids[1]));
+    return label;
+}
         
 static void emit_tree(Node p) {
     int gen = generic(p->op);  
@@ -2259,7 +2347,10 @@ void gvmt_emit(Node forest) {
     Node p;
     assert(forest);
     for (p = forest; p; p = p->link) {
-        emit_tree(p);
+        if (emit_dot_file) 
+            emit_dot_tree(p);  
+        else
+            emit_tree(p);
     }
 }
 
@@ -2336,7 +2427,7 @@ Interface gvmtIR = {
         { 2, 2, 0 },  /*  short_metrics */
         { 4, 4, 0 },  /*  int_metrics */
         { 4, 4, 0 },  /*  long_metrics */
-        { 8, 8, 1 },  /*  long_long_metrics */
+        { 8, 8, 0 },  /*  long_long_metrics */
         { 4, 4, 1 },  /*  float_metrics */
         { 8, 8, 1 },  /*  double_metrics */
         { 8, 8, 1 },  /*  long_double_metrics */
