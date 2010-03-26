@@ -156,10 +156,6 @@ class Expr(object):
     def cast(self, tipe):
         if self.tipe == tipe:
             return self
-        elif self.tipe == gtypes.i4 and tipe == gtypes.u4:
-            return self
-        elif self.tipe == gtypes.u4 and tipe == gtypes.i4:
-            return self
         else:
             return Cast(tipe, self)
     
@@ -861,7 +857,7 @@ class CMode(object):
         return Simple(gtypes.i8, '((int64_t)%s)' % val.cast(gtypes.i4))
         
     def zero(self, val):
-        return Simple(gtypes.u8, '((int64_t)%s)' % val.cast(gtypes.u4))
+        return Simple(gtypes.u8, '((uint64_t)%s)' % val.cast(gtypes.u4))
         
     def name(self, index, name):
         if index in self.names and name != self.names[index]:
