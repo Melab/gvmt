@@ -132,6 +132,7 @@ void* gvmt_alloca(size_t s);
  * They have the same value as NULL, but different types */
 extern GVMT_Object NULL_R;
 extern void* NULL_P;
+#define ZERO ((int)NULL_P)
 
 /** Returns an opaque pointer the most recently excuted interpreter frame */
 void* gvmt_current_frame(void);

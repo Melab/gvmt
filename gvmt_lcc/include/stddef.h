@@ -8,7 +8,7 @@ typedef long ptrdiff_t;
 typedef unsigned short wchar_t;
 
 #undef NULL
-#define NULL 0
+#define NULL ((void*)0)
 
 #undef offsetof
 #define offsetof(t,f)  (((char*)&(((t*)((void*)0))->f))-((char*)((void*)0)))

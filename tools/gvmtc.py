@@ -17,9 +17,9 @@ options = {
     'v' : 'Echo sub-processes invoked',
     'a' : 'Warn about non-ANSI C.',
     'D symbol' : 'Define symbol in preprocessor',
-    's' : 'Output SVG image of IR (For debugging compiler)',
     'z' : 'Do not put gc-safe-points on backward edges', 
-    'L' : 'Directory to find lcc executables'
+    'L' : 'Directory to find lcc executables',
+    'x' : 'Output dot file of IR (For debugging compiler)'
 } 
 
 class Fgen(object):
@@ -31,6 +31,8 @@ class Fgen(object):
         target = 'gvmt'
         verbose = False
         gc_safe = True
+        ext = '.gsc'
+        self.dot = False
         self.lcc_dir = None
         for opt, value in opts:
             if opt == '-h':
@@ -43,8 +45,10 @@ class Fgen(object):
             elif opt == '-v':
                 flags.append('-v')
                 verbose = True
-            elif opt == '-s':
-                target = 'svg'
+            elif opt == '-x':
+                flags.append('-Wf-xdot')
+                ext = '.dot'
+                self.dot = True
             elif opt == '-a':
                 flags.append('-A')
             elif opt == '-D':
@@ -60,7 +64,7 @@ class Fgen(object):
             self.outfile = outfile
         else:
             dot = args[0].rfind('.')
-            self.outfile = args[0][:dot] + '.gsc'
+            self.outfile = args[0][:dot] + ext
         self.target = target
         self.verbose = verbose
         self.tempdir = os.path.join(sys_compiler.TEMPDIR, 'gvmtc')
@@ -80,17 +84,20 @@ class Fgen(object):
             in_.close()
             out.close()
             lcc_out = os.path.join(self.tempdir, 'functions.s')
-            driver.run_lcc(self.target, lcc_in, self.flags, lcc_out, self.lcc_dir)
-            gsc_file = gsc.read(common.In(lcc_out))
+            if self.dot:
+                driver.run_lcc(self.target, lcc_in, self.flags, self.outfile, self.lcc_dir)
+            else:
+                driver.run_lcc(self.target, lcc_in, self.flags, lcc_out, self.lcc_dir)
+                gsc_file = gsc.read(common.In(lcc_out))
 #            os.rmdir(self.tempdir) 
-            gsc_file.code.lcc_post()
-            gsc_file.write(common.Out(self.outfile))
+                gsc_file.code.lcc_post()
+                gsc_file.write(common.Out(self.outfile))
             
     def close(self):
         pass
    
 if __name__ == '__main__':
-    opts, args = getopt.getopt(sys.argv[1:], 'hI:o:vnzsaD:L:')
+    opts, args = getopt.getopt(sys.argv[1:], 'hI:o:vnzxaD:L:')
     if not args:
         common.print_usage(options)
         sys.exit(1)
