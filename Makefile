@@ -136,14 +136,14 @@ lcc: lcc.tar.gz gvmt_lcc/gvmt.c gvmt_lcc/svg.c gvmt_lcc/config.h \
 	cd lcc_extract; tar -zxf ../lcc.tar.gz
 	cp -ru lcc_extract lcc
 	rm -rf lcc_extract
-	cp -u gvmt_lcc/gvmt.c lcc/src
-	cp -u gvmt_lcc/svg.c lcc/src
-	cp -u gvmt_lcc/config.h lcc/src
-	cp -u gvmt_lcc/bind.c lcc/src
-	cp -u gvmt_lcc/error.c lcc/src
-	cp -u gvmt_lcc/decl.c lcc/src
-	cp -u gvmt_lcc/error.c lcc/src
-	cp -u gvmt_lcc/makefile lcc
+	cp gvmt_lcc/gvmt.c lcc/src
+	cp gvmt_lcc/svg.c lcc/src
+	cp gvmt_lcc/config.h lcc/src
+	cp gvmt_lcc/bind.c lcc/src
+	cp gvmt_lcc/error.c lcc/src
+	cp gvmt_lcc/decl.c lcc/src
+	cp gvmt_lcc/error.c lcc/src
+	cp gvmt_lcc/makefile lcc
 
 prepare_lcc: prepare lcc 
 	mkdir -p lcc/build 
