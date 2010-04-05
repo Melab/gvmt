@@ -15,7 +15,7 @@ In order for the tooolkit to provide precise garbage collection, the layout of a
 \begin{description}
 \item [int GVMT\_MAX\_SHAPE\_SIZE] The maximum number of entries required to represent any shape (including terminating zero).
 \item [long* gvmt\_shape(GVMT\_Object object, int* buf)] This function returns a vector of integers, representing the shape of the object, as defined in section \ref{sect:shape}. The int array buf can be used to store the shape if required. The buffer, \verb|buf| is guaranteed to include at least GVMT\_MAX\_SHAPE\_SIZE entries.
-\item [long gvmt_length(GVMT_Object obj)] This function returns the length of the object in bytes.
+\item [long gvmt_length(GVMT\_Object obj)] This function returns the length of the object in bytes.
 \item [void user\_finalize\_object(GVMT\_Object o)] This function may be called by the garbage collector for any object that is declared as requiring finalization and is unreachable. Exceptions raised in this function, or any callee, terminate finalisation, but do not propogate. The function is called by the finalizer thread and will be called asynchronously. This function may be called on any or all object declared as finalizable, in any order. 
 \end{description}
 

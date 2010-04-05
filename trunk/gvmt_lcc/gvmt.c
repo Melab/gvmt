@@ -167,7 +167,7 @@ static int ALL_POINTERS = (1 << OPAQUE_TYPE) | (1 << MEMBER) | 0xeeeeeee0;
 static small_set pointer_set(small_set s) {
    small_set result;
    result.bits = s.bits << 4;
-   if (s.bits & ALL_OPAQUES)
+   if (s.bits <= (1 << POINTER(OPAQUE_TYPE)))
        result.bits |= (1 << OPAQUE_TYPE);
     return result;
 }

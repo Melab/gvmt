@@ -19,7 +19,7 @@ manual: manual.pdf
     
 manual.dvi : ${TEX_FILES} unlabelled.eps c_types.eps gsc_types.eps final.eps Stack.eps build.eps
 	export PYTHONPATH="../tools"; python make_options.py
-	latex -halt-on-error $<; latex $<
+	latex -halt-on-error $<; latex -halt-on-error $<
     
 instructions.tex : ../tools/builtin.py tex_instruction.py
 	export PYTHONPATH=../tools; python tex_instruction.py > $@
