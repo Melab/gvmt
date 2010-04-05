@@ -1100,6 +1100,13 @@ static void gvmt_segment(int n) {
         }
     }
 }
+
+static small_set typeset_from_type(Type t) {
+    small_set result;
+    int i = get_type(t);
+    result.bits = 1 << i;
+    return result;
+}
          
 static small_set typeset_from_symbol(Symbol s, char** msg) {
     small_set result;
@@ -1120,8 +1127,8 @@ static small_set typeset_from_symbol(Symbol s, char** msg) {
         }
         assert(valid_type(s->x.type) || s->x.type == ERROR);
         result.bits = 1 << s->x.type;
-        if (is_opaque(s->x.type) && s->x.type > REFERENCE_TYPE)
-            result.bits |= 1 << OPAQUE_TYPE;
+//        if (is_opaque(s->x.type) && s->x.type > REFERENCE_TYPE)
+//            result.bits |= 1 << OPAQUE_TYPE;
         return result;
     }
 }
@@ -1315,7 +1322,7 @@ void legal_return(Node p) {
 static small_set check_assign(int t1, int t2, Type t) {
     small_set s;
     if (t1 == MEMBER) {
-        if (is_opaque(t2) || t2 == REFERENCE_TYPE) {
+        if (is_opaque(t2) || t2 == REFERENCE_TYPE || t2 >= POINTER(OPAQUE_TYPE)) {
             s.bits = 1 << t2;
             return s;
         } else {
@@ -1613,7 +1620,7 @@ static void bottom_up_node(Node p) {
 		assert(!p->kids[0]);
 		assert(!p->kids[1]);
         if (p->x.ptype) 
-            p->x.type_set.bits = 1 << get_type(p->x.ptype);
+            p->x.type_set = typeset_from_type(p->x.ptype);
         else
             p->x.type_set = pointer_set(typeset_from_symbol(p->syms[0], &p->x.error));
         break;
@@ -1640,7 +1647,7 @@ static void bottom_up_node(Node p) {
 		assert(p->kids[0]);
 		assert(!p->kids[1]);
         if (freturn(p->syms[0]->type) != voidtype)
-            p->x.type_set.bits = 1 << get_type(freturn(p->syms[0]->type));
+            p->x.type_set = typeset_from_type(freturn(p->syms[0]->type));
 		break;
     case SUB:
         p->x.type_set = bottom_up2(p, sub_func);
