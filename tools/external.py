@@ -261,4 +261,10 @@ class ExternalMode(object):
     
     def unlock(self, lock):
         pass
+       
+    def lock_internal(self, obj, offset):
+        pass
+    
+    def unlock_internal(self, obj, offset):
+        pass
 

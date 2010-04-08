@@ -2227,6 +2227,14 @@ static void emit_subtree(Node p) {
                 intrinsic("UNLOCK "); 
                 return;
             }
+            if (strcmp(name, "lock_internal") == 0) {
+                intrinsic("LOCK_INTERNAL "); 
+                return;
+            }
+            if (strcmp(name, "unlock_internal") == 0) {
+                intrinsic("UNLOCK_INTERNAL "); 
+                return;
+            }
         }
         if (is_native(p->syms[0]->type)) {
             narg_count = n_args - N_ARGS;

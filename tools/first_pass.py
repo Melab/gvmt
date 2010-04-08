@@ -240,6 +240,12 @@ class FirstPassMode(object):
     
     def unlock(self, lock):
         pass
+       
+    def lock_internal(self, obj, offset):
+        pass
+    
+    def unlock_internal(self, obj, offset):
+        pass
     
     def close(self):
        self.out << ' IP += %d;\n' % self.stream_offset

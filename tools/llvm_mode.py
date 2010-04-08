@@ -1026,5 +1026,13 @@ class LlvmPassMode(object):
     
     def unlock(self, lock):
         self.out << ' unlock(%s, current_block);' % lock.cast(gtypes.p)
+       
+    def lock_internal(self, obj, offset):
+        self.out << ' lock_internal(%s, %s, current_block);' % (
+            obj.cast(gtypes.r), offset. cast(gtypes.i4))
+    
+    def unlock_internal(self, obj, offset):
+        self.out << ' unlock_internal(%s, %s, current_block);' % (
+            obj.cast(gtypes.r), offset. cast(gtypes.i4))
 
 

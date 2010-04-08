@@ -1100,6 +1100,30 @@ class CMode(object):
         self.out << 'GVMT_LOCKING_UNLOCKED)) '
         self.out << ' gvmt_fast_unlock(lock_%d);' % _uid
             
+    def lock_internal(self, obj, offset):
+        #Inline uncontended case
+        global _uid
+        _uid += 1
+        if common.global_debug:
+            self._check_ref_access(obj, offset, gtypes.iptr)
+        self.out << ' intptr_t* lock_%d = (intptr_t*)(((char*)%s)+%s); ' % (_uid, obj, offset)
+        self.out << ' if(!COMPARE_AND_SWAP(lock_%d, ' % _uid
+        self.out << 'GVMT_LOCKING_UNLOCKED, '
+        self.out << 'gvmt_thread_id | GVMT_LOCKING_LOCKED))'
+        self.out << ' gvmt_fast_lock(lock_%d);' % _uid
+        
+    def unlock_internal(self, obj, offset):
+        #Inline uncontended case:
+        global _uid
+        _uid += 1
+        if common.global_debug:
+            self._check_ref_access(obj, offset, gtypes.iptr)
+        self.out << ' intptr_t* lock_%d = (intptr_t*)(((char*)%s)+%s); ' % (_uid, obj, offset)
+        self.out << ' if(!COMPARE_AND_SWAP(lock_%d, ' % _uid
+        self.out << 'gvmt_thread_id | GVMT_LOCKING_LOCKED, '
+        self.out << 'GVMT_LOCKING_UNLOCKED)) '
+        self.out << ' gvmt_fast_unlock(lock_%d);' % _uid
+            
 class IMode(CMode):
 
     def __init__(self, temp, externals, gc_name, name):

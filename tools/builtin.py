@@ -1105,6 +1105,32 @@ class Unlock(Instruction):
     def process(self, mode):
         mode.unlock(mode.stack_pop())
         
+class Lock_Internal(Instruction):
+    
+    def __init__(self):
+        self.name = 'LOCK_INTERNAL'
+        self.inputs = [  'offset', 'object' ]
+        self.outputs = []
+        self.__doc__ = 'Locks the internal fast-lock in object popped from TOS'
+        
+    def process(self, mode):
+        obj = mode.stack_pop()
+        offset = mode.stack_pop()
+        mode.lock_internal(obj, offset)
+        
+class Unlock_Internal(Instruction):
+    
+    def __init__(self):
+        self.name = 'UNLOCK_INTERNAL'
+        self.inputs = [  'offset', 'object' ]
+        self.outputs = []
+        self.__doc__ = 'Unlocks the internal fast-lock in object popped from TOS'
+        
+    def process(self, mode):
+        obj = mode.stack_pop()
+        offset = mode.stack_pop()
+        mode.unlock_internal(obj, offset)
+        
 instructions = {}
         
 def _br_t(x):
@@ -1135,8 +1161,8 @@ def _init():
     float_types = [ gtypes.f4, gtypes.f8 ]
     
     for cls in [ Jump, Sign, GC_Malloc, GC_Malloc_Call, Protect, Raise, Drop, 
-               GC_Safe, GC_Safe_Call, Flush, Stack, Insert,
-               Protect_Push, Protect_Pop, Opcode, 
+               GC_Safe, GC_Safe_Call, Flush, Stack, Insert, Unlock_Internal,
+               Protect_Push, Protect_Pop, Opcode, Lock_Internal, 
                Unprotect, IP, Pick, Zero, DropN, Symbol, FarJump, ZeroMemory, 
                GC_FreePointerStore, GC_FreePointerLoad, Frame, GC_Malloc_Fast,
                GC_LimitPointerStore, GC_LimitPointerLoad, Next_IP, 
