@@ -457,6 +457,10 @@ class LlvmPassMode(object):
         i_to_ptr = 'ConstantExpr::getIntToPtr(%s, BaseCompiler::TYPE_P)'
         return Simple(gtypes.p, i_to_ptr % i)
         
+    def opcode(self):
+        i = 'ConstantInt::get(APInt(%d, GVMT_CURRENT_OPCODE))' % (gtypes.p.size*8)
+        return Simple(gtypes.p, i)
+        
     def next_ip(self):
         i = 'ConstantInt::get(APInt(%d, (intptr_t)(IP+%d)))' % (gtypes.p.size*8,
                                                                 self.i_length)

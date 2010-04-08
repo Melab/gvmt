@@ -116,6 +116,9 @@ class DeltaMode(object):
         
     def ip(self):
         pass
+   
+    def opcode(self):
+        pass
         
     def next_ip(self):
         pass

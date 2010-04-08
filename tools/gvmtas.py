@@ -74,6 +74,23 @@ def write_header(bytecodes, header):
 
 #    header << '#define  TOTAL_OPCODES %d\n' % count
 
+def emit_operand_table(bytecodes, out):
+    table = [ None ] * 256;
+    out << '#undef L\n#define L(x) &&_gvmt_label_%s_##x\n' % bytecodes.func_name
+    for i in bytecodes.instructions:
+        if 'private' in i.qualifiers or 'componly'  in i.qualifiers:
+            continue
+        table[i.opcode] = 'L(%s), ' % i.name
+    out << 'static void* gvmt_operand_table[] = { '
+    for i in range(256):
+        if (i & 7) == 0:
+            out << '\n    '
+        if table[i] is None:
+            out << 'L(0), '
+        else:
+            out << table[i]
+    out << '\n};\n#undef L\n'
+
 def write_interpreter(bytecodes, out, tracing, gc_name):
     write_header(bytecodes, out);
     out << '''
@@ -147,37 +164,36 @@ uint32_t execution_count[256];
         mode.declarations(preamble)
         preamble << temp
         preamble << '  }\n'
-    switch << '  do {\n'
-    if tracing and trace_inst:
-        switch << 'if (gvmt_tracing_state) {\n'
-        temp = Buffer()
-        mode = IMode(temp, externals, gc_name, bytecodes.func_name)
-        trace_inst.top_level(mode)
-        if max_refs < mode.ref_temps_max:
-            max_refs = mode.ref_temps_max
-        try:
-            mode.close()
-        except UnlocatedException, ex:
-            raise UnlocatedException("%s in compound instruction '%s'" % (ex.msg, i.name))
-        temp.close()
-        mode.declarations(switch);
-        switch << temp
-        switch << ' } \n'
-    switch << '  switch(*_gvmt_ip) {\n'
+    if common.token_threading:
+        switch << '  goto *gvmt_operand_table[*_gvmt_ip];\n'
+    else:
+        switch << '  do {\n'
+        switch << '  switch(*_gvmt_ip) {\n'
     for i in bytecodes.instructions:
         if 'private' in i.qualifiers or 'componly'  in i.qualifiers:
             continue
-        switch << '  case _gvmt_opcode_%s_%s: ' % (bytecodes.func_name, i.name)
+        if common.token_threading:
+            switch << '  _gvmt_label_%s_%s: ((void)0); ' % (bytecodes.func_name, i.name)
+        else:
+            switch << '  case _gvmt_opcode_%s_%s: ' % (bytecodes.func_name, i.name)
         switch << ' /* Delta %s */ ' % i.flow_graph.deltas[1]
-#        if tracing:  
-#            switch << 'if (gvmt_tracing_on) {'
-#            switch << ' gvmt_sp-=2;'
-#            switch << ' gvmt_sp[1].p = FRAME_POINTER;'
-#            switch << ' gvmt_sp[0].p = _gvmt_ip;'            
-#            switch << ' gvmt_sp = %s_trace(' % bytecodes.func_name
-#            switch << 'gvmt_sp, (GVMT_Frame)FRAME_POINTER);'
-#            switch << ' gvmt_sp+=1; }\n'
         switch << '{\n'
+        switch << '#define GVMT_CURRENT_OPCODE _gvmt_opcode_%s_%s\n' % (bytecodes.func_name, i.name)
+        if tracing and trace_inst:
+            switch << 'if (gvmt_tracing_state) {\n'
+            temp = Buffer()
+            mode = IMode(temp, externals, gc_name, bytecodes.func_name)
+            trace_inst.top_level(mode)
+            if max_refs < mode.ref_temps_max:
+                max_refs = mode.ref_temps_max
+            try:
+                mode.close()
+            except UnlocatedException, ex:
+                raise UnlocatedException("%s in compound instruction '%s'" % (ex.msg, i.name))
+            temp.close()
+            mode.declarations(switch);
+            switch << temp
+            switch << ' } \n'
         temp = Buffer()
         mode = IMode(temp, externals, gc_name, bytecodes.func_name)
         mode.stream_fetch() # Opcode
@@ -193,7 +209,11 @@ uint32_t execution_count[256];
         switch << temp
         if post_check:
             switch << 'if (_gvmt_ip >= gvmt_ip_end) goto gvmt_postamble;\n' 
-        switch << ' } break;\n'
+        if common.token_threading:
+            switch << ' } goto *gvmt_operand_table[*_gvmt_ip];\n'
+        else:
+            switch << ' } break;\n'
+        switch << '#undef GVMT_CURRENT_OPCODE\n'
     switch.close()
     out << '   struct gvmt_interpreter_frame { struct gvmt_frame gvmt_frame;\n'
     out << '   GVMT_Object refs[%d];\n' % max_refs
@@ -223,6 +243,8 @@ uint32_t execution_count[256];
 //    gvmt_ip_start = _gvmt_ip;
     GVMT_StackItem return_value;
 ''' 
+    if common.token_threading:
+        emit_operand_table(bytecodes, out)
     if post_check:
         out << '   uint8_t* gvmt_ip_end = (uint8_t*)gvmt_sp[1].p;\n'
     out << '   struct gvmt_interpreter_frame gvmt_frame;\n'
@@ -235,8 +257,11 @@ uint32_t execution_count[256];
         if t == 'object':
             out << '   gvmt_frame.%s = 0;\n' % n
     default = Buffer()
-    default << '''  default:
-   {
+    if common.token_threading:
+        default << '  _gvmt_label_%s_0: ' % bytecodes.func_name
+    else:
+        default << '  default:\n'
+    default << '''   {
     char buf[100], *p;
     p = buf + sprintf(buf, "Illegal opcode %d\\n", *_gvmt_ip);
     for (int i = -8; i < 0; i++)
@@ -252,8 +277,9 @@ uint32_t execution_count[256];
     out << switch
     out << default
     out.no_line()
-    out << '   }\n'
-    out << '  } while (1);\n'
+    if not common.token_threading:
+        out << '   }\n'
+        out << '  } while (1);\n'
     out << postamble
     out.no_line()
     out << '} /* End */\n'
@@ -270,6 +296,8 @@ uint32_t execution_count[256];
         _gvmt_ip = gvmt_ip_start;
         GVMT_StackItem return_value;
     '''
+        if common.token_threading:
+            emit_operand_table(bytecodes, out)
         if post_check:
             nos = 'gvmt_sp[1].p'
             out << '   uint8_t* gvmt_ip_end = (uint8_t*)%s\n;' % nos
@@ -278,8 +306,9 @@ uint32_t execution_count[256];
             out << '   gvmt_sp += 1;\n'
         out << switch
         out << default
-        out << '   }\n'
-        out << '  } while (1);\n'
+        if not common.token_threading:
+            out << '   }\n'
+            out << '  } while (1);\n'
         out << postamble
         out << '} /* End */\n'
     if bytecodes.master:
@@ -350,7 +379,11 @@ def write_type(tipe, out):
         write_type(tipe[2:-1], out)
         out << '*'
     elif tipe[0] == 'R':
-        out << 'GVMT_OBJECT_%s*' % tipe[2:-1]
+        name = tipe[2:-1]
+        if name == 'GVMT_Object':
+            out << name
+        else:
+            out << 'GVMT_OBJECT_%s*' % name
     elif tipe[0] == 'S':
         out << 'struct _%s' % tipe[2:-1]
     elif tipe == '?':
@@ -575,10 +608,11 @@ options = {
     'g' : 'Debug',
     'l' : 'Output GSO suitable for library code, no bytecode, root or heap sections allowed',
     'm memory_manager' : 'Memory manager (garbage collector) used',
+    'T' : 'Use token-threading dispatch',
 }       
 
 if __name__ == '__main__':    
-    opts, args = getopt.getopt(sys.argv[1:], 'ho:tlgO:H:m:')
+    opts, args = getopt.getopt(sys.argv[1:], 'ho:tlgO:H:m:T')
     if not args:
         common.print_usage(options)
         sys.exit(1)
@@ -596,6 +630,8 @@ if __name__ == '__main__':
                 tracing = True
             elif opt == '-l':
                 library = True
+            elif opt == '-T':
+                common.token_threading = True
             elif opt == '-g':
                 common.global_debug = True
             elif opt == '-m':

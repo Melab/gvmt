@@ -136,6 +136,9 @@ class LWC_CompilerMode(object):
     def ip(self):
         return Constant('IP');
         
+    def ip(self):
+        return Constant('GVMT_CURRENT_OPCODE');
+        
     def next_ip(self):
         return Constant('(IP+%s)' % self.i_length)
         

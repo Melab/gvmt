@@ -615,8 +615,8 @@ void* BaseCompiler::jit_compile(Function* func, char* name) {
 //    fprintf(stderr, "Verifying for %s\n", name);
 //    verifyFunction(*func, PrintMessageAction);
     if (execution_engine == 0) {
-        module_provider = new ExistingModuleProvider(module);
         // InitializeNativeTarget()
+        module_provider = new ExistingModuleProvider(module);
         execution_engine = ExecutionEngine::createJIT(module_provider, 0, 0, true);
 //                                                      CodeGenOpt::Aggressive);
         execution_engine->DisableLazyCompilation(true);

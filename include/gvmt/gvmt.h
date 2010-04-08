@@ -66,6 +66,9 @@ void *gvmt_alloca(size_t s);
 /** Intrinsic for IP */
 uint8_t* gvmt_ip(void);
 
+/** Intrinsic for OPCODE */
+int gvmt_opcode(void);
+
 /** Intrinsic for NEXT_IP */
 uint8_t* gvmt_next_ip(void);
 
@@ -90,7 +93,13 @@ void gvmt_ireturn_p(void* o, ...);
 void gvmt_ireturn_i(intptr_t i, ...);
 
 /**Intrinsic for #@ (Instruction stream fetch) */
-uint8_t gvmt_fetch(void);
+uintptr_t gvmt_fetch(void);
+
+/**Intrinsic for #2@ (Instruction stream two-byte fetch) */
+uintptr_t gvmt_fetch2(void);
+
+/**Intrinsic for #4@ (Instruction stream four-byte fetch) */
+uintptr_t gvmt_fetch4(void);
 
 /** Intrinsic for FAR_JUMP, only valid in interpreter.
  * Continues interpretation from bytecode at address. */

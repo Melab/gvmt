@@ -387,4 +387,3 @@ void gvmt_fully_initialized_check(GVMT_Object object) {
     }
 }
 
-

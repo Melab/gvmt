@@ -6,6 +6,7 @@ import StringIO
 
 legal_qualifiers = ( 'protected', 'private', 'nocomp', 'componly')
 global_debug = False
+token_threading = False
 
 class GVMTException(Exception): 
     

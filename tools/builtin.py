@@ -638,6 +638,17 @@ class IP(Instruction):
     def process(self, mode):
         mode.stack_push(mode.ip())
         
+class Opcode(Instruction):
+    
+    def __init__(self):
+        self.name = 'OPCODE'
+        self.inputs = []
+        self.outputs = [ 'opcode' ]
+        self.__doc__ = 'Pushes the current opcode to TOS.'
+        
+    def process(self, mode):
+        mode.stack_push(mode.opcode())
+        
 class Next_IP(Instruction):
     
     def __init__(self):
@@ -651,16 +662,16 @@ class Next_IP(Instruction):
         mode.stack_push(mode.next_ip())
  
 class IP_Fetch(Instruction):
-    def __init__(self):
-        self.name = '#@'
+    def __init__(self, operands):
+        self.name = '#@' if operands == 1 else '#%d@' % operands
         self.inputs = []
-        self.outputs = [ 'byte' ]
-        self.operands = 1
-        self.__doc__ = ('Fetches the next byte from the instruction stream '
-                        'and pushes it onto the evaluation stack.')
+        self.outputs = [ 'operand' ]
+        self.operands = operands
+        self.__doc__ = ('Fetches the next %d byte(s) from the instruction stream '
+                        'and pushes it onto the evaluation stack.' % operands)
 
     def process(self, mode):
-        mode.stack_push(mode.stream_fetch())
+        mode.stack_push(mode.stream_fetch(self.operands))
          
 class Sign(Instruction):
     
@@ -1124,15 +1135,17 @@ def _init():
     float_types = [ gtypes.f4, gtypes.f8 ]
     
     for cls in [ Jump, Sign, GC_Malloc, GC_Malloc_Call, Protect, Raise, Drop, 
-               GC_Safe, GC_Safe_Call, Flush, Stack, IP_Fetch, Insert,
-               Protect_Push, Protect_Pop,
+               GC_Safe, GC_Safe_Call, Flush, Stack, Insert,
+               Protect_Push, Protect_Pop, Opcode, 
                Unprotect, IP, Pick, Zero, DropN, Symbol, FarJump, ZeroMemory, 
                GC_FreePointerStore, GC_FreePointerLoad, Frame, GC_Malloc_Fast,
                GC_LimitPointerStore, GC_LimitPointerLoad, Next_IP, 
                GC_Allocate_Only, FullyInitialized, Lock, Unlock ]:
         i = cls()
         instructions[i.name] = i
-        
+    for x in (1,2,4):
+        i = IP_Fetch(x)
+        instructions[i.name] = i
     for tipe in reg_types:
         for cls in [Call, V_Call, Return]:
             i = cls(tipe)
@@ -1237,7 +1250,7 @@ def parse(simples, name, idict = None):
                 ilist.append(PreFetch(s))
             elif (s[1] == '+' or s[1] == '-') and len(s) == 2:
                 ilist.append(ImmediateAdd(s))
-            elif (s[1] == '@') and len(s) == 2:
+            elif s[-1] == '@'and s in instructions:
                 ilist.append(instructions[s])
             else:
                 ilist.append(Immediate(s))

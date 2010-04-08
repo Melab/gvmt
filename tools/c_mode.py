@@ -647,6 +647,9 @@ class CMode(object):
     def ip(self):
         raise _exception('Cannot use IP outside of intepreter context')
 
+    def opcode(self):
+        raise _exception('Cannot use OPCODE outside of intepreter context')
+
     def next_ip(self):
         raise _exception('Cannot use NEXT_IP outside of intepreter context')
         
@@ -787,10 +790,20 @@ class CMode(object):
         return Constant(gtypes.iptr, val)
         
     def stream_fetch(self, size = 1):
-        s = self.get()
-        for i in range(1, size):
+        assert size in (1,2,4)
+        s = '0'
+        while size and self.stream_stack:
             value = self.get()
             s = Simple(gtypes.iptr, '((%s << 8) | %s)' % (s, value))
+            size -= 1
+        if size == 4:
+            ip = '(_gvmt_ip + %d)' % self.stream_offset
+            self.stream_offset += 4
+            return Simple(gtypes.iptr, '_gvmt_fetch_4(%s)' % ip)
+        while size:
+            value = self.get()
+            s = Simple(gtypes.iptr, '((%s << 8) | %s)' % (s, value))
+            size -= 1
         return s
         
     def _stream_item(self, index):
@@ -801,7 +814,6 @@ class CMode(object):
             return self.stream_stack.pop()
         else:
             s = self._stream_item(self.stream_offset)
-            '_gvmt_ip[%d]' % self.stream_offset
             self.stream_offset += 1
             return Simple(gtypes.iptr, s)
             
@@ -895,9 +907,15 @@ class CMode(object):
         self.out << ' goto target_%s_%d;' % (self.label, index)
         
     def jump(self, offset):
-        self.out << ' _gvmt_ip += (int16_t)(%s);' % offset 
-        self.stack.flush_to_memory(self.out)
-        self.out << ' break;'
+        raise _exception('Cannot use JUMP outside of intepreter context')
+
+#    def jump(self, offset):
+#        self.out << ' _gvmt_ip += (int16_t)(%s);' % offset 
+#        self.stack.flush_to_memory(self.out)
+#        if token_threading:
+#            self.out << ' goto *gvmt_operand_table[*_gvmt_ip];'
+#        else:
+#            self.out << ' break;'
         
     def line(self, number):
 #        self.stack.comment(self.out)
@@ -1105,6 +1123,9 @@ class IMode(CMode):
 
     def ip(self):
         return Simple(gtypes.p, '_gvmt_ip')
+        
+    def opcode(self):
+        return Simple(gtypes.ip, '(GVMT_CURRENT_OPCODE)')
 
     def next_ip(self):
         return Simple(gtypes.p, '(_gvmt_ip+%d)' % self.i_length)
@@ -1115,7 +1136,10 @@ class IMode(CMode):
     def far_jump(self, addr):
         self.out << ' _gvmt_ip = %s;' % addr
         self.stack.flush_to_memory(self.out)
-        self.out << ' break;'
+        if common.token_threading:
+            self.out << ' goto *gvmt_operand_table[*_gvmt_ip];'
+        else:
+            self.out << ' break;'
        
     def close(self):
         if self.stream_offset:
@@ -1129,7 +1153,10 @@ class IMode(CMode):
     def jump(self, offset):
         self.out << ' _gvmt_ip += (int16_t)(%s);' % offset 
         self.stack.flush_to_memory(self.out)
-        self.out << ' break;'
+        if common.token_threading:
+            self.out << ' goto *gvmt_operand_table[*_gvmt_ip];'
+        else:
+            self.out << ' break;'
         
     def alloca(self, tipe, size):
         global _uid

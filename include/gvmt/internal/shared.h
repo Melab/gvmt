@@ -8,7 +8,7 @@
 
 #define GVMT_OPCODE_LENGTH(int_name, name) _gvmt_opcode_length_##int_name##_##name
 
-#define GVMT_OBJECT(x) struct gvmt_##x##_t
+#define GVMT_OBJECT(x) struct gvmt_object_##x
 
 #ifdef __cplusplus
 extern "C" {
