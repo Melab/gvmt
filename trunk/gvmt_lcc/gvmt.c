@@ -36,16 +36,12 @@ static List type_info_list;
 static int opaque_struct(Type t) {
     char *name = t->u.sym->name;
     int l = strlen(name);
-    if (strncmp("gvmt", name, 4)) 
+    if (strcmp(name, "gvmt_reference_types") == 0)
+        return 0;
+    else if (strncmp("gvmt_object_", name, 12)) 
         return 1;
     else {
-        int l = strlen(name);
-        if (strcmp("_reference_types", name+4) == 0)
-            return 0;
-        else if (name[l-2] == '_' && name[l-1] == 't')
-            return 0;
-        else
-            return 1;
+        return 0;
     }
 }
 
@@ -65,7 +61,11 @@ static print_typename(Type t) {
     t = unqual(t);
     if (is_ref(t)) {
         char* tag_name = deref(t)->u.sym->name;
-        char* name = stringn(tag_name + 5, strlen(tag_name + 5)-2);
+        char* name;
+        if (strcmp(tag_name, "gvmt_reference_types"))
+            name = stringn(tag_name + 12, strlen(tag_name + 12));
+        else
+            name = "GVMT_Object";
         print("R(%s)", name);
     } else if (isstruct(t)) {
         assert(opaque_struct(t));
@@ -107,7 +107,7 @@ static void print_type(Type t) {
         if (opaque_struct(t)) {
             print(".type struct %s\n", tag_name);
         } else {
-            print(".type object %s\n",  stringn(tag_name + 5, strlen(tag_name + 5)-2));
+            print(".type object %s\n",  stringn(tag_name + 12, strlen(tag_name + 12)));
         }
         while (f) {
             print_member(f);
@@ -1046,8 +1046,6 @@ void gvmt_global(Symbol p) {
     if (!emit_dot_file) {
         Type t = p->type;
         type_info(t);
-        if (strcmp(p->x.name, "gvmt_lcc_ip_fetch") == 0)
-            return;
         print ("\n");
         int new_segment;
         char* segment_title;
@@ -1479,7 +1477,7 @@ static void print_ref_name(char* name, Type t) {
     tname = t->u.sym->name;
     if (strcmp(tname, "reference_types")) {
         print("TYPE_NAME(%s,\"", name);
-        print("%S", t->u.sym->name + 5, strlen(t->u.sym->name)-7);
+        print("%S", t->u.sym->name + 12, strlen(t->u.sym->name)-12);
         print("\") ");
     }
 }
@@ -1869,9 +1867,6 @@ static void emit_indir(Node p, char* type) {
             strcmp(p->syms[0]->name, "NULL_R") == 0) {
             print("0 ");
             break;
-        } else if (strcmp(p->syms[0]->x.name, "gvmt_lcc_ip_fetch") == 0) {
-            print("#@ ");
-            break;   
         }
         // Intentional fall through
     default:
@@ -2167,13 +2162,28 @@ static void emit_subtree(Node p) {
                 intrinsic("IP ");
                 return;
             }
+            if (strcmp(name, "opcode") == 0) {
+                intrinsic("OPCODE ");
+                return;
+            }
             if (strcmp(name, "next_ip") == 0) {
                 intrinsic("NEXT_IP ");
                 return;
             }
-            if (strcmp(name, "fetch") == 0) {
-                intrinsic("#@ ");
-                return;
+            if (strncmp(name, "fetch", 5) == 0) {
+                if (name[5] =='\0') {
+                    intrinsic("#@ ");
+                    return;
+                }
+                if (name[5] =='2') {
+                    intrinsic("#2@ ");
+                    return;
+                }
+                if (name[5] =='4') {
+                    intrinsic("#4@ ");
+                    return;
+                }
+                assert(0);
             }
             if (strcmp(name, "gc_read_root") == 0) {
                 intrinsic("PLOAD_R ");

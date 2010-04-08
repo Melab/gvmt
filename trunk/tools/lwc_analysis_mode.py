@@ -34,6 +34,9 @@ class LwcAnalysisMode(object):
         self.uses_ip = True
         return _CONST
         
+    def opcode(self):
+        return _CONST
+        
     def next_ip(self):
         self.uses_ip = True
         return _CONST

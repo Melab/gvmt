@@ -96,6 +96,7 @@ def preamble(bytecodes, out):
 
 def _compile_body(inst, out, name):
     buf = common.Buffer()
+    out << '#define GVMT_CURRENT_OPCODE _gvmt_opcode_%s_%s\n' % (name, inst.name)
     out << ' bool block_terminated = false;\n'
     mode = LlvmPassMode(buf, name)
     inst.top_level(mode)
@@ -111,6 +112,7 @@ def _compile_body(inst, out, name):
     else:
         out << ' return block_terminated;\n'
     out << '}\n' 
+    out << '#undef GVMT_CURRENT_OPCODE\n'
 
 def functions(bytecodes, out):
     for i in bytecodes.instructions:

@@ -29,14 +29,20 @@ def c_line(line, file):
     'Returns a C preprocessor directive to set the line number and filename'
     return '#line %d "%s"\n' % (line , file)
 
-def _ip_fetch(name):
-    ip = 'gvmt_lcc_ip_fetch'
-    s = 1
-    while name[s] == '#':
-        ip = '((%s << 8) |  gvmt_lcc_ip_fetch)' % ip
-        s += 1
-    return ip
-    
+def _ip_fetch(c, location):
+    if c == 1:
+        return 'gvmt_fetch()'
+    elif c == 2 or c == 4:
+        return 'gvmt_fetch%d()' % c
+    elif c > gtype.p.size:
+        raise GVMTException("%s: Too large an operand", location)
+    elif c & 1:
+        return '((%s << 8) | gvmt_fetch())' % _ip_fetch(c-1)
+    elif c == 6:
+        return '((gvmt_fetch4() << 16) | gvmt_fetch2())'
+    else:
+        assert "Impossible count" and False
+        
 def _c_function(name, location, qualifiers, code, out, local_vars):
     out << c_line(location.line, location.file)
     if 'private' in qualifiers:
@@ -89,7 +95,7 @@ def _c_function(name, location, qualifiers, code, out, local_vars):
     out << '\n'
     out << c_line(location.line, location.file)
     for item in arguments:
-        out << '    %s = %s;\n' % (item.name.lstrip('#'), _ip_fetch(item.name))
+        out << '    %s = %s;\n' % (item.name.lstrip('#'), _ip_fetch(item.name.count('#'), item.location))
     for v in local_vars:
         out << '    (void)&%s;\n' % v.name
     out << c_line(code.start.line, code.start.file)
@@ -135,8 +141,6 @@ def compile_instructions(int_ast, flags, lcc_dir, prefix = None):
     out << '#include "gvmt/gvmt.h"\n'
     if prefix:
         out << prefix
-    out << '\n'
-    out << 'extern volatile uint8_t gvmt_lcc_ip_fetch;\n'
     out << '\n'
     if variables:
         out << 'struct __gvmt_bytecode_locals_t {\n' 

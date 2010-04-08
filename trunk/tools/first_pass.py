@@ -45,6 +45,9 @@ class FirstPassMode(object):
     def binary(self, tipe, left, op, right):
         pass     
         
+    def opcode(self):
+        pass
+        
     def ip(self):
         pass
         
