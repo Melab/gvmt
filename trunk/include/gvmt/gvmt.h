@@ -117,6 +117,19 @@ typedef intptr_t gvmt_lock_t;
 void gvmt_lock(gvmt_lock_t *lock);
 void gvmt_unlock(gvmt_lock_t *lock);
 
+/** Lock the mutex at offset in object */
+void gvmt_lock_internal(GVMT_Object object, int offset);
+
+/** Unlock the mutex at offset in object */
+void gvmt_unlock_internal(GVMT_Object object, int offset);
+
+#define GVMT_LOCK_FIELD(type, obj, field) \
+gvmt_lock_internal((GVMT_Object)obj, offsetof(type, field))
+
+#define GVMT_UNLOCK_FIELD(type, obj, field) \
+gvmt_lock_internal((GVMT_Object)obj, offsetof(type, field))
+
+
 void gvmt_compiler_init(void);
 
 #define GVMT_TRY(ex) (ex) = (void*)gvmt_protect(); if ((ex) == 0) {
