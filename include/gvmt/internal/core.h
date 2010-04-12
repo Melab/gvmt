@@ -18,9 +18,11 @@ extern "C" {
 
 #include "gvmt/internal/arch.h"
 
-GVMT_CALL void* gvmt_setjump(struct gvmt_registers* state);
+GVMT_CALL gvmt_double_return_t gvmt_setjump(void* sp, struct gvmt_registers* state);
 
 GVMT_CALL void gvmt_longjump(struct gvmt_registers* state, void* value);
+
+GVMT_CALL void gvmt_transfer(void* sp, void* ex);
 
 #if __WORDSIZE == 64
 
@@ -52,10 +54,10 @@ typedef union gvmt_double_stack_item {
 #endif
 
 struct gvmt_exception_handler {
-    struct gvmt_exception_handler* link; 
+    struct gvmt_registers registers;
     GVMT_StackItem* sp;
     uint8_t* ip;  // INTERPRETER ip.
-    struct gvmt_registers registers;
+    struct gvmt_exception_handler* link; 
 };
 
 void initialise_exception_stack(void);
@@ -194,6 +196,7 @@ GVMT_CALL void gvmt_fast_unlock(intptr_t *lock);
 
 #ifdef __cplusplus
 }
+
 #endif 
 #endif 
 

@@ -19,8 +19,10 @@ namespace copy {
     int in_malloc = 0;
     
     void finalise(GVMT_StackItem* sp, GVMT_Frame fp, GVMT_Object obj) {
-        GvmtExceptionHandler handler = gvmt_create_and_push_handler();       
-        void *ex = gvmt_setjump(&handler->registers);
+        GvmtExceptionHandler handler = gvmt_create_and_push_handler(); 
+        gvmt_long_jump_value val;
+        val.ret = gvmt_setjump(sp, &handler->registers);
+        void *ex = val.regs.ex;
         if (ex == 0) {
             sp--;
             sp->o = obj;

@@ -1475,7 +1475,7 @@ static void print_ref_name(char* name, Type t) {
     assert(is_ref(t));
     t = deref(t); 
     tname = t->u.sym->name;
-    if (strcmp(tname, "reference_types")) {
+    if (strcmp(tname, "gvmt_reference_types")) {
         print("TYPE_NAME(%s,\"", name);
         print("%S", t->u.sym->name + 12, strlen(t->u.sym->name)-12);
         print("\") ");
