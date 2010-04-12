@@ -86,7 +86,12 @@ if __name__ == '__main__':
     
     print 'Each instruction is listed below in the form:'
     print template % (texify('Name'), stack(['inputs']), stack(['outputs']), r'\emph{Instruction stream effect} \\', texify('Description of the instruction'))
-    print '\section*{The instructions}'
+    print '''\\begin{landscape}
+\\begin{multicols}{3}
+'''
     for name in names:
         i = insts[name]
         write_inst(i)
+    print '''\\end{multicols}
+\\end{landscape}
+'''

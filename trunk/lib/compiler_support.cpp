@@ -308,7 +308,8 @@ Value* Architecture::current_frame(Module *mod) {
 Function* Architecture::set_jump(Module *mod) {
     std::vector< const Type * >args;
     args.push_back(BaseCompiler::TYPE_P);
-    FunctionType * ftype = FunctionType::get(BaseCompiler::TYPE_R, args, false);
+    args.push_back(BaseCompiler::TYPE_P);
+    FunctionType * ftype = FunctionType::get(BaseCompiler::TYPE_I8, args, false);
     Function* f = Function::Create(ftype, GlobalValue::ExternalLinkage, "gvmt_setjump", mod);
     f->setCallingConv(llvm::CallingConv::X86_FastCall);
     return f;
@@ -447,10 +448,6 @@ void BaseCompiler::emit_print(int x, BasicBlock* bb) {
 #define ELEMENT_OFFSET(s, f) ConstantInt::get(APInt(32, offsetof(struct s, f)))
 #define ELEMENT_ADDR(str, fld, obj, blk) GetElementPtrInst::Create(obj, ELEMENT_OFFSET(str, fld), "x", blk)
 
-/** This is NOT safe. Cannot rely on handler_sp having same value when set_jump returns from long_jump
-  * It is OK provided LLVM stores handler_sp in a register, which it seems to,
-  * probably because handler_sp has such a short lifespan. Problem is that this is awkward to fix 
-  * until LLVM supports TLS for x86 */
 Value* BaseCompiler::protect(BasicBlock* bb) {
     Value* handler = CallInst::Create(Architecture::CREATE_AND_PUSH_HANDLER, &NO_ARGS[0], &NO_ARGS[0], "x", bb);
     Value* handler_sp = ELEMENT_ADDR(gvmt_exception_handler, sp, handler, bb);
@@ -458,11 +455,14 @@ Value* BaseCompiler::protect(BasicBlock* bb) {
     handler_sp = new BitCastInst(handler_sp, PointerType::get(sp->getType(), 0), "x", bb);
     new StoreInst(sp, handler_sp, bb);
     Value* handler_registers = ELEMENT_ADDR(gvmt_exception_handler, registers, handler, bb);
-    Value* args[] = { handler_registers, 0 };
-    CallInst* protect = CallInst::Create(Architecture::SET_JUMP, &args[0], &args[1], "x", bb);
-    protect->setCallingConv(CallingConv::X86_FastCall);
-    stack->store_pointer(new LoadInst(handler_sp, "", bb), bb);
-    return protect;
+    Value* args[] = { sp, handler_registers, 0 };
+    CallInst* ret = CallInst::Create(Architecture::SET_JUMP, &args[0], &args[2], "x", bb);
+    ret->setCallingConv(CallingConv::X86_FastCall);
+    sp = new TruncInst(ret, TYPE_I4, "", current_block);
+    Value* rsh = BinaryOperator::Create(Instruction::LShr, ret, ConstantInt::get(APInt(32, 32)), "", current_block);
+    Value* ex = new TruncInst(rsh, TYPE_I4, "", current_block);
+    stack->store_pointer(sp, bb);
+    return ex;
 }
 
 Value* BaseCompiler::pop_protect(BasicBlock* bb) {

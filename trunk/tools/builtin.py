@@ -1111,7 +1111,8 @@ class Lock_Internal(Instruction):
         self.name = 'LOCK_INTERNAL'
         self.inputs = [  'offset', 'object' ]
         self.outputs = []
-        self.__doc__ = 'Locks the internal fast-lock in object popped from TOS'
+        self.__doc__ = '''Locks the fast-lock in object at TOS
+        at offset NOS. Pops both object and offset from stack.'''
         
     def process(self, mode):
         obj = mode.stack_pop()
@@ -1124,7 +1125,8 @@ class Unlock_Internal(Instruction):
         self.name = 'UNLOCK_INTERNAL'
         self.inputs = [  'offset', 'object' ]
         self.outputs = []
-        self.__doc__ = 'Unlocks the internal fast-lock in object popped from TOS'
+        self.__doc__ = '''Unlocks the fast-lock in object at TOS
+        at offset NOS. Pops both object and offset from stack.'''
         
     def process(self, mode):
         obj = mode.stack_pop()

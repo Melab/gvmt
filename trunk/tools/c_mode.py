@@ -1027,8 +1027,12 @@ class CMode(object):
                  
     def setjump(self):
         c = Simple(gtypes.r, '__protect_%d' % _uid)
-        fmt = ' GVMT_Object %s = gvmt_setjump(&__handler_%d->registers);'
-        self.out << fmt % (c, _uid)
+        self.out << 'gvmt_long_jump_value val%d; ' % _uid
+        'val%d.ret =  ' % _uid
+        fmt = 'val%d.ret = gvmt_setjump(gvmt_sp, &__handler_%d->registers); '
+        self.out << fmt % (_uid, _uid)
+        self.out << 'GVMT_Object %s = val%d.regs.ex; ' % (c, _uid)
+        self.out << 'gvmt_sp = val%d.regs.sp; ' % _uid
         return c 
         
     def protect_push(self, value):
@@ -1046,9 +1050,7 @@ class CMode(object):
         global _uid
         _uid += 1
         self.create_and_push_handler()
-        c = self.setjump()
-        self.out << ' gvmt_sp = gvmt_exception_stack->sp;'
-        return c
+        return self.setjump()
 
     def unprotect(self):
         self.out << ' gvmt_pop_and_free_handler();'
@@ -1141,7 +1143,6 @@ class IMode(CMode):
         self.out << ' __handler_%d->ip = _gvmt_ip;' % _uid
         c = self.setjump()
         self.out << ' __handler_%d = gvmt_exception_stack;' % _uid
-        self.out << ' gvmt_sp = __handler_%d->sp;' % _uid
         self.out << ' _gvmt_ip = __handler_%d->ip;' % _uid
         return c
 
