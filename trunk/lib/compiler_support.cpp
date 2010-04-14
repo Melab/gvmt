@@ -289,6 +289,7 @@ void Architecture::init(Module *module) {
     CREATE_AND_PUSH_HANDLER = Architecture::create_and_push_handler(module);
     SET_JUMP = Architecture::set_jump(module);
     RAISE_EXCEPTION = Architecture::raise_exception(module);
+    TRANSFER = Architecture::transfer(module);
     WORD_SIZE = ConstantInt::get(APInt(32, 4, true));
     std::vector<const llvm::Type*> cc;
     cc.push_back(BaseCompiler::POINTER_TYPE_P);
@@ -320,6 +321,17 @@ Function* Architecture::raise_exception(Module *mod) {
     args.push_back(BaseCompiler::TYPE_R);
     FunctionType * ftype = FunctionType::get(Type::VoidTy, args, false);
     Function* f = Function::Create(ftype, GlobalValue::ExternalLinkage, "gvmt_raise_exception", mod);
+    f->setCallingConv(llvm::CallingConv::X86_FastCall);
+    return f;
+}
+
+Function* Architecture::transfer(Module *mod) {
+    std::vector< const Type * >args;
+    args.push_back(BaseCompiler::TYPE_R);
+    args.push_back(BaseCompiler::TYPE_P);
+    FunctionType * ftype = FunctionType::get(Type::VoidTy, args, false);
+    Function* f = Function::Create(ftype, GlobalValue::ExternalLinkage, "gvmt_transfer", mod);
+    f->setCallingConv(llvm::CallingConv::X86_FastCall);
     return f;
 }
 

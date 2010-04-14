@@ -35,6 +35,7 @@ int gvmt_get_tracing(void);
 
 /** Allows exceptions to be raised from native code*/
 void gvmt_raise_native(GVMT_Object ex);
+void gvmt_transfer_native(GVMT_Object ex);
 
 #ifdef __cplusplus
 }

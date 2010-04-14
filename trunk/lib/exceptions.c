@@ -40,11 +40,11 @@ void initialise_exception_stack(void) {
     gvmt_exception_stack = base;
     gvmt_exception_free_list = NULL;
     GVMT_StackItem* sp = gvmt_stack_pointer;
-    gvmt_long_jump_value val;
-    val.ret = gvmt_setjump(sp, &base->registers);
+    gvmt_double_return_t val;
+    val.ret = gvmt_setjump(&base->registers, sp);
     if (val.regs.ex) {
         // Call user defined thread-specific uncaught exception handler.
-        gvmt_stack_pointer = val.regs.sp;
+        gvmt_stack_pointer = sp;
         // Cleanly dispose of this thread?
         // Tell GC this thread is no longer running.
         gvmt_enter_native(gvmt_stack_pointer, 0);
@@ -54,9 +54,19 @@ void initialise_exception_stack(void) {
     } 
 }
 
-void gvmt_raise_exception(GVMT_Object ex) {
-    // gvmt_longjump(&gvmt_exception_stack->registers, ex);
-    gvmt_transfer(&gvmt_exception_stack->sp, ex);
+GVMT_CALL void gvmt_raise_exception(GVMT_Object ex) {
+//    gvmt_longjump(&gvmt_exception_stack->registers, ex);
+    gvmt_transfer(ex, gvmt_exception_stack->sp);
+}
+
+void gvmt_transfer_native(void* ex_root) {
+    if (gvmt_thread_non_native == 0)
+        // May have to wait for GC to complete.
+        gvmt_exit_native();
+    assert(gvmt_thread_non_native == 1);
+    GVMT_Object ex = *((GVMT_Object*)ex_root);
+//    gvmt_longjump(&gvmt_exception_stack->registers, ex);
+    gvmt_transfer(ex, gvmt_stack_pointer);
 }
 
 void gvmt_raise_native(void* ex_root) {
@@ -66,6 +76,6 @@ void gvmt_raise_native(void* ex_root) {
     assert(gvmt_thread_non_native == 1);
     GVMT_Object ex = *((GVMT_Object*)ex_root);
 //    gvmt_longjump(&gvmt_exception_stack->registers, ex);
-    gvmt_transfer(&gvmt_exception_stack->sp, ex);
+    gvmt_transfer(ex, gvmt_exception_stack->sp);
 }
 

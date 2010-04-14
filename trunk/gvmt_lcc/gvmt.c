@@ -2142,6 +2142,10 @@ static void emit_subtree(Node p) {
                 intrinsic("#0 DROP_N ");
                 return;
             }
+            if (strcmp(name, "transfer") == 0) {
+                intrinsic("TRANSFER ");
+                return;
+            }
             if (strcmp(name, "raise") == 0) {
                 intrinsic("RAISE ");
                 return;

@@ -251,6 +251,10 @@ class LwcAnalysisMode(object):
     def _raise(self, value):
         self.dont_compile = True
         self.stack = []
+    
+    def transfer(self, value):
+        self.dont_compile = True
+        self.stack = []
         
     def n_arg(self, tipe, val):
         pass

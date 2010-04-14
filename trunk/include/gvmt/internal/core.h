@@ -18,12 +18,6 @@ extern "C" {
 
 #include "gvmt/internal/arch.h"
 
-GVMT_CALL gvmt_double_return_t gvmt_setjump(void* sp, struct gvmt_registers* state);
-
-GVMT_CALL void gvmt_longjump(struct gvmt_registers* state, void* value);
-
-GVMT_CALL void gvmt_transfer(void* sp, void* ex);
-
 #if __WORDSIZE == 64
 
 typedef union gvmt_stack_item {
@@ -53,11 +47,18 @@ typedef union gvmt_double_stack_item {
 
 #endif
 
+GVMT_CALL int64_t gvmt_setjump(struct gvmt_registers* state, GVMT_StackItem* sp);
+
+//GVMT_CALL void gvmt_longjump(struct gvmt_registers* state, void* value);
+
+GVMT_CALL void gvmt_transfer(void* ex, GVMT_StackItem* sp);
+
 struct gvmt_exception_handler {
     struct gvmt_registers registers;
     GVMT_StackItem* sp;
     uint8_t* ip;  // INTERPRETER ip.
-    struct gvmt_exception_handler* link; 
+    struct gvmt_exception_handler* link;
+    void *pad; // ? 
 };
 
 void initialise_exception_stack(void);
@@ -147,7 +148,7 @@ GVMT_CALL GVMT_Object gvmt_fast_allocate(size_t size);
 
 void inform_gc_new_stack(void);
 
-void gvmt_raise_exception(GVMT_Object ex);
+GVMT_CALL void gvmt_raise_exception(GVMT_Object ex);
 
 void __gvmt_fatal(char*fmt, ...);
 

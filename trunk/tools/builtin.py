@@ -766,6 +766,20 @@ class Raise(Instruction):
     def process(self, mode):
         tos = mode.stack_pop()
         mode._raise(tos)
+         
+class Transfer(Instruction):
+    
+    def __init__(self):
+        self.name = 'TRANSFER'
+        self.inputs = [ ]
+        self.outputs = [ ]
+        self.__doc__ = ('Resumes execution at the PROTECT '
+        'instruction associated with the protect-object on top of the '
+        'protection stack. Unlike RAISE, TRANSFER does not modify the stack. ')
+        
+    def process(self, mode):
+        tos = mode.stack_pop()
+        mode.transfer(tos)
         
 class Return(Instruction):
     
@@ -1153,7 +1167,6 @@ def factory(cls, kind):
     return f
 
 def _init():
-        
     reg_types = [ gtypes.i4, gtypes.i8, gtypes.u4, gtypes.u8, gtypes.f4, 
                   gtypes.f8, gtypes.r, gtypes.p ]
     mem_types = [ gtypes.i1, gtypes.i2, gtypes.i4, gtypes.i8, gtypes.u1,
@@ -1164,7 +1177,7 @@ def _init():
     
     for cls in [ Jump, Sign, GC_Malloc, GC_Malloc_Call, Protect, Raise, Drop, 
                GC_Safe, GC_Safe_Call, Flush, Stack, Insert, Unlock_Internal,
-               Protect_Push, Protect_Pop, Opcode, Lock_Internal, 
+               Protect_Push, Protect_Pop, Opcode, Lock_Internal, Transfer,
                Unprotect, IP, Pick, Zero, DropN, Symbol, FarJump, ZeroMemory, 
                GC_FreePointerStore, GC_FreePointerLoad, Frame, GC_Malloc_Fast,
                GC_LimitPointerStore, GC_LimitPointerLoad, Next_IP, 
