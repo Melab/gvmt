@@ -51,6 +51,9 @@ void gvmt_unprotect(void);
 /** Intrinsic for RAISE */
 void gvmt_raise(GVMT_Object ex);
 
+/** Intrinsic for TRANSFER */
+void gvmt_transfer(GVMT_Object ex);
+
 /** Intrinsic for DROP_N */
 void gvmt_drop(size_t s);
 

@@ -235,6 +235,9 @@ class ExternalMode(object):
     def _raise(self, value):
         pass
     
+    def transfer(self, value):
+        pass
+    
     def n_arg(self, tipe, val):
         self.n_args.append(tipe.c_name)
     

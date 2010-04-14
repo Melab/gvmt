@@ -147,10 +147,9 @@ static void gvmt_start(size_t stack_space, gvmt_func_ptr func,
     gvmt_init_thread(stack_space);
     GVMT_StackItem* sp = gvmt_exit_native();
     GvmtExceptionHandler h = gvmt_create_and_push_handler();
-    gvmt_long_jump_value val;
-    val.ret = gvmt_setjump(sp, &h->registers);
+    gvmt_double_return_t val;
+    val.ret = gvmt_setjump(&h->registers, sp);
     void *ex = val.regs.ex;
-    sp = val.regs.sp;
     if (ex == NULL) {
         gvmt_call(sp, 0, func, pcount, ap);
     } else {

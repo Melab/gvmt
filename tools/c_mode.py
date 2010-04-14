@@ -1027,9 +1027,9 @@ class CMode(object):
                  
     def setjump(self):
         c = Simple(gtypes.r, '__protect_%d' % _uid)
-        self.out << 'gvmt_long_jump_value val%d; ' % _uid
+        self.out << 'gvmt_double_return_t val%d; ' % _uid
         'val%d.ret =  ' % _uid
-        fmt = 'val%d.ret = gvmt_setjump(gvmt_sp, &__handler_%d->registers); '
+        fmt = 'val%d.ret = gvmt_setjump(&__handler_%d->registers, gvmt_sp); '
         self.out << fmt % (_uid, _uid)
         self.out << 'GVMT_Object %s = val%d.regs.ex; ' % (c, _uid)
         self.out << 'gvmt_sp = val%d.regs.sp; ' % _uid
@@ -1058,6 +1058,10 @@ class CMode(object):
     def _raise(self, value):
         self.stack.flush_to_memory(self.out)
         self.out << ' gvmt_raise_exception(%s);'% value.cast(gtypes.r)
+    
+    def transfer(self, value):
+        self.stack.flush_to_memory(self.out)
+        self.out << ' gvmt_transfer(%s, gvmt_sp);'% value.cast(gtypes.r)
 
     def gc_free_pointer_store(self, value):
         self.out << ' gvmt_gc_free_pointer = (GVMT_StackItem*)%s;' % value

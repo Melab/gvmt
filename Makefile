@@ -16,27 +16,44 @@ I=include/gvmt/internal
 HEADERS = $I/compiler.hpp $I/compiler_shared.h $I/core.h
 GC_HEADERS =  $I/gc.hpp $I/gc_threads.hpp $I/memory.hpp
 
-build/debug/%.o : lib/%.c $(HEADERS)
+LIBRARY = build/gvmt.o build/gvmt_compiler.o build/gvmt_debug.o \
+	   build/gvmt_gc_copy.a build/gvmt_gc_copy_threads.a \
+	   build/gvmt_gc_gen_copy.a build/gvmt_gc_copy_tagged.a \
+	   build/gvmt_gc_gen_copy_tagged.a build/gvmt_gc_copy2.a \
+	   build/gvmt_gc_gencopy2.a build/gvmt_gc_genimmix2.a \
+	   build/gvmt_gc_none.o
+
+all: prepare $(LIBRARY) lcc
+   
+prepare:
+	mkdir -p build/debug
+	mkdir -p build/fast
+	mkdir -p build/gc
+
+build/debug/%.o : lib/%.c $(HEADERS) 
 	$(CC) -g -o $@ $<
 
-build/debug/%.o : lib/%.cpp $(HEADERS)
+build/debug/%.o : lib/%.cpp $(HEADERS) 
 	$(CPP) -g -o $@ $<
          
-build/fast/%.o : lib/%.c $(HEADERS)
+build/fast/%.o : lib/%.c $(HEADERS) 
 	$(CC) $(NDBG) -g -o $@ $<
 
-build/fast/%.o : lib/%.cpp $(HEADERS)
+build/fast/%.o : lib/%.cpp $(HEADERS) 
 	$(CPP) $(NDBG) -g -o $@ $<
 
-build/gc/%.o : lib/%.c $(HEADERS)
+build/gc/%.o : lib/%.c $(HEADERS) 
 	$(CC) $(NDBG) -g -o $@ $<
            
-build/gc/%.o : lib/%.cpp $(HEADERS) $(GC_HEADERS)
+build/gc/%.o : lib/%.cpp $(HEADERS) $(GC_HEADERS) 
 	$(CPP) -fno-rtti $(NDBG) -g -o $@ $<
            
-build/gc/%.o : gc/%.cpp $(HEADERS) $(GC_HEADERS)
+build/gc/%.o : gc/%.cpp $(HEADERS) $(GC_HEADERS) 
 	$(CPP) -fno-rtti $(NDBG) -g -o $@ $<
-
+	
+build/x86.o: lib/x86.s
+	as -o $@ $<
+	
 DEBUG_LIB = build/debug/core.o build/debug/scan.o \
 	build/debug/exceptions.o build/x86.o build/debug/symbol.o \
 	build/debug/lock.o \
@@ -48,90 +65,77 @@ FAST_LIB = build/fast/core.o build/fast/scan.o  \
 	build/fast/arena.o build/fast/marshal.o  build/fast/machine.o
 	
 GC_LIB = build/gc/gc_threads.o build/gc/gc_semispace.o build/gc/gc_generational.o build/gc/gc.o
-
-build: prepare build_lcc doc \
-	   build/gvmt.o build/gvmt_compiler.o build/gvmt_debug.o \
-	   build/gvmt_gc_copy.a build/gvmt_gc_copy_threads.a \
-	   build/gvmt_gc_gen_copy.a build/gvmt_gc_copy_tagged.a \
-	   build/gvmt_gc_gen_copy_tagged.a build/gvmt_gc_copy2.a \
-	   build/gvmt_gc_gencopy2.a build/gvmt_gc_genimmix2.a \
-	   build/gvmt_gc_none.o
-
-build/gvmt_debug.o: $(DEBUG_LIB)
+ 
+build/gvmt_debug.o: $(DEBUG_LIB)  
 	ld -r -o build/gvmt_debug.o $(DEBUG_LIB)
 	
-build/gvmt.o: $(FAST_LIB)
+build/gvmt.o: $(FAST_LIB)  
 	ld -r -o build/gvmt.o $(FAST_LIB)
 	
-build/gvmt_gc_none.o: build/gc/none.o
+build/gvmt_gc_none.o: build/gc/none.o  
 	cp build/gc/none.o build/gvmt_gc_none.o
 	
-build/gvmt_gc_copy.a: build/gc/cheney.o build/gc/copy.o
+build/gvmt_gc_copy.a: build/gc/cheney.o build/gc/copy.o  
 	ar rcs  build/gvmt_gc_copy.a build/gc/cheney.o build/gc/copy.o 
 	
-build/gvmt_gc_copy_threads.a: $(GC_LIB) build/gc/gc_copy.o 
+build/gvmt_gc_copy_threads.a: $(GC_LIB) build/gc/gc_copy.o   
 	ar rcs  build/gvmt_gc_copy_threads.a $(GC_LIB) build/gc/gc_copy.o 
 
-build/gvmt_gc_gen_copy.a: $(GC_LIB) build/gc/gc_gen_copy.o build/gc/gc_generational.o	
+build/gvmt_gc_gen_copy.a: $(GC_LIB) build/gc/gc_gen_copy.o build/gc/gc_generational.o  	
 	ar rcs  build/gvmt_gc_gen_copy.a $(GC_LIB) build/gc/gc_gen_copy.o build/gc/gc_generational.o
 
-build/gvmt_gc_copy_tagged.a: $(GC_LIB) build/gc/gc_copy_tagged.o	
+build/gvmt_gc_copy_tagged.a: $(GC_LIB) build/gc/gc_copy_tagged.o  
 	ar rcs  build/gvmt_gc_copy_tagged.a $(GC_LIB) build/gc/gc_copy_tagged.o
 
-build/gvmt_gc_gen_copy_tagged.a: $(GC_LIB) build/gc/gc_gen_copy_tagged.o build/gc/gc_generational.o
+build/gvmt_gc_gen_copy_tagged.a: $(GC_LIB) build/gc/gc_gen_copy_tagged.o build/gc/gc_generational.o  
 	ar rcs  build/gvmt_gc_gen_copy_tagged.a $(GC_LIB) build/gc/gc_gen_copy_tagged.o build/gc/gc_generational.o
            
-build/gvmt_gc_copy2.a: build/gc/NonGenCopy.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o
+build/gvmt_gc_copy2.a: build/gc/NonGenCopy.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o  
 	ar rcs  build/gvmt_gc_copy2.a build/gc/NonGenCopy.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o
 
-build/gvmt_gc_gencopy2.a: build/gc/GenCopy.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o
+build/gvmt_gc_gencopy2.a: build/gc/GenCopy.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o  
 	ar rcs  build/gvmt_gc_gencopy2.a build/gc/GenCopy.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o
 	
-build/gvmt_gc_genimmix2.a: build/gc/GenImmix.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o
+build/gvmt_gc_genimmix2.a: build/gc/GenImmix.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o  
 	ar rcs  build/gvmt_gc_genimmix2.a build/gc/GenImmix.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o
+	touch build/gvmt_gc_genimmix2.a
 	
-build/gc/GenImmix.o : gc/GenImmix.cpp $I/Immix.hpp $I/Generational.hpp $(HEADERS) $(GC_HEADERS)
+build/gc/GenImmix.o : gc/GenImmix.cpp $I/Immix.hpp $I/Generational.hpp $(HEADERS) $(GC_HEADERS)  
 	$(CPP) $(NDBG) -g -o $@ $<
           
-build/gc/GenCopy.o : gc/GenCopy.cpp $I/SemiSpace.hpp $I/Generational.hpp $(HEADERS) $(GC_HEADERS)
+build/gc/GenCopy.o : gc/GenCopy.cpp $I/SemiSpace.hpp $I/Generational.hpp $(HEADERS) $(GC_HEADERS)  
 	$(CPP) $(NDBG) -g -o $@ $<
     
-build/gvmt_compiler.o : lib/compiler_support.cpp $(HEADERS)
+build/gvmt_compiler.o : lib/compiler_support.cpp $(HEADERS)  
 	$(CPP) $(NDBG) -o $@ $<
     
-lib/scan.gsc: lib/scan.c
+lib/scan.gsc: lib/scan.c  lcc
 	python tools/gvmtc.py -Llcc/build -Iinclude -o lib/scan.gsc lib/scan.c
 
-build/debug/scan.gso: lib/scan.gsc
+build/debug/scan.gso: lib/scan.gsc  
 	python tools/gvmtas.py -Hinclude -g -o build/debug/scan.gso lib/scan.gsc
 
-build/debug/scan.o: build/debug/scan.gso
+build/debug/scan.o: build/debug/scan.gso  
 	python tools/gvmtlink.py -n -o build/debug/scan.o build/debug/scan.gso
 
-build/fast/scan.gso: lib/scan.gsc
+build/fast/scan.gso: lib/scan.gsc  
 	python tools/gvmtas.py -Hinclude -O3 -o build/fast/scan.gso lib/scan.gsc
 
-build/fast/scan.o: build/fast/scan.gso
+build/fast/scan.o: build/fast/scan.gso  
 	python tools/gvmtlink.py -n -o build/fast/scan.o build/fast/scan.gso
 	
-build/gc/gc_copy_tagged.o: lib/gc_copy.cpp
+build/gc/gc_copy_tagged.o: lib/gc_copy.cpp  
 	$(CPP) $(NDBG) -g -DGVMT_SCHEME_TAGGING -o $@ $<
 	
-build/gc/gc_gen_copy_tagged.o: lib/gc_gen_copy.cpp
+build/gc/gc_gen_copy_tagged.o: lib/gc_gen_copy.cpp  
 	$(CPP) $(NDBG) -g -DGVMT_SCHEME_TAGGING -o $@ $<
-    
-prepare:
-	mkdir -p build/debug
-	mkdir -p build/fast
-	mkdir -p build/gc
-	cp lib/x86.s build
 
 lcc.tar.gz: 
 	wget -q -O lcc.tar.gz http://sites.google.com/site/lccretargetablecompiler/downloads/4.2.tar.gz
 	
 lcc: lcc.tar.gz gvmt_lcc/gvmt.c gvmt_lcc/svg.c gvmt_lcc/config.h \
      gvmt_lcc/bind.c gvmt_lcc/error.c gvmt_lcc/decl.c gvmt_lcc/error.c \
-     gvmt_lcc/makefile
+     gvmt_lcc/makefile 
 	mkdir -p lcc_extract
 	cd lcc_extract; tar -zxf ../lcc.tar.gz
 	cp -ru lcc_extract lcc
@@ -144,11 +148,13 @@ lcc: lcc.tar.gz gvmt_lcc/gvmt.c gvmt_lcc/svg.c gvmt_lcc/config.h \
 	cp gvmt_lcc/decl.c lcc/src
 	cp gvmt_lcc/error.c lcc/src
 	cp gvmt_lcc/makefile lcc
-
-prepare_lcc: prepare lcc 
 	mkdir -p lcc/build 
+	cd lcc; make all
+	mkdir -p lcc/build/gcc
+	ln -s -f /usr/bin/cpp lcc/build/gcc/cpp
 
-install: build install_lcc
+
+install: prepare $(LIBRARY) lcc
 	mkdir -p  /usr/local/lib/gvmt
 	cp -r include/gvmt /usr/local/include
 	cp build/gvmt.o /usr/local/lib/
@@ -167,8 +173,6 @@ install: build install_lcc
 	cp gc/*.gsc /usr/local/lib/gvmt
 	cp scripts/* /usr/local/bin
 	export PYTHONPATH=/usr/local/lib/gvmt; python /usr/local/lib/gvmt/install.py
-    
-install_lcc:
 	mkdir -p /usr/local/lib/gvmt/lcc/gcc
 	ln -s -f /usr/bin/cpp /usr/local/lib/gvmt/lcc/gcc/cpp
 	mkdir -p  /usr/local/lib/gvmt/include
@@ -191,17 +195,11 @@ uninstall:
 	rm -f /usr/local/lib/gvmt_gc_gencopy2.a 
 	rm -f /usr/local/lib/gvmt_gc_genimmix2.a 
     
-build_lcc: prepare_lcc
-	cd lcc; make all
-	mkdir -p lcc/build/gcc
-	ln -s -f /usr/bin/cpp lcc/build/gcc/cpp
-	
 doc:
 	cd docs; make all
     
 clean:
 	rm -rf build
-	rm -rf distro
 	rm -f *~
 	rm -f */*~
 	rm -f tools/*.pyc

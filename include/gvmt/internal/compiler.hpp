@@ -63,6 +63,7 @@ class Architecture {
     static llvm::Function *no_args_func(std::string name, const llvm::Type* type, llvm::Module *mod);
     static llvm::Function *void_no_args_func(std::string name, llvm::Module *mod);
     static llvm::Function *raise_exception(llvm::Module *mod);
+    static llvm::Function *transfer(llvm::Module *mod);
     static llvm::Function *set_jump(llvm::Module *mod);
   public:
     static void init(llvm::Module *mod);
@@ -76,6 +77,7 @@ class Architecture {
     static llvm::Function *POP_AND_FREE_HANDLER;
     static llvm::Function *CREATE_AND_PUSH_HANDLER;
     static llvm::Function *RAISE_EXCEPTION;
+    static llvm::Function *TRANSFER;
     static llvm::Function *SET_JUMP;
     static llvm::FunctionType* FUNCTION_TYPE;
     static llvm::PointerType* POINTER_FUNCTION_TYPE;

@@ -17,12 +17,10 @@
 typedef union _ {
     int64_t ret;
     struct {
-        void* sp;  
-        void* ex;
+        void* ex;  
+        void* sp;
     } regs;
-} gvmt_long_jump_value;
-
-typedef int64_t gvmt_double_return_t;
+} gvmt_double_return_t;
 
 #endif // GVMT_ARCH_H
 

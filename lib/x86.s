@@ -1,20 +1,19 @@
 	.text
-    
+   
 .globl gvmt_setjump
 	.type	gvmt_setjump, @function
 gvmt_setjump:
     movl 0(%esp), %eax  #EIP
-    mov  %eax, 0(%edx)
-    mov  %ebp, 4(%edx)   # Save EBP, EBX, EDI, ESI, and ESP
-    mov  %ebx, 8(%edx)
-    mov  %edi, 12(%edx)
-    mov  %esi, 16(%edx)
-    mov  %esp, 20(%edx)
-    mov  $0, %edx
-    mov  %ecx, %eax
+    mov  %eax, 0(%ecx)
+    mov  %ebp, 4(%ecx)   # Save EBP, EBX, EDI, ESI, and ESP
+    mov  %ebx, 8(%ecx)
+    mov  %edi, 12(%ecx)
+    mov  %esi, 16(%ecx)
+    mov  %esp, 20(%ecx)
+    mov  $0, %eax
     ret
 .size	gvmt_setjump, .-gvmt_setjump        
-  
+
 .globl gvmt_longjump
 	.type	gvmt_longjump, @function
 gvmt_longjump:
@@ -28,22 +27,23 @@ gvmt_longjump:
     mov  %edx, %eax
     ret
 .size	gvmt_longjump, .-gvmt_longjump   
-  
+
 .globl gvmt_transfer
 	.type	gvmt_transfer, @function
 gvmt_transfer:
-    movl	%gs:gvmt_exception_stack@NTPOFF, %eax
+	movl gvmt_exception_stack@INDNTPOFF, %eax
+    movl %gs:(%eax), %eax
     mov  4(%eax), %ebp  # Restore EBP, EBX, EDI, ESI, and ESP
     mov  8(%eax), %ebx
     mov  12(%eax), %edi
     mov  16(%eax), %esi
     mov  20(%eax), %esp
     mov  0(%eax), %eax  #EIP
-    movl %eax, 0(%esp)  
+    movl %eax, 0(%esp)
     mov  %ecx, %eax
     ret
-.size	gvmt_transfer, .-gvmt_transfer   
-
+.size	gvmt_transfer, .-gvmt_transfer
+  
 .globl gvmt_swap_context
     .type	gvmt_swap_context, @function
 gvmt_swap_context:

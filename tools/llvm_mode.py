@@ -988,6 +988,18 @@ class LlvmPassMode(object):
                      ' &args_%d[0], &args_%d[1], "", current_block);\n')
         self.out << raise_fmt % (_uid, _uid)
         
+    def transfer(self, value):
+        global _uid
+        _uid += 1        
+        self.stack.flush_to_memory(self.out)
+
+        args_fmt = ' Value *args_%d[] = { %s, 0 };\n'
+        self.out << args_fmt % (_uid, value.cast(gtypes.r))
+        self.out << ' args_%d[1] = stack->get_pointer(current_block);\n' % _uid 
+        raise_fmt = (' CallInst::Create(Architecture::TRANSFER, '
+                     ' &args_%d[0], &args_%d[2], "", current_block);\n')
+        self.out << raise_fmt % (_uid, _uid)
+        
     def n_arg(self, tipe, val):
         self.n_args.append(val.cast(tipe))
         self.n_types.append(tipe.suffix)
