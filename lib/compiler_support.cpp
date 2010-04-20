@@ -58,6 +58,7 @@ Function *Architecture::CREATE_AND_PUSH_HANDLER;
 Function *Architecture::POP_HANDLER;
 Function *Architecture::PUSH_HANDLER;
 Function *Architecture::RAISE_EXCEPTION;
+Function *Architecture::TRANSFER;
 Function *Architecture::ENTER_NATIVE;
 Function *Architecture::EXIT_NATIVE;
 Function *Architecture::SET_JUMP;

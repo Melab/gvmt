@@ -164,9 +164,9 @@ public:
         return obj_size <= space;
     }    
 
-    inline char space();
+    inline int8_t space();
     
-    static inline char space_of(Address a);
+    static inline int8_t space_of(Address a);
     
     inline void set_space(char s);
   
@@ -283,13 +283,13 @@ public:
 
 };
 
-inline char Block::space_of(Address a) {
+inline int8_t Block::space_of(Address a) {
     SuperBlock* sb = SuperBlock::containing(a);
     size_t index = SuperBlock::index_of<Block>(a);
     return sb->spaces[index];
 }
 
-inline char Block::space() {
+inline int8_t Block::space() {
     return space_of(start());
 } 
 
