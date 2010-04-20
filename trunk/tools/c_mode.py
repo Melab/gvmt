@@ -908,14 +908,6 @@ class CMode(object):
         
     def jump(self, offset):
         raise _exception('Cannot use JUMP outside of intepreter context')
-
-#    def jump(self, offset):
-#        self.out << ' _gvmt_ip += (int16_t)(%s);' % offset 
-#        self.stack.flush_to_memory(self.out)
-#        if token_threading:
-#            self.out << ' goto *gvmt_operand_table[*_gvmt_ip];'
-#        else:
-#            self.out << ' break;'
         
     def line(self, number):
 #        self.stack.comment(self.out)

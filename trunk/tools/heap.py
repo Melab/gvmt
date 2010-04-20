@@ -190,70 +190,22 @@ class LargeObjectArea(object):
         return blist
 
     def very_large_object_block(self):
-        b = Block(255)
-        for i, obj in enumerate(self.objects[-1][:-1]):
-            b << 'gvmt_large_objects_big_%d:\n' % i
-            b << '.long  gvmt_large_objects_big_%d\n' % (i+1) #Link word
-            obj.write(b)
-            b << '.align %d\n' % BLOCK_SIZE
         if self.objects[-1]:
+            b = Block(128)
+            for i, obj in enumerate(self.objects[-1][:-1]):
+                b << 'gvmt_large_objects_big_%d:\n' % i
+                b << '.long  gvmt_large_objects_big_%d\n' % (i+1) #Link word
+                obj.write(b)
+                b << '.align %d\n' % BLOCK_SIZE
             b << 'gvmt_large_objects_big_%d:\n' % (len(self.objects[-1])-1)
             b << '.long 0\n' #Link word
             self.objects[-1][-1].write(b)
             b << '.align %d\n' % BLOCK_SIZE
+        else:
+            b = Block(129)
+            b << '.long 0\n'
+            b << '.align %d\n' % BLOCK_SIZE
         return b
-#        
-#    def write(self, out):
-#        for i in range(0, 6):
-#            object_list = self.objects[i]
-#            label = 'gvmt_large_objects_%d' % self.sizes[i]
-#            self._write_label(out, label, object_list)
-#        out << '.globl gvmt_large_objects_big_list\n'
-#        out << 'gvmt_large_objects_big_list:\n'
-#        if self.objects[-1]:
-#            out << '.long gvmt_large_objects_big_0\n'
-#        else:
-#            out << '.long 0\n'
-#        blocks = 2
-#        for i in range(0, 6):
-#            objects = len(self.objects[i])
-#            per_block = self.per_block[i]
-#            block_count = (objects + per_block - 1) // per_block
-#            blocks += block_count
-#            block_count_name = 'gvmt_large_objects_%d_block_count' % self.sizes[i]
-#            out << '.globl %s\n' % block_count_name
-#            out << '%s:\n' % block_count_name
-#            out << '.long %d\n' % block_count
-#        for obj in self.objects[-1]:
-#            blocks += (obj.size() + BLOCK_MASK) // BLOCK_SIZE
-#        out << '.align %d\n' % SUPER_BLOCK_ALIGN
-#        write_super_block_header(out, blocks)
-#        for i in xrange(2 , blocks):
-#            out << '.byte 1\n'
-#            out << '.align 8\n'
-#        out << '.align %d\n' % (BLOCK_SIZE * 2)
-#        for i in range(0, 6):
-#            object_list = self.objects[i]
-#            out << 'gvmt_large_objects_%d_first_block:\n' % self.sizes[i]
-#            per_block = self.per_block[i]
-#            for e, obj in enumerate(object_list):
-#                if e and e % per_block == 0:
-#                    out << '.align %d\n' % BLOCK_SIZE
-#                obj.write(out)
-#                assert obj.size() <= self.sizes[i]
-#                for x in range(obj.size(), self.sizes[i]):
-#                    out << '.byte 0\n'
-#            out << '.align %d\n' % BLOCK_SIZE
-#        for i, obj in enumerate(self.objects[-1][:-1]):
-#            out << 'gvmt_large_objects_big_%d:\n' % index
-#            out << '.long  gvmt_large_objects_big_%d\n' % (index+1) #Link word
-#            obj.write(out)
-#            out << '.align %d\n' % BLOCK_SIZE
-#        if self.objects[-1]:
-#            out << 'gvmt_large_objects_big_%d:\n' % (len(self.objects[-1])-1)
-#            out << '.long 0\n' #Link word
-#            self.objects[-1][-1].write(out)
-#        out << '.align %d\n' % SUPER_BLOCK_ALIGN
            
 def write_blocks(blocks, out):
     while len(blocks) > USABLE_BLOCKS_PER_SUPER_BLOCK:

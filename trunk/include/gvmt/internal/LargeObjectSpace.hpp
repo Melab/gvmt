@@ -33,6 +33,7 @@ class LargeObjectSpace: Space {
             if (SuperBlock::marked(&obj->object)) {
                 *SuperBlock::mark_byte(&obj->object) = 0;
                 assert(!SuperBlock::marked(&obj->object));
+                prev = obj;
             } else {
                 prev->next = obj->next;
                 char* c = &obj->object;
@@ -41,7 +42,6 @@ class LargeObjectSpace: Space {
                 assert(Block::containing((char*)obj) == (Block*)obj);
                 manager.free_blocks((Block*)obj, blocks);
             }
-            prev = obj;
             obj = obj->next;
         }
     }
@@ -69,7 +69,7 @@ public:
         while (SuperBlock::index_of<Block>((char*)b) < 2)
             b++;
         int8_t area;
-        while ((area = b->space()) != -1) {
+        while ((area = b->space()) >= 0) {
             if (area != 0) {
                 assert(area >= 22);
                 assert(area <= 27);
@@ -81,8 +81,12 @@ public:
             if (SuperBlock::index_of<Block>((char*)b) == 0)
                 b += 2;
         }
-        assert(area == -1);
-        big_objects.next = reinterpret_cast<BigObject*>(b);
+        if (area == -128) {
+            big_objects.next = reinterpret_cast<BigObject*>(b);
+        } else {
+            assert(area == -127);
+            big_objects.next = NULL;
+        }
         while (b < (Block*)&gvmt_end_heap) {
             b->set_space(Space::LARGE);
             b++;
