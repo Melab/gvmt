@@ -3,14 +3,14 @@
 import common, builtin, operators, gtypes
 import flow_graph
 
-def _redundant(l, uses, targetted):
+def _redundant(l, targetted):
     """Should match:
-BRANCH_T(a) 1 TSTORE_4(c) HOP(b) TARGET(a) 0 TSTORE_4(c) TARGET(b) TLOAD_4(c).
+BRANCH_T(a) 1 TSTORE_4(c) HOP(b) TARGET(a) 0 TSTORE_4(c) TARGET(b)
 Also no other BRANCH or HOP may target (a) or (b),
 and their should be no other uses of (c)."""
     classes = ( builtin.Branch, builtin.Number, builtin.TStore, 
                 builtin.Hop, builtin.Target, builtin.Number, 
-                builtin.TStore, builtin.Target, builtin.TLoad )
+                builtin.TStore, builtin.Target )
     i = 0
     if len(l) < len(classes):
         return False
@@ -25,8 +25,6 @@ and their should be no other uses of (c)."""
             l[0].index == l[4].index and
             l[3].index == l[7].index and
             l[2].index == l[6].index and
-            l[6].index == l[8].index and
-            uses[l[2].index] == 1 and
             targetted[l[4].index] == 1 and
             targetted[l[7].index] == 1)
     
@@ -94,16 +92,17 @@ def _lcc_post(ilist):
     for i in ilist:
         if i.__class__ is builtin.TLoad:
             uses[i.index] = uses.get(i.index, 0) + 1
-    # lcc converts (a > b) to (a > b ? 1 : 0). So look for BRANCH_T 1 HOP TARGET 0 TARGET and invert test.
+    # lcc converts (a > b) to (a > b ? 1 : 0). So look for BRANCH_T 1 T_STORE HOP TARGET 0 T_STORE TARGET,
+    # invert test and replace with T_STORE
     # Need to check that no other BRANCHes or HOPs have TARGETs to be removed.
     i = 0
     while i < len(ilist):
         if ilist[i].__class__ is builtin.ComparisonOp and ilist[i].op in [
             operators.eq, operators.ne, operators.lt, 
             operators.gt, operators.le, operators.ge]:
-            if _redundant(ilist[i+1: i + 10], uses, targetted):
-                ilist = ilist[:i] + [ ilist[i].invert() ] + ilist[i+10:]
-        i += 1
+            if _redundant(ilist[i+1: i + 9], targetted):
+                ilist = ilist[:i] + [ ilist[i].invert(), ilist[i+3] ] + ilist[i+9:]
+        i += 2
     # Remove unnecessary temps
     i = 0
     dead = set()
