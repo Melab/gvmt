@@ -89,11 +89,11 @@ Read and write barriers are implemented via the RLOAD\_R and RSTORE\_R instructi
 The GVMT exception handling model uses an explicit stack, rather than tables. These means that using exceptions has a runtime cost even when the exceptions are not used as a means of flow control transfer, but that exception handling itself is much faster than for table-based approaches. The GVMT exception handling mechanism is similar to the C setjump-longjump mechanism.
 The six GSC instructions involved are (See section \ref{sect:user-except} for the matching intrinsics)
 \begin{itemize}
-\item [PUSH_CURRENT_SATE] Pushes the current execution state onto the state stack. This state-object holds the following information: The current execution point(immediately after the PROTECT instruction), the stack depth, and the current control stack frame. Finally it pushes NULL onto the data stack. 
-\item [DISCARD_STATE] Pops the state-object from the state stack and destroys it.
-\item [PUSH_STATE] Pushes a previously popped state-object to the state stack.
-\item [POP_STATE] Pops state-object from the state stack, leaving it on the data stack. State-objects are \emph{not} garbage collected. 
-Use  DISCARD_STATE to dispose of state-objects.
+\item [PUSH\_CURRENT\_STATE] Pushes the current execution state onto the state stack. This state-object holds the following information: The current execution point(immediately after the PUSH\_CURRENT\_STATE instruction), the stack depth, and the current control stack frame. Finally it pushes NULL onto the data stack. 
+\item [DISCARD\_STATE] Pops the state-object from the state stack and destroys it.
+\item [PUSH\_STATE] Pushes a previously popped state-object to the state stack.
+\item [POP\_STATE] Pops state-object from the state stack, leaving it on the data stack. State-objects are \emph{not} garbage collected. 
+Use  DISCARD\_STATE to dispose of state-objects.
 \item [RAISE] Pops the value from the TOS and stores it. The state-object on top of the state stack is examined and the thread execution state (data and control stack pointers) restored to the values held in the handler. The stored value is pushed onto the data stack. Finally, execution resumes from the location stored in the state-object.
 \item [TRANSFER] Pops the value from the TOS and stores it. The state-object on top of the state stack is examined and the thread execution state, except the data-stack (control stack pointer only) restored to the value held in the handler. The stored value is pushed onto the data stack. Finally, execution resumes from the location stored in the state-object.
 \end{itemize}
