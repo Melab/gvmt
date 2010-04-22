@@ -455,7 +455,7 @@ namespace GC {
     extern std::deque<GVMT_Object> finalization_queue;
     extern std::vector<Stack> stacks;
     extern std::vector<FrameStack> frames;
-    extern Root::List finalizers;
+    extern std::deque<GVMT_Object> finalizables;
     extern Root::List weak_references;
     
     inline void push_mark_stack(Address addr) {
@@ -555,21 +555,24 @@ template <class Collector> class VM {
     
     
     template <class Policy> inline void process_finalisers(Policy policy) {
-        for (Root::List::iterator it = GC::finalizers.begin(), 
-                        end = GC::finalizers.end(); it != end; ++it) {
-            if (policy.applies(*it)) {
-                if (policy.is_live(*it)) {
-                    *it = policy.apply(*it);
+        int n = GC::finalizables.size();
+        for(int i = 0; i < n; i++) {
+            GVMT_Object obj = GC::finalizables.back();
+            GC::finalizables.pop_back();
+            if (policy.applies(obj)) {
+                obj = policy.apply(obj);
+                if (policy.is_live(obj)) {
+                    GC::finalizables.push_front(obj);
                 } else {
-                    // *it is not live, so it needs to be finalized
-                    // Keep live, add to finalization Q, then remove from finalizers.
-                    *it = policy.apply(*it);
-                    GC::finalization_queue.push_front(*it);
-                    GC::finalizers.free(it);
+                    // obj is not live, so it needs to be finalized
+                    // Keep live, add to finalization Q, then remove from finalizables.
+                    GC::finalization_queue.push_front(obj);
                 }
+            } else {
+                GC::finalizables.push_front(obj);  
             }
         }
-    }    
+    }
     
     template <class Policy> inline void process_weak_refs(Policy policy) {
         for (Root::List::iterator it = GC::weak_references.begin(), 

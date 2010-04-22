@@ -24,8 +24,8 @@ void gvmt_malloc_init(size_t s, float residency);
 
 /** Intrinsics */
 
-/** Intrinsic function for PROTECT */
-GVMT_Object gvmt_protect(void);
+/** Intrinsic function for PUSH_CURRENT_STATE */
+GVMT_Object gvmt_push_current_state(void);
 
 void* gvmt___untag__(GVMT_Object o);
 
@@ -45,8 +45,8 @@ GVMT_Object gvmt___tag__(void* o);
 
 #define gvmt_is_tagged(o) (((intptr_t)gvmt___untag__((GVMT_Object)o)) & 3)
 
-/** Intrinsic function for UNPROTECT */
-void gvmt_unprotect(void);
+/** Intrinsic function for DISCARD_STATE */
+void gvmt_discard_state(void);
 
 /** Intrinsic for RAISE */
 void gvmt_raise(GVMT_Object ex);
@@ -135,9 +135,9 @@ gvmt_lock_internal((GVMT_Object)obj, offsetof(type, field))
 
 void gvmt_compiler_init(void);
 
-#define GVMT_TRY(ex) (ex) = (void*)gvmt_protect(); if ((ex) == 0) {
+#define GVMT_TRY(ex) (ex) = (void*)gvmt_push_current_state(); if ((ex) == 0) {
     
-#define GVMT_CATCH gvmt_unprotect(); } else { gvmt_unprotect();
+#define GVMT_CATCH gvmt_discard_state(); } else { gvmt_discard_state();
 
 #define GVMT_END_TRY }
 

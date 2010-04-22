@@ -16,7 +16,6 @@ namespace semispace {
         top_of_space = from_space;
         free = to_space;
         scan_ptr = reinterpret_cast<GVMT_Object>(free);
-        GC::finalizers.intialise();
         GC::weak_references.intialise();        
     }
     

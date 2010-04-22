@@ -35,18 +35,21 @@ namespace gc {
     }
     
     template <class Collection> inline void process_finalisers() {
-        for (Root::List::iterator it = GC::finalizers.begin(), 
-                        end = GC::finalizers.end(); it != end; ++it) {
-            if (Collection::wants(*it)) {
-                if (Collection::is_live(*it)) {
-                    *it = Collection::apply(*it);
+        int n = GC::finalizables.size();
+        for(int i = 0; i < n; i++) {
+            GVMT_Object obj = GC::finalizables.back();
+            GC::finalizables.pop_back();
+            if (Collection::wants(obj)) {
+                obj = Collection::apply(obj);
+                if (Collection::is_live(obj)) {
+                    GC::finalizables.push_front(obj);
                 } else {
-                    // *it is not live, so it needs to be finalized
-                    // Keep live, add to finalization Q, then remove from finalizers.
-                    *it = Collection::apply(*it);
-                    GC::finalization_queue.push_front(*it);
-                    GC::finalizers.free(it);
+                    // obj is not live, so it needs to be finalized
+                    // Keep live, add to finalization Q, then remove from finalizables.
+                    GC::finalization_queue.push_front(obj);
                 }
+            } else {
+                GC::finalizables.push_front(obj);  
             }
         }
     }    

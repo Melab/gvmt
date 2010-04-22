@@ -9,12 +9,25 @@ struct BigObject {
     char object;
 };
 
+struct VeryLargeObject {
+    union {
+        struct {
+            char pad1[Block::size];
+            VeryLargeObject* next;
+            size_t size;
+        };
+        char pad[Block::size*2];
+    };
+    char object;
+};
+
 
 class LargeObjectSpace: Space {
     
     static LargeObjectMarkSweepList lists[6];
     static BlockManager<Space::LARGE> manager;
     static BigObject big_objects;
+    static VeryLargeObject* very_large_objects;
     static bool initialised;
     
     static inline size_t blocks_for_big_object(size_t size) {
@@ -22,8 +35,16 @@ class LargeObjectSpace: Space {
     }
     
     static GVMT_Object allocate_very_large_object(size_t size) {
-        assert("To do" && false);
-        abort();
+        assert(size >= SuperBlock::size/2);
+        assert (size > (1 << 29));
+        size += Block::size*2;
+        VeryLargeObject* vlo = (VeryLargeObject*)SuperBlock::allocate(size);
+        vlo->size = size;
+        vlo->next = very_large_objects;
+        very_large_objects = vlo;
+        char* start = &vlo->object;
+        Block::containing(start)->set_space(Space::LARGE);
+        return reinterpret_cast<GVMT_Object>(start);
     }
     
     static void sweep_big_objects() {
@@ -41,6 +62,27 @@ class LargeObjectSpace: Space {
                 size_t blocks = blocks_for_big_object(len);
                 assert(Block::containing((char*)obj) == (Block*)obj);
                 manager.free_blocks((Block*)obj, blocks);
+            }
+            obj = obj->next;
+        }
+    }
+    
+    static void sweep_very_large_objects() {
+        VeryLargeObject* prev = NULL;
+        VeryLargeObject* obj = very_large_objects;
+        while (obj) {
+            if (SuperBlock::marked(&obj->object)) {
+                *SuperBlock::mark_byte(&obj->object) = 0;
+                assert(!SuperBlock::marked(&obj->object));
+                prev = obj;
+            } else {
+                if (prev == NULL) 
+                    very_large_objects = obj->next;
+                else
+                    prev->next = obj->next;
+                size_t size = obj->size;
+                size = (size + (SuperBlock::size - 1)) & -SuperBlock::size;
+                munmap(obj, size);
             }
             obj = obj->next;
         }
@@ -91,6 +133,7 @@ public:
             b->set_space(Space::LARGE);
             b++;
         }
+        very_large_objects = NULL;
         initialised = true;
     }
     
@@ -140,6 +183,7 @@ public:
         for (int i = 0; i < 6; i++)
             lists[i].sweep();
         sweep_big_objects();
+        sweep_very_large_objects();
     }
 
     template <class Collection> static void process_old_young() {
@@ -164,6 +208,7 @@ public:
 LargeObjectMarkSweepList LargeObjectSpace::lists[6];
 BlockManager<Space::LARGE> LargeObjectSpace::manager;
 BigObject LargeObjectSpace::big_objects;
+VeryLargeObject* LargeObjectSpace::very_large_objects;
 bool LargeObjectSpace::initialised = false;
 
 

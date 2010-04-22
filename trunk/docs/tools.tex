@@ -93,7 +93,7 @@ Where \verb|instruction| is a legal GSC or user-defined instruction.
 To allow user defined instructions to do anything useful, a large number of builtin instructions are provided. All are private, that is they must be used inside a compound instruction to be visible at the interpreter level. 
 
 Instruction stream manipulation operators are provided:
-\verb|#@| Removes a byte from the instructino stream and pushes it to the evaluation stack.
+\verb|#@| Removes a byte from the instructino stream and pushes it to the data stack.
 \verb|#N| where N is a one-byte integers pushes N into the front of the instruction stream.
 \verb|#[N]| Pushes a copy of the N\textsuperscript{th} item, starting at zero, in the instruction stream into the front of the instruction stream.
 \verb|#+| or \verb|#-| Adds or subtracts, respectively the first two values from the instruction stream  and pushes the result back to the front of the instruction stream.

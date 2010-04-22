@@ -2150,12 +2150,12 @@ static void emit_subtree(Node p) {
                 intrinsic("RAISE ");
                 return;
             }
-            if (strcmp(name, "protect") == 0) {
-                intrinsic("PROTECT ");
+            if (strcmp(name, "push_current_state") == 0) {
+                intrinsic("PUSH_CURRENT_STATE ");
                 return;
             } 
-            if (strcmp(name, "unprotect") == 0) {
-                intrinsic("UNPROTECT ");
+            if (strcmp(name, "discard_state") == 0) {
+                intrinsic("DISCARD_STATE ");
                 return;
             }
             if (strcmp(name, "alloca") == 0) {

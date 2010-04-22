@@ -27,7 +27,7 @@ namespace GC {
     std::deque<GVMT_Object> finalization_queue;
     std::vector<Stack> stacks;
     std::vector<FrameStack> frames;
-    Root::List finalizers;
+    std::deque<GVMT_Object> finalizables;
     Root::List weak_references;
        
 }

@@ -29,7 +29,6 @@ namespace cheney {
         free = to_space + movable_size;
         from_space = to_space + space_size;
         top_of_space = from_space;
-        GC::finalizers.intialise();
         GC::weak_references.intialise();
     }
     
@@ -150,18 +149,22 @@ namespace cheney {
             scan = it.end();
         } 
         // Now have to scan finalizers:
-        for (Root::List::iterator it = GC::finalizers.begin(), 
-                        end = GC::finalizers.end(); it != end; ++it) {
-            if (to_be_copied(*it)) {
-                if (forwarded(*it)) {
-                    *it = forwarding_address(*it);
+        int n = GC::finalizables.size();
+        for(int i = 0; i < n; i++) {
+            GVMT_Object obj = GC::finalizables.back();
+            GC::finalizables.pop_back();
+            if (to_be_copied(obj)) {
+                if (forwarded(obj)) {
+                    obj = forwarding_address(obj);
+                    GC::finalizables.push_front(obj);
                 } else {
-                    // *it is in old_space, so it needs to be finalized
+                    // obj is in old_space, so it needs to be finalized
                     // Copy, add to finalization Q, then remove from finalizers.
-                    *it = copy(*it);
-                    GC::finalization_queue.push_front(*it);
-                    GC::finalizers.free(it);
+                    obj = copy(obj);
+                    GC::finalization_queue.push_front(obj);
                 }
+            } else {
+                GC::finalizables.push_front(obj);  
             }
         }
         // And scan any newly moved objects.
