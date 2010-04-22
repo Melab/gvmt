@@ -467,7 +467,7 @@ extern "C" {
 
     GVMT_LINKAGE_1(gvmt_gc_finalizable, void* obj)
         pthread_mutex_lock(&collector::lock);
-        GC::finalizers.addRoot((GVMT_Object)obj);
+        GC::finalizables.push_back((GVMT_Object)obj);
         pthread_mutex_unlock(&collector::lock);
         GVMT_RETURN_V;
     }

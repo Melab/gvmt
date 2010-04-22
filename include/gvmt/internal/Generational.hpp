@@ -315,7 +315,6 @@ public:
         Policy::init(heap_size_hint - Nursery::size , residency);
         Memory::heap_init<Policy>();
         Policy::ensure_space(Nursery::size * 2);
-        GC::finalizers.intialise();
         GC::weak_references.intialise();
         LargeObjectSpace::init();
         finalizer::init();

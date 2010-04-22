@@ -242,10 +242,10 @@ class LwcAnalysisMode(object):
         self.farjumps = True
         self.stack = []
         
-    def protect(self):
+    def push_current_state(self):
         self.stack = []
         
-    def unprotect(self):
+    def discard_state(self):
         self.stack = []
         
     def _raise(self, value):

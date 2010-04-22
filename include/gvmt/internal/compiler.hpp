@@ -105,9 +105,9 @@ class BaseCompiler {
     void gc_write(llvm::Value* object, llvm::Value* offset, llvm::Value* value, llvm::BasicBlock* bb);
     llvm::Value* gc_malloc(llvm::Value* size, llvm::BasicBlock* bb);
     llvm::Value* gc_malloc_fast(llvm::Value* size, llvm::BasicBlock* bb);
-    llvm::Value* protect(llvm::BasicBlock* bb);
-    llvm::Value* pop_protect(llvm::BasicBlock* bb);
-    void push_protect(llvm::Value* handler, llvm::BasicBlock* bb);
+    llvm::Value* push_current_state(llvm::BasicBlock* bb);
+    llvm::Value* pop_state(llvm::BasicBlock* bb);
+    void push_state(llvm::Value* handler, llvm::BasicBlock* bb);
     llvm::Value* ref_temp(int index, llvm::BasicBlock* bb);
     void zero_memory(llvm::Value* object, llvm::Value* size, llvm::BasicBlock* bb);
     void lock(llvm::Value* lock, llvm::BasicBlock* bb);

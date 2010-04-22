@@ -86,7 +86,7 @@ def _effective_size(inst):
         if isinstance(i, compound.CompoundInstruction):
             for bb in i.flow_graph:
                 size += _effective_size(bb.instructions)
-        elif i.__class__ in (builtin.Protect, builtin.Unprotect, builtin.Raise):
+        elif i.__class__ in (builtin.Push_current_state, builtin.discard_state, builtin.Raise):
             size += 8
         elif i.__class__ in (builtin.GC_Safe, builtin. GC_Safe_Call):
             size += 4

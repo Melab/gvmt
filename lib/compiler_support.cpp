@@ -461,7 +461,7 @@ void BaseCompiler::emit_print(int x, BasicBlock* bb) {
 #define ELEMENT_OFFSET(s, f) ConstantInt::get(APInt(32, offsetof(struct s, f)))
 #define ELEMENT_ADDR(str, fld, obj, blk) GetElementPtrInst::Create(obj, ELEMENT_OFFSET(str, fld), "x", blk)
 
-Value* BaseCompiler::protect(BasicBlock* bb) {
+Value* BaseCompiler::push_current_state(BasicBlock* bb) {
     Value* handler = CallInst::Create(Architecture::CREATE_AND_PUSH_HANDLER, &NO_ARGS[0], &NO_ARGS[0], "x", bb);
     Value* handler_sp = ELEMENT_ADDR(gvmt_exception_handler, sp, handler, bb);
     Value* sp = stack->get_pointer(bb);
@@ -478,14 +478,14 @@ Value* BaseCompiler::protect(BasicBlock* bb) {
     return ex;
 }
 
-Value* BaseCompiler::pop_protect(BasicBlock* bb) {
+Value* BaseCompiler::pop_state(BasicBlock* bb) {
     CallInst* pop = CallInst::Create(Architecture::POP_HANDLER, &NO_ARGS[0], 
                                      &NO_ARGS[0], "", current_block);
     pop->setCallingConv(CallingConv::X86_FastCall);
     return pop;
 }
 
-void BaseCompiler::push_protect(Value* handler, BasicBlock* bb) {
+void BaseCompiler::push_state(Value* handler, BasicBlock* bb) {
     Value* args[] = { handler, 0 };
     CallInst::Create(Architecture::PUSH_HANDLER, &args[0], &args[1], 
         "", current_block)->setCallingConv(CallingConv::X86_FastCall);

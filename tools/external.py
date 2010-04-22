@@ -220,16 +220,16 @@ class ExternalMode(object):
                 else:
                     out << 'extern %s;\n' % self.externals[name]
         
-    def protect(self):
+    def push_current_state(self):
         pass
     
-    def protect_pop(self):
+    def pop_state(self):
         pass
     
-    def protect_push(self, value):
+    def push_state(self, value):
         pass
     
-    def unprotect(self):
+    def discard_state(self):
         pass
     
     def _raise(self, value):

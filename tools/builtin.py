@@ -511,7 +511,7 @@ class Alloca(Instruction):
         self.tipe = tipe
         self.__doc__ = ('Allocates space for N %ss in the current control '
         'stack frame, leaving pointer to allocated space in TOS. All memory '
-        'allocated after a PROTECT is invalidated immediately by a RAISE, '
+        'allocated after a PUSH_CURRENT_STATE is invalidated immediately by a RAISE, '
         'but not necessarily immediately reclaimed. All memory allocated is '
         'invalidated and reclaimed by a RETURN instruction.') % tipe.doc
          
@@ -703,54 +703,54 @@ class Zero(Instruction):
             tos = mode.stack_pop()
             mode.stack_push_double(mode.zero(tos))
          
-class Protect(Instruction):
+class Push_current_state(Instruction):
     
     def __init__(self):
-        self.name = 'PROTECT'
+        self.name = 'PUSH_CURRENT_STATE'
         self.inputs = [  ]
         self.outputs = [ 'value' ]
-        self.__doc__ = ('Pushes a new protect-object to the protection stack and '
+        self.__doc__ = ('Pushes a new state-object to the state stack and '
         'pushes 0 to TOS, when initially executed. '
         'When execution resumes after a RAISE, the value that was TOS when the ' 
         'RAISE instruction was exceuted is pushed to TOS.')
         
     def process(self, mode):
-        mode.stack_push(mode.protect())
+        mode.stack_push(mode.push_current_state())
         
-class Protect_Push(Instruction):
+class push_state(Instruction):
     
     def __init__(self):
-        self.name = 'PROTECT_PUSH'
-        self.inputs = [ 'protect' ]
+        self.name = 'PUSH_STATE'
+        self.inputs = [ 'state' ]
         self.outputs = [ ]
-        self.__doc__ = ('Pushes a pre-exisiting protect-object '
-                         'to the protection stack.')
+        self.__doc__ = ('Pushes a pre-exisiting state-object '
+                         'to the state stack.')
         
     def process(self, mode):
-        mode.protect_push(mode.stack_pop())
+        mode.push_state(mode.stack_pop())
         
-class Protect_Pop(Instruction):
+class pop_state(Instruction):
     
     def __init__(self):
-        self.name = 'PROTECT_PUSH'
+        self.name = 'PUSH_STATE'
         self.inputs = [ ]
-        self.outputs = [ 'protect' ]
-        self.__doc__ = ('Pops the protect-object '
-                         'from the protection stack.')
+        self.outputs = [ 'state' ]
+        self.__doc__ = ('Pops the state-object '
+                         'from the state stack.')
         
     def process(self, mode):
-        mode.stack_push(mode.protect_pop())
+        mode.stack_push(mode.pop_state())
          
-class Unprotect(Instruction):
+class discard_state(Instruction):
     
     def __init__(self):
-        self.name = 'UNPROTECT'
+        self.name = 'DISCARD_STATE'
         self.inputs = [  ]
         self.outputs = [ 'value' ]
-        self.__doc__ = 'Pops and destroys the protect-object on top of the exception stack.'
+        self.__doc__ = 'Pops and destroys the state-object on top of the exception stack.'
         
     def process(self, mode):
-        mode.unprotect()
+        mode.discard_state()
          
 class Raise(Instruction):
     
@@ -759,9 +759,9 @@ class Raise(Instruction):
         self.inputs = [ 'value' ]
         self.outputs = [ ]
         self.__doc__ = ('Pops the value from the stack. Unwinds the stack, '
-        'if necessary, and resumes execution at the PROTECT '
-        'instruction associated with the protect-object on top of the '
-        'protection stack, pushing the value back to the restored stack.')
+        'if necessary, and resumes execution at the PUSH_CURRENT_STATE '
+        'instruction associated with the state-object on top of the '
+        'state stack, pushing the value back to the restored stack.')
         
     def process(self, mode):
         tos = mode.stack_pop()
@@ -773,9 +773,9 @@ class Transfer(Instruction):
         self.name = 'TRANSFER'
         self.inputs = [ ]
         self.outputs = [ ]
-        self.__doc__ = ('Resumes execution at the PROTECT '
-        'instruction associated with the protect-object on top of the '
-        'protection stack. Unlike RAISE, TRANSFER does not modify the stack. ')
+        self.__doc__ = ('Resumes execution at the PUSH_CURRENT_STATE '
+        'instruction associated with the state-object on top of the '
+        'state stack. Unlike RAISE, TRANSFER does not modify the stack. ')
         
     def process(self, mode):
         tos = mode.stack_pop()
@@ -1175,10 +1175,10 @@ def _init():
     int_types = [ gtypes.i4, gtypes.i8, gtypes.u4, gtypes.u8 ]
     float_types = [ gtypes.f4, gtypes.f8 ]
     
-    for cls in [ Jump, Sign, GC_Malloc, GC_Malloc_Call, Protect, Raise, Drop, 
+    for cls in [ Jump, Sign, GC_Malloc, GC_Malloc_Call, Push_current_state, Raise, Drop, 
                GC_Safe, GC_Safe_Call, Flush, Stack, Insert, Unlock_Internal,
-               Protect_Push, Protect_Pop, Opcode, Lock_Internal, Transfer,
-               Unprotect, IP, Pick, Zero, DropN, Symbol, FarJump, ZeroMemory, 
+               push_state, pop_state, Opcode, Lock_Internal, Transfer,
+               discard_state, IP, Pick, Zero, DropN, Symbol, FarJump, ZeroMemory, 
                GC_FreePointerStore, GC_FreePointerLoad, Frame, GC_Malloc_Fast,
                GC_LimitPointerStore, GC_LimitPointerLoad, Next_IP, 
                GC_Allocate_Only, FullyInitialized, Lock, Unlock ]:

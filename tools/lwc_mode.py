@@ -352,14 +352,14 @@ class LWC_CompilerMode(object):
         self.out << 'add_far_jump(code, %s);\n' % addr
         self.out << 'code = emit_jump(code);\n'
         
-    def protect(self):
-        self.out << 'add_call(code, gvmt_protect);\n'
+    def push_current_state(self):
+        self.out << 'add_call(code, gvmt_push_current_state);\n'
         self.out << 'free_register(gvmt_lwc_return_register);\n'
         self.out << 'code = emit_call_direct(code);\n'
         return Register('gvmt_lwc_return_register')
         
-    def unprotect(self):
-        self.out << 'add_call(code, gvmt_unprotect);\n'
+    def discard_state(self):
+        self.out << 'add_call(code, gvmt_discard_state);\n'
         self.out << 'code = emit_call_direct(code);\n'
 
     def _raise(self, value):      

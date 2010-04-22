@@ -14,7 +14,7 @@ Each thread of execution consists of five components:
 \begin{enumerate}
 \item Temporary registers
 \item Control stack
-\item Evaluation stack
+\item Data stack
 \item Thread-local variables
 \item Exception handling stack
 \end{enumerate}
@@ -28,9 +28,9 @@ Each thread is independent, the number of concurrently executing threads is limi
 The execution model executes abstract HLL virtual machine instructions. Each HLL VM instruction is defined in terms of GSC instructions.
 GSC instructions can be grouped into three categories:
 \begin{description}
-\item[Evaluation] Instructions that take values on the Evaluation stack and place results there, such as addition.
+\item[Data] Instructions that take values on the Data stack and place results there, such as addition.
 \item[Flow control] Instructions that alter the flow of control, both within HLL-VM instructions and between HLL-VM instructions.
-\item[Stack manipulation] Instructions that explicitly manipulate or describe the status of the evaluation and control stacks.
+\item[Stack manipulation] Instructions that explicitly manipulate or describe the status of the data and control stacks.
 \end{description}
 
 Appendix \ref{app:inst} contains a list of all the GSC instructions.
@@ -49,7 +49,7 @@ Condition 2 can be ensure simply by initialising all objects immediately after a
 The control stack is an opaque structure used to handle procedure calls and returns, exception handling and storing of temporary variable, across calls. Interpreter frames are also allocated on the control stack. Memory can be allocated on the call-stack, but subsequent allocation are not guaranteed to be contiguous. Parameters are also passed to native code using the control stack.
 The control stack will usually map directly onto the native C stack.
 
-\subsection{Evaluation stack}
+\subsection{Data stack}
 
         \begin{center}
         \includegraphics[scale = 0.8]{Stack.eps}
@@ -57,7 +57,7 @@ The control stack will usually map directly onto the native C stack.
         \end{center}
 
 
-The evaluation stack is where all arithmetic operations takes place. The top part of the evaluation stack may be virtualised, that is stored in registers or other discrete values. The evaluation stack is continuous across calls, and is used for passing parameters. Parameters are pushed to the stack by the caller and popped by the calle. See the GSC instruction \verb|STACK| for more details on how to access the in-memory stack directly.
+The data stack is where all arithmetic operations takes place. The top part of the data stack may be virtualised, that is stored in registers or other discrete values. The data stack is continuous across calls, and is used for passing parameters. Parameters are pushed to the stack by the caller and popped by the calle. See the GSC instruction \verb|STACK| for more details on how to access the in-memory stack directly.
 
 \subsection{Thread-local variables}
 Each thread has thread-locals variables, the number and type of these variables are determined by the developer.
@@ -87,11 +87,15 @@ Read and write barriers are implemented via the RLOAD\_R and RSTORE\_R instructi
 
 \subsection{Exception handling}
 The GVMT exception handling model uses an explicit stack, rather than tables. These means that using exceptions has a runtime cost even when the exceptions are not used as a means of flow control transfer, but that exception handling itself is much faster than for table-based approaches. The GVMT exception handling mechanism is similar to the C setjump-longjump mechanism.
-The three GSC instructions involved are (See section \ref{sect:user-except} for the matching intrinsics)
+The six GSC instructions involved are (See section \ref{sect:user-except} for the matching intrinsics)
 \begin{itemize}
-\item [PROTECT] pushes a handler onto the exception stack. This handler holds the following information: The current execution point(immediately after the PROTECT instruction), the stack depth, and the current control stack frame. Finally it pushes NULL onto the evaluation stack. 
-\item [UNPROTECT] pops a handler from the exception stack.
-\item [RAISE] Pops the value from the TOS and stores it. The exception handler on top of the exception stack is examined and the thread execution state (evaluation and control stack pointers) restored to the values held in the handler. The stored value is pushed onto the evaluation stack. Finally, execution resumes from the location stored in the exceptino handler.
+\item [PUSH_CURRENT_SATE] Pushes the current execution state onto the state stack. This state-object holds the following information: The current execution point(immediately after the PROTECT instruction), the stack depth, and the current control stack frame. Finally it pushes NULL onto the data stack. 
+\item [DISCARD_STATE] Pops the state-object from the state stack and destroys it.
+\item [PUSH_STATE] Pushes a previously popped state-object to the state stack.
+\item [POP_STATE] Pops state-object from the state stack, leaving it on the data stack. State-objects are \emph{not} garbage collected. 
+Use  DISCARD_STATE to dispose of state-objects.
+\item [RAISE] Pops the value from the TOS and stores it. The state-object on top of the state stack is examined and the thread execution state (data and control stack pointers) restored to the values held in the handler. The stored value is pushed onto the data stack. Finally, execution resumes from the location stored in the state-object.
+\item [TRANSFER] Pops the value from the TOS and stores it. The state-object on top of the state stack is examined and the thread execution state, except the data-stack (control stack pointer only) restored to the value held in the handler. The stored value is pushed onto the data stack. Finally, execution resumes from the location stored in the state-object.
 \end{itemize}
 It is an error (resulting in a probable crash) to leave an exception handler on the exception stack after the procedure in which it was pushed has returned.
 There is no concept of catching only some sorts of exceptions in the GVMT. All exceptions are caught; exceptions that should be handled elsewhere must be explicitly reraised. 

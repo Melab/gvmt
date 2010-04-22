@@ -96,7 +96,7 @@ extern "C" {
     }
 
     GVMT_LINKAGE_1(gvmt_gc_finalizable, void* obj)
-        GC::finalizers.addRoot((GVMT_Object)obj);
+        GC::finalizables.push_back((GVMT_Object)obj);
         GVMT_RETURN_V;
     }
     

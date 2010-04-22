@@ -65,7 +65,6 @@ public:
         Policy::init(heap_size_hint, residency);
         Memory::heap_init<Policy>();
         Policy::ensure_space(4 * MB);
-        GC::finalizers.intialise();
         GC::weak_references.intialise();    
         LargeObjectSpace::init();
         finalizer::init();

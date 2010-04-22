@@ -957,24 +957,24 @@ class LlvmPassMode(object):
         self.block_terminated = True
         self.out << ' ReturnInst::Create(%s, current_block);\n' % c
     
-    def protect_push(self, value):
-        fmt = ' protect_push(%s, current_block);\n'
+    def push_state(self, value):
+        fmt = ' push_state(%s, current_block);\n'
         self.out << fmt % value.cast(gtypes.p)
         
-    def protect_pop(self):
+    def pop_state(self):
         global _uid
         _uid += 1
-        self.out << ' Value* popped_%d = protect_pop(current_block);\n' % _uid
+        self.out << ' Value* popped_%d = pop_state(current_block);\n' % _uid
         return Simple(gtypes.p, 'popped_%d' % _uid)
         
-    def protect(self):
+    def push_current_state(self):
         global _uid
         _uid += 1
         self.stack.flush_to_memory(self.out)
-        self.out << ' Value* protect_%d = protect(current_block);\n' % _uid
-        return Simple(gtypes.r, 'protect_%d' % _uid)
+        self.out << ' Value* state_%d = push_current_state(current_block);\n' % _uid
+        return Simple(gtypes.r, 'state_%d' % _uid)
     
-    def unprotect(self):
+    def discard_state(self):
         self.out << (' CallInst::Create(Architecture::POP_AND_FREE_HANDLER,'
                      ' &NO_ARGS[0], &NO_ARGS[0], "", current_block);\n')
     

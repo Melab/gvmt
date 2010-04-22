@@ -1015,10 +1015,14 @@ class CMode(object):
         self.out << ' __handler_%d->sp = gvmt_sp;' % _uid
         
     def n_arg(self, tipe, val):
-        self.n_args.append(val.cast(tipe))
+        global _uid
+        _uid += 1
+        name = '_gvmt_narg_%s' % _uid
+        self.out << '%s %s = %s;' % (tipe.c_name, name, val.cast(tipe))
+        self.n_args.append(Simple(tipe, name))
                  
     def setjump(self):
-        c = Simple(gtypes.r, '__protect_%d' % _uid)
+        c = Simple(gtypes.r, '__state_%d' % _uid)
         self.out << 'gvmt_double_return_t val%d; ' % _uid
         'val%d.ret =  ' % _uid
         fmt = 'val%d.ret = gvmt_setjump(&__handler_%d->registers, gvmt_sp); '
@@ -1027,24 +1031,24 @@ class CMode(object):
         self.out << 'gvmt_sp = val%d.regs.sp; ' % _uid
         return c 
         
-    def protect_push(self, value):
+    def push_state(self, value):
         self.out << '((GvmtExceptionHandler)%s)->link = gvmt_exception_stack; ' % value.cast(gtypes.p)
         self.out << 'gvmt_exception_stack = ((GvmtExceptionHandler)%s); ' % value.cast(gtypes.p)
         
-    def protect_pop(self):
+    def pop_state(self):
         global _uid
         _uid += 1
         self.out << 'GvmtExceptionHandler h_%d = gvmt_exception_stack; ' % _uid
         self.out << 'gvmt_exception_stack = h_%d->link; ' % _uid
         return Simple(gtype.p, '((void*)h_%d' %_uid)
         
-    def protect(self):
+    def push_current_state(self):
         global _uid
         _uid += 1
         self.create_and_push_handler()
         return self.setjump()
 
-    def unprotect(self):
+    def discard_state(self):
         self.out << ' gvmt_pop_and_free_handler();'
     
     def _raise(self, value):
@@ -1132,7 +1136,7 @@ class IMode(CMode):
         self.i_length = graph.deltas[0] + 1
         self.compound(name, qualifiers, graph)
 
-    def protect(self):
+    def push_current_state(self):
         global _uid
         _uid += 1
         self.create_and_push_handler()

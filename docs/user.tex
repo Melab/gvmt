@@ -34,15 +34,15 @@ The GVMT can insert calls to a trace function at the start of each bytecode. Sin
 \section{GVMT provided functions}
 GVMT provides a wide range of functions to interact with the underlying abstract machine, as well as a number of intrinsic functions for code written in C.
 
-\subsection{The evaluation stack}
-The evaluation stack can be examined and modified in C code, using intinsics:
+\subsection{The data stack}
+The data stack can be examined and modified in C code, using intinsics:
 \begin{itemize}
 \item \verb|gvmt_stack_top()| returns a pointer to the top-of-stack.
 \item \verb|gvmt_insert(size_t n)| inserts n NULLs onto the stack and returns a pointer to them.
 \item \verb|GVMT_PUSH(x)| can be used to push individual values on to the stack.
 \item \verb|gvmt_drop(size_t n)| discards n items from the top of the stack.
 \end{itemize}
-Care should be taken with these functions as they manipulate the evaluation stack, which is used to evaluate expression. It is best to keep any C statement using these intrinsics as simple as possible.
+Care should be taken with these functions as they manipulate the data stack, which is used to evaluate expression. It is best to keep any C statement using these intrinsics as simple as possible.
 
 \subsection{The call stack}
 The call stack is generally opaque, except for interpreter frames, which can be accessed using the following intinsics:
@@ -106,7 +106,7 @@ int gvmt_enter(uintptr_t stack_space, gvmt_func_ptr func, int pcount, ...);
 \end{verbatim}
 Where:
 \begin{itemize}
-\item \verb|stack_space| is the amount of items required on the evaluation stack,
+\item \verb|stack_space| is the amount of items required on the data stack,
 \item \verb|gvmt_func_ptr| is the GSC function to execute, and
 \item \verb|pcount| is the number of parameters following.
 \end{itemize}
