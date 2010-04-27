@@ -4,6 +4,18 @@
 #include "gvmt/internal/memory.hpp"
 #include "gvmt/internal/MarkSweep.hpp"
 
+/** The Large Object Space is divided into 7 subspaces.
+ * There are 6 Medium sized object lists from 2-3k to 11-14k.
+ * One list for larger objects from 14k to 256k and 
+ * a VeryLargeObject area for objects > 256k.
+ * The medium sized objects are of sub-block size and the lists 
+ * track and free blocks.
+ * The larger objects require at least one block each and grab blocks directly.
+ * Very large objects require at least one zone each and get their memory
+ * directly from the OS.
+ *
+ */
+
 struct BigObject {
     BigObject* next;
     char object;
@@ -24,8 +36,7 @@ struct VeryLargeObject {
 
 class LargeObjectSpace: Space {
     
-    static LargeObjectMarkSweepList lists[6];
-    static BlockManager<Space::LARGE> manager;
+    static MarkSweepList lists[6];
     static BigObject big_objects;
     static VeryLargeObject* very_large_objects;
     static bool initialised;
@@ -35,10 +46,10 @@ class LargeObjectSpace: Space {
     }
     
     static GVMT_Object allocate_very_large_object(size_t size) {
-        assert(size >= SuperBlock::size/2);
+        assert(size >= Zone::size/2);
         assert (size > (1 << 29));
         size += Block::size*2;
-        VeryLargeObject* vlo = (VeryLargeObject*)SuperBlock::allocate(size);
+        VeryLargeObject* vlo = (VeryLargeObject*)Zone::allocate(size);
         vlo->size = size;
         vlo->next = very_large_objects;
         very_large_objects = vlo;
@@ -47,13 +58,24 @@ class LargeObjectSpace: Space {
         return reinterpret_cast<GVMT_Object>(start);
     }
     
+    static GVMT_Object allocate_big_object(size_t size) {
+        size_t blocks = blocks_for_big_object(size);
+        BigObject* ptr = (BigObject*)Heap::get_blocks(blocks, Space::LARGE, false);
+        if (ptr == NULL)
+            return NULL;
+        ptr->next = big_objects.next;
+        big_objects.next = ptr;
+        char* c = &ptr->object;
+        return reinterpret_cast<GVMT_Object>(c);
+    }
+    
     static void sweep_big_objects() {
         BigObject* prev = &big_objects;
         BigObject* obj = prev->next;
         while (obj) {
-            if (SuperBlock::marked(&obj->object)) {
-                *SuperBlock::mark_byte(&obj->object) = 0;
-                assert(!SuperBlock::marked(&obj->object));
+            if (Zone::marked(&obj->object)) {
+                *Zone::mark_byte(&obj->object) = 0;
+                assert(!Zone::marked(&obj->object));
                 prev = obj;
             } else {
                 prev->next = obj->next;
@@ -61,7 +83,7 @@ class LargeObjectSpace: Space {
                 int len = align(gvmt_length(reinterpret_cast<GVMT_Object>(c)));
                 size_t blocks = blocks_for_big_object(len);
                 assert(Block::containing((char*)obj) == (Block*)obj);
-                manager.free_blocks((Block*)obj, blocks);
+                Heap::free_blocks((Block*)obj, blocks);
             }
             obj = obj->next;
         }
@@ -71,9 +93,9 @@ class LargeObjectSpace: Space {
         VeryLargeObject* prev = NULL;
         VeryLargeObject* obj = very_large_objects;
         while (obj) {
-            if (SuperBlock::marked(&obj->object)) {
-                *SuperBlock::mark_byte(&obj->object) = 0;
-                assert(!SuperBlock::marked(&obj->object));
+            if (Zone::marked(&obj->object)) {
+                *Zone::mark_byte(&obj->object) = 0;
+                assert(!Zone::marked(&obj->object));
                 prev = obj;
             } else {
                 if (prev == NULL) 
@@ -81,7 +103,7 @@ class LargeObjectSpace: Space {
                 else
                     prev->next = obj->next;
                 size_t size = obj->size;
-                size = (size + (SuperBlock::size - 1)) & -SuperBlock::size;
+                size = (size + (Zone::size - 1)) & -Zone::size;
                 munmap(obj, size);
             }
             obj = obj->next;
@@ -91,11 +113,11 @@ class LargeObjectSpace: Space {
 public:
            
     static inline bool in(GVMT_Object p) {
-        return Block::space_of(p) > 0;
+        return Block::space_of(p) == Space::LARGE;
     }
            
     static inline bool in(Address a) {
-        return Block::space_of(a) > 0;
+        return Block::space_of(a) == Space::LARGE;
     }
     
     static void init() {
@@ -107,8 +129,8 @@ public:
         lists[5].init(10912);
         Block* b = &gvmt_large_object_area_start;
         assert(b == Block::containing((char*)b));
-        // Skip super-block headers
-        while (SuperBlock::index_of<Block>((char*)b) < 2)
+        // Skip zone headers
+        while (Zone::index_of<Block>((char*)b) < 2)
             b++;
         int8_t area;
         while ((area = b->space()) >= 0) {
@@ -116,11 +138,10 @@ public:
                 assert(area >= 22);
                 assert(area <= 27);
                 lists[area-22].init_block(b);
-                b->set_space(Space::LARGE);
             }
             b++;
-            // Skip super-block headers
-            if (SuperBlock::index_of<Block>((char*)b) == 0)
+            // Skip zone headers
+            if (Zone::index_of<Block>((char*)b) == 0)
                 b += 2;
         }
         if (area == -128) {
@@ -137,7 +158,7 @@ public:
         initialised = true;
     }
     
-    static GVMT_Object allocate(size_t size) {
+    static GVMT_Object allocate(size_t size, bool force) {
         assert(initialised);
         // Space for mark word.
         if (size >= SUPER_BLOCK_ALIGNMENT/2)
@@ -145,29 +166,27 @@ public:
         size_t index;
         for (index = 0; index < 6; index++) {
             if (lists[index].can_allocate(size)) {
-                LargeObjectMarkSweepList* list = &lists[index];
+                MarkSweepList* list = &lists[index];
                 GVMT_Object result = list->allocate();
                 if (result == NULL) { // List full
-                    list->add_block(manager.allocate_block());
+                    Block *b = Heap::get_block(Space::LARGE, force);
+                    if (b == NULL)
+                        return NULL;
+                    list->add_block(b);
                     result = list->allocate();
                 }
                 return result;
             }  
         }
-        size_t blocks = blocks_for_big_object(size);
-        BigObject* ptr = (BigObject*)manager.allocate_blocks(blocks);
-        ptr->next = big_objects.next;
-        big_objects.next = ptr;
-        char* c = &ptr->object;
-        return reinterpret_cast<GVMT_Object>(c);
+        return allocate_big_object(size);
     }
     
     static inline GVMT_Object grey(GVMT_Object obj) {
         Address addr = gc::untag(obj);
         assert(in(addr));
-        if (!SuperBlock::marked(addr)) {
-            SuperBlock::mark(addr);
-            assert(SuperBlock::marked(addr));
+        if (!Zone::marked(addr)) {
+            Zone::mark(addr);
+            assert(Zone::marked(addr));
             GC::push_mark_stack(obj);
         }
         return obj;
@@ -175,7 +194,12 @@ public:
     
     static inline bool is_live(GVMT_Object obj) {
         Address addr = gc::untag(obj);
-        return SuperBlock::marked(addr);
+        return Zone::marked(addr);
+    }
+    
+    static void pre_collection() {
+        for (int i = 0; i < 6; i++)
+            lists[i].pre_collection();
     }
     
     static void sweep() {
@@ -192,21 +216,19 @@ public:
         BigObject* obj = big_objects.next;
         while (obj) {
             char* object = &obj->object;
-            SuperBlock* sb = SuperBlock::containing(object);
+            Zone* z = Zone::containing(object);
             Line* line = Line::containing(object);
-            if (sb->modified(line)) {
+            if (z->modified(line)) {
                 gc::scan_object<Collection>(object);
-                sb->clear_modified(line);
+                z->clear_modified(line);
             }
             obj = obj->next;
         }
     }
 
-    
 };
 
-LargeObjectMarkSweepList LargeObjectSpace::lists[6];
-BlockManager<Space::LARGE> LargeObjectSpace::manager;
+MarkSweepList LargeObjectSpace::lists[6];
 BigObject LargeObjectSpace::big_objects;
 VeryLargeObject* LargeObjectSpace::very_large_objects;
 bool LargeObjectSpace::initialised = false;

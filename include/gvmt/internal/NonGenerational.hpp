@@ -4,6 +4,7 @@
 #include "gvmt/internal/gc_threads.hpp"
 #include "gvmt/internal/memory.hpp"
 #include "gvmt/internal/LargeObjectSpace.hpp"
+#include "gvmt/internal/reclaim.hpp"
 
 #define MB ((unsigned)(1024*1024))
 
@@ -40,7 +41,7 @@ public:
    
     static inline GVMT_Object fast_allocate(size_t size) {
         if (size >= LARGE_OBJECT_SIZE) {
-            return LargeObjectSpace::allocate(size);      
+            return LargeObjectSpace::allocate(size, false);      
         } else {
             // Need to make this thread safe...
             return Policy::allocate(size).as_object();
@@ -54,7 +55,12 @@ public:
         if (mem == NULL) {
             gvmt_gc_waiting = true;
             mutator::wait_for_collector(sp, fp);
-            mem = fast_allocate(size);
+            if (size >= LARGE_OBJECT_SIZE) {
+                return LargeObjectSpace::allocate(size, true);      
+            } else {
+                // Need to make this thread safe...
+                return Policy::allocate(size).as_object();
+            }
             // Cannot run out of memory?
             assert (mem != NULL);
         }
@@ -63,8 +69,8 @@ public:
     
     static inline void init(size_t heap_size_hint, float residency) {
         Policy::init(heap_size_hint, residency);
-        Memory::heap_init<Policy>();
-        Policy::ensure_space(4 * MB);
+        Heap::init<Policy>();
+        Heap::ensure_space(4 * MB);
         GC::weak_references.intialise();    
         LargeObjectSpace::init();
         finalizer::init();
@@ -80,13 +86,15 @@ public:
         int64_t t0, t1;
         t0 = high_res_time();
         Policy::pre_collection();
+        LargeObjectSpace::pre_collection();
         gc::process_roots<NonGenCollection<Policy> >();
         gc::transitive_closure<NonGenCollection<Policy> >();
         gc::process_finalisers<NonGenCollection<Policy> >();
         gc::transitive_closure<NonGenCollection<Policy> >();
         gc::process_weak_refs<NonGenCollection<Policy> >();
         LargeObjectSpace::sweep();
-        Policy::reclaim();
+        GC::reclaim<Policy>();
+        Heap::done_collection();
         allocator::zero_limit_pointers();
         assert(GC::mark_stack.empty());
         t1 = high_res_time();
@@ -94,6 +102,6 @@ public:
         gvmt_major_collection_time += (t1 - t0);
         gvmt_total_collection_time += (t1 - t0);
     }
-
+    
 };
 
