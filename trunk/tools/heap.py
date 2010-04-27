@@ -12,19 +12,28 @@ LINE_MASK = LINE_SIZE - 1
 BLOCK_MASK = BLOCK_SIZE - 1   
 BLOCKS_PER_SUPER_BLOCK = 32
 USABLE_BLOCKS_PER_SUPER_BLOCK = 30
-MATURE_SPACE_ID = 0
+MATURE_SPACE_ID = 2
 
+#x86 specific - Should be in own module
+
+def align(a):
+    return '.align %d\n' % a
+    
 class Block(object):
     
     def __init__(self, area):
         self.area = area
         self.text = common.Buffer()
-        self.start_map = [ 0 ] * (BLOCK_SIZE /LINE_SIZE)
         self.mark_map = [ 0 ] * (BLOCK_SIZE /LINE_SIZE)
-        self.text << '.align %d\n' % BLOCK_SIZE
+        self.text << align(BLOCK_SIZE)
 
     def __lshift__(self, s):
         return self.text << s
+
+    def mark(self, offset):
+        assert offset <= BLOCK_SIZE
+        self.mark_map[offset//LINE_SIZE] |= 1 << ((offset & 127)//4);
+
 
 class Object(object):
     
@@ -37,12 +46,6 @@ class Object(object):
         if self._size & (a-1):
             self._size = (self._size + (a - 1)) & ~(a-1)
             self.members.append(ALIGN_TEMPLATE % a)
-#        
-#    def add_address(self, addr):
-#        if self._size & _ptr_mask:
-#            self._align(_ptr_size)
-#        self.members.append(ADDR_TEMPLATE % addr)
-#        self._size += _ptr_size
         
     def add_member(self, tipe, value):
         s = gvmtlink._size[tipe]
@@ -67,13 +70,13 @@ class Object(object):
         out << '%s:\n' % self.label
         for m in self.members:
             out << m
-        out << '.align 4\n'
+        out << align(4)
         
-def crosses(base, size, align):
-    return (base & (align-1)) + size > align
+def crosses(base, size, power2):
+    return (base & (power2-1)) + size > power2
     
-def roundup(val, align):
-    return (val + align-1) & (-align)
+def roundup(val, power2):
+    return (val + power2-1) & (-power2)
     
 class MainHeap(object):
     
@@ -85,18 +88,15 @@ class MainHeap(object):
     def add_object(self, obj):
         size = obj.size()
         if crosses(self.offset, size, LINE_SIZE) and (self.offset&LINE_MASK):
-            self.block << '.align %d\n' % LINE_SIZE
+            self.block << align(LINE_SIZE)
             self.offset = roundup(self.offset, LINE_SIZE)
             assert (self.offset & LINE_MASK) == 0
         if crosses(self.offset, size, BLOCK_SIZE) or self.offset == BLOCK_SIZE:
             self.block = Block(MATURE_SPACE_ID)
             self.blocks.append(self.block)
             self.offset = 0
-        card_index = self.offset / LINE_SIZE
-        if self.block.start_map[card_index] == 0:
-            self.block.start_map[card_index] = (self.offset & 127) - 128
         #Set mark bit for this object.
-        self.block.mark_map[card_index] |= 1 << ((self.offset & 127)/4);
+        self.block.mark(self.offset)
         obj.write(self.block)
         self.offset += size
         assert self.offset <= BLOCK_SIZE
@@ -107,38 +107,34 @@ class MainHeap(object):
 EMPTY_BLOCK = Block(0)
 EMPTY_BLOCK << '.long 0\n'
 
-class SuperBlock(object):
+class Zone(object):
     
     def __init__(self, blocks):
         self.block_list = [EMPTY_BLOCK, EMPTY_BLOCK] + blocks
         self.block_list += [ EMPTY_BLOCK ] * (BLOCKS_PER_SUPER_BLOCK - 
                                               len(self.block_list))
-        self.areas = [0] * BLOCKS_PER_SUPER_BLOCK
         assert len(self.block_list) == BLOCKS_PER_SUPER_BLOCK
         assert (SUPER_BLOCK_ALIGN == BLOCK_SIZE*32)
-        self.areas = [ b.area for b in self.block_list ]
+        self.spaces = [ b.area for b in self.block_list ]
         
     def space(self):
         return self.size - size.offset
         
     def write(self, out):
-        out << '.align %d\n' % SUPER_BLOCK_ALIGN
+        out << align(SUPER_BLOCK_ALIGN)
         # Permanent
         out << '.byte 1\n'
-        for a in self.areas[1:]:
+        # Spaces
+        for a in self.spaces[1:]:
             out << '.byte %d\n' % a
-        out << '.align %d\n' % (SUPER_BLOCK_ALIGN / LINE_SIZE)
-        for b in self.block_list:
-            for i in b.start_map:
-                out << '.byte %d\n' % i
-        out << '.align %d\n' % BLOCK_SIZE
+        out << align(BLOCK_SIZE)
         for b in self.block_list:
             for i in b.mark_map:
                 out << '.long %d\n' % i
-        out << '.align %d\n' % BLOCK_SIZE
+        out << align(BLOCK_SIZE)
         for b in self.block_list[2:]:
             out << b.text
-        out << '.align %d\n' % SUPER_BLOCK_ALIGN
+        out << align(SUPER_BLOCK_ALIGN)
 
 def large_object_size(x):
     base_size = 1 << (x//2)
@@ -183,10 +179,13 @@ class LargeObjectArea(object):
                     #Debugging label:
                     block << 'gvmt_large_object_block_%d_%d:\n' % (i+22, e)
                     blist.append(block)
+                    offset = 0
+                block.mark(offset)
                 obj.write(block)
                 assert obj.size() <= self.sizes[i]
                 for x in range(obj.size(), self.sizes[i]):
                     block << '.byte 0\n'
+                offset += self.sizes[i]
         return blist
 
     def very_large_object_block(self):
@@ -196,22 +195,22 @@ class LargeObjectArea(object):
                 b << 'gvmt_large_objects_big_%d:\n' % i
                 b << '.long  gvmt_large_objects_big_%d\n' % (i+1) #Link word
                 obj.write(b)
-                b << '.align %d\n' % BLOCK_SIZE
+                b << align(BLOCK_SIZE)
             b << 'gvmt_large_objects_big_%d:\n' % (len(self.objects[-1])-1)
             b << '.long 0\n' #Link word
             self.objects[-1][-1].write(b)
-            b << '.align %d\n' % BLOCK_SIZE
+            b << align(BLOCK_SIZE)
         else:
             b = Block(129)
             b << '.long 0\n'
-            b << '.align %d\n' % BLOCK_SIZE
+            b << align(BLOCK_SIZE)
         return b
            
 def write_blocks(blocks, out):
     while len(blocks) > USABLE_BLOCKS_PER_SUPER_BLOCK:
-        SuperBlock(blocks[:USABLE_BLOCKS_PER_SUPER_BLOCK]).write(out)
+        Zone(blocks[:USABLE_BLOCKS_PER_SUPER_BLOCK]).write(out)
         blocks = blocks[USABLE_BLOCKS_PER_SUPER_BLOCK:]
-    SuperBlock(blocks).write(out)
+    Zone(blocks).write(out)
            
 def to_asm(section, base_name):
     out_file = os.path.join(sys_compiler.TEMPDIR, base_name + 
@@ -246,7 +245,7 @@ def to_asm(section, base_name):
     out << 'gvmt_start_heap:\n'
     write_blocks(main_heap.block_list(), out)
     write_blocks(loa.block_list(), out)
-    SuperBlock([loa.very_large_object_block()]).write(out)
+    Zone([loa.very_large_object_block()]).write(out)
     out << '.globl gvmt_end_heap\n'
     out << 'gvmt_end_heap:\n'
     

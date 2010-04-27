@@ -129,7 +129,7 @@ if __name__ == '__main__':
     verbose = False
     library = False
     no_heap = False
-    super_blocks = False
+    zones = False
     for opt, value in opts:
         if opt == '-h':
             common.print_usage(options)
@@ -143,7 +143,7 @@ if __name__ == '__main__':
         elif opt == '-n':
             no_heap = True
         elif opt == '-2':
-            super_blocks = True
+            zones = True
     for name in args:
         f = open(name, 'rb')
         g = gso.read(f)
@@ -170,7 +170,7 @@ if __name__ == '__main__':
         sections = (merged.opaque, merged.roots, merged.heap)
     for sect in sections:
         name = '%s_%s' % (base_name, sect.name)
-        if sect is merged.heap and super_blocks:
+        if sect is merged.heap and zones:
             heap.to_asm(sect, name)
         else:
             to_asm(sect, name, not no_heap)

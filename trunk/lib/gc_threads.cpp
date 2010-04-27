@@ -232,24 +232,24 @@ namespace mutator {
             assert(rt > 0);
         } while (!COMPARE_AND_SWAP(&mutator::threads, rt, rt-1));
         pthread_mutex_lock(&collector::lock);
-//        if (mutator::threads == 0) {
-//           pthread_cond_signal(&all_stopped);
-//        }
-        if (gvmt_gc_waiting && mutator::threads == 0) {
-            // Decrement threads, so debugging can see collection is occuring
-            mutator::threads--;
-            gvmt_do_collection();
-            allocator::zero_limit_pointers();
-            gvmt_gc_waiting = false;
-            // "Restart" dummy thread
-            dummy_thread::running = 1;
-            mutator::threads = 1;
-            pthread_cond_broadcast(&collector::done);
-        } else {
+        if (mutator::threads == 0) {
+           pthread_cond_signal(&all_stopped);
+        }
+//        if (gvmt_gc_waiting && mutator::threads == 0) {
+//            // Decrement threads, so debugging can see collection is occuring
+//            mutator::threads--;
+//            gvmt_do_collection();
+//            allocator::zero_limit_pointers();
+//            gvmt_gc_waiting = false;
+//            // "Restart" dummy thread
+//            dummy_thread::running = 1;
+//            mutator::threads = 1;
+//            pthread_cond_broadcast(&collector::done);
+//        } else {
             do {
                 pthread_cond_wait(&collector::done, &collector::lock);
             } while (gvmt_gc_waiting);
-        }
+//        }
         pthread_mutex_unlock(&collector::lock);   
         increment_rt_count();
         assert(gvmt_gc_limit_pointer == 0);

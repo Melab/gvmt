@@ -24,7 +24,7 @@ extern "C" {
 
     void gvmt_malloc_init(size_t heap_size_hint, float residency) {
         GenCopy::init(heap_size_hint, residency);
-        SuperBlock::verify_heap();
+        Zone::verify_heap();
     }
         
     GVMT_LINKAGE_1 (gvmt_gc_pin, void* obj)

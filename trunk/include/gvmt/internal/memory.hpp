@@ -140,7 +140,7 @@ public:
     
 };
 
-class SuperBlock;
+class Zone;
 
 class Block : public MemoryUnit<Block, 14> {
     
@@ -173,7 +173,7 @@ public:
 };
 
 
-/** This object is a SuperBlock* but unitialised, so that it will not require
+/** This object is a Zone* but unitialised, so that it will not require
  * any real memory until it is activated */
 class ReservedMemoryHandle {
     
@@ -184,7 +184,7 @@ class ReservedMemoryHandle {
 public:
     static ReservedMemoryHandle allocate(size_t size);
     
-    SuperBlock* activate();
+    Zone* activate();
     
     inline bool valid() {
         return data != 0;   
@@ -192,7 +192,7 @@ public:
    
 };
 
-class SuperBlock : public MemoryUnit<SuperBlock, 19> {
+class Zone : public MemoryUnit<Zone, 19> {
         
     void verify_header();
     void verify_layout();
@@ -205,14 +205,17 @@ public:
         struct {
             union {
                 bool permanent;
-                char spaces[1]; // 1 byte per block
                 struct {
-                    uint8_t modified_map[SuperBlock::size/Line::size];  
+                    char spaces[Zone::size/Block::size]; // 1 byte per block
+                    uint32_t index;
+                };
+                struct {
+                    uint8_t modified_map[Zone::size/Line::size];  
                     union {
-                        uint8_t collector_line_data[SuperBlock::size/Line::size]; 
-                        uint32_t collector_block_data[SuperBlock::size/Block::size];
+                        uint8_t collector_line_data[Zone::size/Line::size]; 
+                        uint32_t collector_block_data[Zone::size/Block::size];
                     };
-                    uint8_t pinned[SuperBlock::size/Line::size]; 
+                    uint8_t pinned[Zone::size/Line::size]; 
                 };
                 char pad[Block::size];   // align to block;
             };
@@ -223,7 +226,7 @@ public:
         Block blocks[1]; // Actual usable memory
     };
     
-    static SuperBlock* allocate(size_t size) {
+    static Zone* allocate(size_t size) {
         ReservedMemoryHandle handle = ReservedMemoryHandle::allocate(size);
         if (!handle.valid())
             return NULL;
@@ -232,9 +235,9 @@ public:
 
     static inline uint8_t* mark_byte(Address mem) {
         // Each mark byte corresponds to 8 words = 32 bytes.
-        SuperBlock *sb = containing(mem);
+        Zone *z = containing(mem);
         uintptr_t index = index_of<EightWords>(mem);
-        return &sb->mark_map[index];
+        return &z->mark_map[index];
     }
     
     static inline bool marked(Address mem) {
@@ -251,8 +254,9 @@ public:
         *byte |= 1<<index;
     }
     
+    /** Returns the first usual Block, ie. Block index 2 */
     inline Block* first() {
-        return reinterpret_cast<Block*>(this);
+        return reinterpret_cast<Block*>(this)->next()->next();
     }
     
     inline Block* end() {
@@ -265,7 +269,7 @@ public:
     
     static void print_flags(Address addr);
     
-    /** Return true iff addr is a valid address in an allocated super-block*/
+    /** Return true iff addr is a valid address in an allocated zone*/
     static bool valid_address(Address addr);
     
     inline uint8_t* modification_byte(Line* line) {
@@ -284,9 +288,9 @@ public:
 };
 
 inline int8_t Block::space_of(Address a) {
-    SuperBlock* sb = SuperBlock::containing(a);
-    size_t index = SuperBlock::index_of<Block>(a);
-    return sb->spaces[index];
+    Zone* z = Zone::containing(a);
+    size_t index = Zone::index_of<Block>(a);
+    return z->spaces[index];
 }
 
 inline int8_t Block::space() {
@@ -294,9 +298,9 @@ inline int8_t Block::space() {
 } 
 
 inline void Block::set_space(char s) {
-    SuperBlock* sb = SuperBlock::containing(this);
-    size_t index = SuperBlock::index_of<Block>(this);
-    sb->spaces[index] = s;
+    Zone* z = Zone::containing(this);
+    size_t index = Zone::index_of<Block>(this);
+    z->spaces[index] = s;
 } 
 
 class Space {
@@ -307,20 +311,21 @@ public:
     
     static const char* area_name(Address a);
     
-    static const int MATURE = 0;
+    static const int FREE = 0;
     static const int NURSERY = -1;
     static const int PINNED = -2;
 
     // Since the block_info for very-large objects overlaps the card-marking table
     // LARGE must be the same as cards are marked with.
     static const int LARGE = 1; 
+    static const int MATURE = 2;
         
     static inline bool is_young(GVMT_Object p) {
-        return Block::space_of(p) < MATURE;
+        return Block::space_of(p) < 0;
     }
         
     static inline bool is_young(Address a) {
-        return Block::space_of(a) < MATURE;
+        return Block::space_of(a) < 0;
     }
    
 };
@@ -371,16 +376,70 @@ public:
         Address result = Policy::allocate(size);
         move(gc::untag(p), result, size);
         set_forwarding_address(p, result);
-        SuperBlock::mark(result);
+        Zone::mark(result);
         GC::push_mark_stack(result);
         return gc::tag(result, gc::get_tag(p));
     }
+    
+    
+};
 
-    template <class Policy> static void heap_init() {
+class Heap {
+ 
+    static std::vector<Zone*> zones;
+    static std::vector<uint32_t>free_bits;
+    static int first_free;
+    static int virtual_zones;
+    static size_t free_block_count;
+    static size_t single_block_cursor;
+    static size_t multi_block_cursor;
+    
+    static Block* allocate_from_zone(size_t index, size_t count, int space) {
+        if (free_bits[index] == 0)
+            return NULL;
+        size_t i, mask = (1<<count) - 1;
+        for(i = 2; i <= Zone::size/Block::size-count; i++) {
+            if ((free_bits[index] & (mask<<i)) == (mask<<i)) {
+                free_bits[index] &= (~(mask<< i));
+                Block* result = &zones[index]->blocks[i];
+                assert(Zone::index_of<Block>(result) == i);
+                for (unsigned i = 0; i < count; i++) {
+                    result[i].set_space(space);
+                }
+                free_block_count -= count;
+                return result;
+            }
+        }
+        return NULL;
+    }
+
+    static inline Block* allocate_from_new_zone(size_t count, int space, bool force) {
+        if (force || virtual_zones > 0) {
+            Zone* z = Zone::allocate(Zone::size);
+            z->index = zones.size();
+            zones.push_back(z);   
+            free_bits.push_back(-4);
+            free_block_count += Zone::size/Block::size-2;
+            virtual_zones--;
+            multi_block_cursor = z->index;
+            Block* result = allocate_from_zone(z->index, count, space);
+            assert (result != NULL);
+            return result;
+        } else {
+            return NULL;
+        }
+    }
+    
+public:
+
+    template <class Policy> static void init() {
         Block* b = (Block*)&gvmt_start_heap;
+        Zone* z = Zone::containing(b);
+        assert(b == (Block*)z);
         assert(b == Block::containing((char*)b));
-        // Skip super-block headers
-        while (SuperBlock::index_of<Block>((char*)b) < 2)
+        assert(sizeof(Block) == Block::size);
+        // Skip zone headers
+        while (Zone::index_of<Block>((char*)b) < 2)
             b = b->next();
         uint8_t area;
         while ((area = b->space()) == Space::MATURE) {
@@ -388,91 +447,130 @@ public:
                 Policy::data_block(b);
             }
             b = b->next();
-            // Skip super-block headers
-            if (SuperBlock::index_of<Block>((char*)b) == 0) {
+            // Skip zone headers
+            if (Zone::index_of<Block>((char*)b) == 0) {
                 b = b->next(); 
                 b = b->next();
             }
         }
-    }
-    
-    
-};
-
-template <int area> class BlockManager {
- 
-    std::vector<SuperBlock*> super_blocks;
-    std::vector<uint32_t>free_bits;
-    
-    inline Block* allocate_from_super_block(size_t index, size_t count) {
-        if (free_bits[index] == 0)
-            return NULL;
-        size_t i, mask = (1<<count) - 1;
-        for(i = 2; i <= SuperBlock::size/Block::size-count; i++) {
-            if ((free_bits[index] & (mask<<i)) == (mask<<i)) {
-                free_bits[index] &= (~(mask<< i));
-                Block* result = &super_blocks[index]->blocks[i];
-                for (unsigned i = 0; i < count; i++) {
-                    result[i].set_space(area);
-                }
-                return result;
-            }
+        while ((char*)z < &gvmt_end_heap) {
+            z->index = zones.size();
+            zones.push_back(z);   
+            free_bits.push_back(0);
+            z = z->next();
         }
-        return NULL;
     }
     
-    void new_super_block() {
-        super_blocks.push_back(SuperBlock::allocate(SuperBlock::size));   
-        free_bits.push_back(-4);
+    static inline void done_collection(void) {
+        // reset cursors to start
+        single_block_cursor = 0;
+        multi_block_cursor = 0;
     }
     
-public:
+    static void ensure_space(size_t space) {
+        int extra = space - available_space();
+        if (extra > 0)
+            virtual_zones += (extra+Zone::size-1)/Zone::size;
+    }
     
-    Block* allocate_blocks(size_t count) {
+    static int available_space() {
+        // Computed space may be negative from previous forced allocation.
+        int space = free_block_count * Block::size + 
+               virtual_zones * Zone::size;
+        return space < 0 ? 0 : space;
+    }
+     
+    static Block* get_blocks(size_t count, int space, bool force) {
         assert(0 < count);
-        assert(count < SuperBlock::size/Block::size);
+        assert(count < Zone::size/Block::size);
+        assert(space != Space::FREE);
+        if (count == 1)
+            return get_block(space, force);
         Block* result;
-        size_t index = 0;
-        while (index < super_blocks.size()) {
-            result = allocate_from_super_block(index, count);
-            if (result) {
-                assert(SuperBlock::index_of<Block>(result) >= 2);
-                assert(SuperBlock::index_of<Block>(result)+count <= SuperBlock::size/Block::size);
-                return result;
+        while (multi_block_cursor < zones.size()) {
+            if (free_bits[multi_block_cursor]) {
+                result = allocate_from_zone(multi_block_cursor, count, space);
+                if (result) {
+                    assert(Zone::index_of<Block>(result) >= 2);
+                    assert(Zone::index_of<Block>(result)+count <= 
+                           Zone::size/Block::size);
+                    return result;
+                }
             }
-            index++;
+            multi_block_cursor++;
         }
-        new_super_block();
-        result = allocate_from_super_block(index, count);
-        assert (result != NULL);
-        return result;
-    }
-
-    void free_blocks(Block* blocks, size_t count) {
-        SuperBlock* sb = SuperBlock::containing(blocks);
-        assert(sb == SuperBlock::containing((blocks + count)));
-        size_t i, end, mask;
-        for (i = 0, end = super_blocks.size(); i < end; i++) {
-            if (sb == super_blocks[i]) {
-                mask = (1<<count) - 1;
-                free_bits[i] |= (mask<<SuperBlock::index_of<Block>(blocks));
-                return;
-            }
-        }
-        assert("Cannot reach here" && false);
+        return allocate_from_new_zone(count, space, force);
     }
         
-    inline Block* allocate_block() {
-        return allocate_blocks(1);
+    static inline Block* get_block(int space, bool force) {
+        while (single_block_cursor < zones.size()) {
+            if (free_bits[single_block_cursor]) {
+                Block* result = allocate_from_zone(single_block_cursor, 1, space);
+                assert(result);
+                return result;
+            }
+            single_block_cursor++;
+        }
+        return allocate_from_new_zone(1, space, force);
+    }
+
+    static void free_blocks(Block* blocks, size_t count) {
+        Zone* z = Zone::containing(blocks);
+        assert(z == Zone::containing((blocks + count-1)));
+        assert(z->index < zones.size());
+        assert(count > 0);
+        uint32_t mask = (1<<count) - 1;
+        uint32_t to_free = (mask<<Zone::index_of<Block>(blocks));
+        assert ((free_bits[z->index] & to_free) == 0);
+        free_bits[z->index] |= to_free;
+        free_block_count += count;
+        for (size_t i = 0; i < count; i++) {
+            blocks[i].set_space(Space::FREE);
+        }
+    }
+    
+    class iterator {
+        size_t index;
+         
+    public:
+         
+        iterator(size_t index) {
+            this->index = index;
+        }
+         
+        inline iterator& operator++ () {
+            index++;
+            return *this;
+        }
+        
+        inline bool operator == (iterator other) {
+            return index == other.index;
+        }
+        
+        inline bool operator != (iterator other) {
+            return index != other.index;
+        }
+
+        inline Zone*& operator*() {
+            return zones[index];
+        }
+
+    };
+        
+    static inline iterator begin() {
+        return iterator(0);
+    }
+
+    static inline iterator end() {
+        return iterator(zones.size());
     }
     
 };
-
+ 
 extern "C" {
     
     extern Block gvmt_large_object_area_start;
 
 }
-
 
 #endif // GVMT_INTERNAL_MEMORY_H 

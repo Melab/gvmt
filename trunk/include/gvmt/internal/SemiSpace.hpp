@@ -23,7 +23,6 @@ class SemiSpace {
     static size_t next_free_block_index;
     static Address copy_ptr;
     static Address scan_ptr;
-    static BlockManager<Space::MATURE> manager;
     static float heap_residency;
     
     static void balance_spaces() {
@@ -66,8 +65,8 @@ class SemiSpace {
     static void init_heap() {
         Block* b = (Block*)&gvmt_start_heap;
         assert(b == Block::containing((char*)b));
-        // Skip super-block headers
-        while (SuperBlock::index_of<Block>((char*)b) < 2)
+        // Skip zone headers
+        while (Zone::index_of<Block>((char*)b) < 2)
             b = b->next();
         uint8_t area;
         while ((area = b->space()) == Space::MATURE) {
@@ -75,8 +74,8 @@ class SemiSpace {
                 to_space->push_back(b);
             }
             b = b->next();
-            // Skip super-block headers
-            if (SuperBlock::index_of<Block>((char*)b) == 0) {
+            // Skip zone headers
+            if (Zone::index_of<Block>((char*)b) == 0) {
                 b = b->next(); 
                 b = b->next();
             }
@@ -107,7 +106,7 @@ class SemiSpace {
         unused_memory = (heap_size_hint + MEGA_MINUS_ONE & (~MEGA_MINUS_ONE));
         to_space = &semispace1;
         from_space = &semispace2;
-        from_space->push_back(manager.allocate_block());
+        from_space->push_back(Heap::get_block(Space::MATURE, true));
     }
     
 //    /** Do allocation, return NULL if cannot allocate.
@@ -142,7 +141,7 @@ class SemiSpace {
             copy_ptr = copy_block->start();
             assert(copy_block->contains(copy_ptr.plus_bytes(size)));
         }
-        assert(SuperBlock::valid_address(copy_ptr));
+        assert(Zone::valid_address(copy_ptr));
         assert(Block::containing(copy_ptr)->space() == Space::MATURE);
         Address result = copy_ptr;
         copy_ptr = copy_ptr.plus_bytes(size);
@@ -153,7 +152,7 @@ class SemiSpace {
     static inline size_t available_space() {
         int blocks = to_space->size() - next_free_block_index;
         if (blocks > 0)
-            return sizeof(Block) * (size_t)blocks;
+            return Block::size * (size_t)blocks;
         else
             return 0;
     }
@@ -169,7 +168,7 @@ class SemiSpace {
             to_space = temp;
         }
         while (to_space->size() < from_space->size()) {
-            Block *b = manager.allocate_block();
+            Block *b = Heap::get_block(Space::MATURE, false);
             if (b == NULL) {
                 // TO DO -- out_of_memory();
                 abort();
@@ -186,20 +185,20 @@ class SemiSpace {
 //        assert(to_be_scanned.empty());
     }
     
-    static void ensure_space(size_t headroom) {
-        size_t required_blocks = (headroom+sizeof(Block)-1)/sizeof(Block)
-                              + next_free_block_index;
-        while(to_space->size() < required_blocks) {
-            Block *b = manager.allocate_block();
-            if (b == NULL) {
-                // No more memory available 
-                balance_spaces();
-                return;
-            }
-            to_space->push_back(b);
-        }
-    }
-    
+//    static void ensure_space(size_t headroom) {
+//        size_t required_blocks = (headroom+Block::size-1)/Block::size
+//                              + next_free_block_index;
+//        while(to_space->size() < required_blocks) {
+//            Block *b = Heap::get_block(Space::MATURE, false);
+//            if (b == NULL) {
+//                // No more memory available 
+//                balance_spaces();
+//                return;
+//            }
+//            to_space->push_back(b);
+//        }
+//    }
+//    
     /** Reclaim all white objects */
     static void reclaim() {
         // Ensure that there is enough head room.
@@ -211,7 +210,11 @@ class SemiSpace {
             blocks = next_free_block_index + 120;
         else
             blocks = next_free_block_index / (2 * heap_residency);
-        ensure_space((blocks - next_free_block_index)*sizeof(Block));
+//        ensure_space((blocks - next_free_block_index)*Block::size);
+    }
+    
+    static void inline reclaim(Block* b) {
+        // Do nothing   
     }
   
     /** Mark this object as grey, that is live, but not scanned */
@@ -234,22 +237,6 @@ class SemiSpace {
         return it;
     }
     
-    static Block* release_block() {
-        Block* released;
-        if (from_space->size() > to_space->size()) {
-            released = from_space->back();
-            from_space->pop_back();
-        } else {
-            if (next_free_block_index < to_space->size()) {
-                released = to_space->back();
-                to_space->pop_back();
-            } else {
-                released = manager.allocate_block(); 
-            }
-        }
-        return released;
-    }
-    
     static inline bool is_scannable(Address obj) {
         return true;
     }
@@ -262,7 +249,8 @@ class SemiSpace {
     static void* pin(GVMT_Object obj) {
         abort();
     }
-       
+           
+    static inline void sanity() { }
 };
 
 size_t SemiSpace::unused_memory;
@@ -274,7 +262,6 @@ std::vector<Block*>* SemiSpace::from_space;
 size_t SemiSpace::next_free_block_index;
 Address SemiSpace::copy_ptr;
 Address SemiSpace::scan_ptr;
-BlockManager<Space::MATURE> SemiSpace::manager;
 float SemiSpace::heap_residency;
 
 
