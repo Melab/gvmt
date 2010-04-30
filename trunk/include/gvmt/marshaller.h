@@ -28,6 +28,7 @@ void gsc_write_int16_t(FILE* out, int16_t val);
 void gsc_write_int8_t(FILE* out, int8_t val);
 void gsc_write_int64_t(FILE* out, int64_t val);
 void gsc_address(FILE* out, char* addr);
+void gsc_string(FILE* out, char* addr);
 void gsc_footer(FILE* out);
 
 /** Internal function for marshaling */

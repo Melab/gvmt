@@ -10,15 +10,15 @@
 
 #define LOG_CARD_SIZE 7
 #define LOG_BLOCK_SIZE 14
-#define LOG_SUPER_BLOCK_ALIGNMENT 19
+#define LOG_ZONE_ALIGNMENT 19
 
 #define LOG_CARDS_PER_BLOCK (LOG_BLOCK_SIZE - LOG_CARD_SIZE)
 
 #define CARD_SIZE (1 << LOG_CARD_SIZE)
 #define BLOCK_SIZE (1 << LOG_BLOCK_SIZE)
-#define SUPER_BLOCK_ALIGNMENT (1 << LOG_SUPER_BLOCK_ALIGNMENT)
+#define ZONE_ALIGNMENT (1 << LOG_ZONE_ALIGNMENT)
 #define CARDS_PER_BLOCK (1 << LOG_CARDS_PER_BLOCK)
-#define LARGE_OBJECT_SIZE (1 << 11)
+#define LARGE_OBJECT_SIZE (Block::size>>1)
 
 #define WORD_SIZE sizeof(void*)
 // This works for 16, 32 and 64, but not 128 bit words.
@@ -120,7 +120,7 @@ public:
     static const uintptr_t size = 8*Word::size;   
 };
 
-class Line : public MemoryUnit<Line, 7> {
+class Line : public MemoryUnit<Line, LOG_CARD_SIZE> {
     char pad[size];
 };
 
@@ -142,7 +142,7 @@ public:
 
 class Zone;
 
-class Block : public MemoryUnit<Block, 14> {
+class Block : public MemoryUnit<Block, LOG_BLOCK_SIZE> {
     
     char pad[size];
 
@@ -200,7 +200,7 @@ class Zone : public MemoryUnit<Zone, 19> {
 public:
     
     static const uint32_t MAGIC_NUMBER = 
-                          (0xFAB00000 | LOG_SUPER_BLOCK_ALIGNMENT);
+                          (0xFAB00000 | LOG_ZONE_ALIGNMENT);
     union {
         struct {
             union {

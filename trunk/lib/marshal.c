@@ -162,6 +162,23 @@ void gsc_address(FILE* out, char* addr) {
     fprintf(out, "address %s\n", addr);
 }
 
+void gsc_string(FILE* out, char* text) {
+    int i, n = strlen(text);
+    fprintf(out, "string \"");
+    for (i = 0; i <= n; i++) {
+        unsigned char c = (unsigned char)text[i];
+        if (((unsigned char)c) > 126)
+            fprintf(out, "\\%o", c);
+        else if (c < 8)
+            fprintf(out, "\\00%o", c);
+        else if (c < 32)
+            fprintf(out, "\\0%o", c);
+        else
+            putc(c, out);
+    }
+    fprintf(out, "\"\n");
+}
+
 void gsc_footer(FILE* out) {
     fprintf(out, ".end\n");
 }
