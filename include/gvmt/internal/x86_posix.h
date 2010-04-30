@@ -1,5 +1,5 @@
 #ifdef GVMT_X86_POSIX_H
-#error Multiple inclusion of architectur header
+#error Multiple inclusion of architecture header
 #else
 #define GVMT_X86_POSIX_H
 

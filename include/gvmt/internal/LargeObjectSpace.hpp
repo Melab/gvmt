@@ -161,7 +161,7 @@ public:
     static GVMT_Object allocate(size_t size, bool force) {
         assert(initialised);
         // Space for mark word.
-        if (size >= SUPER_BLOCK_ALIGNMENT/2)
+        if (size >= ZONE_ALIGNMENT/2)
             return allocate_very_large_object(size);
         size_t index;
         for (index = 0; index < 6; index++) {
