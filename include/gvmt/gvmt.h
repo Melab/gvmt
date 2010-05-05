@@ -94,6 +94,7 @@ void gvmt_push_i(intptr_t i, ...);
 void gvmt_ireturn_r(GVMT_Object o, ...);
 void gvmt_ireturn_p(void* o, ...);
 void gvmt_ireturn_i(intptr_t i, ...);
+void gvmt_ireturn_v(void);
 
 /**Intrinsic for #@ (Instruction stream fetch) */
 uintptr_t gvmt_fetch(void);
