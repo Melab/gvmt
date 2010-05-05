@@ -10,11 +10,12 @@ options = {
     'b bytecode-header-file' : 'Specify bytecode header file',
     'n name' : 'Name of generated interpreter',
     'D symbol' : 'Define symbol in preprocessor',
-    'e' : 'Explicit: All bytecodes must be explicitly defined'
+    'e' : 'Explicit: All bytecodes must be explicitly defined',
+    'z' : 'Do not put gc-safe-points on backward edges'
 }        
 
 if __name__ == '__main__':    
-    opts, args = getopt.getopt(sys.argv[1:], 'I:b:ho:D:n:eL:')
+    opts, args = getopt.getopt(sys.argv[1:], 'I:b:ho:D:n:eL:z')
     #Parse options
     flags = []
     func_name = None
@@ -24,6 +25,7 @@ if __name__ == '__main__':
         common.print_usage(options, "slave-defn master-defn(.gsc)")
         sys.exit(1)
     try:       
+        gc_safe = True
         for opt, value in opts:
             if opt == '-h':
                 common.print_usage(options, "slave-defn master_defn(.gsc)")
@@ -40,8 +42,12 @@ if __name__ == '__main__':
                 explicit = True
             elif opt == '-a':
                 flags.append('-A')
+            elif opt == '-z':
+                gc_safe = False
             elif opt == '-L':
                 lcc_dir = value
+        if gc_safe:
+            flags.append('-Wf-xgcsafe')
         int_file = gsc.read(common.In(args[1]))
         if not int_file.bytecodes or not int_file.bytecodes.master:
             raise common.UnlocatedException("%s does not define an interpreter\n" % args[0])
