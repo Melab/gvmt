@@ -340,27 +340,6 @@ void GVMT_CALL gvmt_store_limit(void* limit) {
 //}
 //
 
-void* gvmt_interpreter_frame(struct gvmt_frame* frame) {
-    do {
-        if (frame->interpreter)
-            return frame;
-        frame = frame->previous;
-    } while (frame);
-    return NULL;
-}
-
-void* gvmt_caller_frame(struct gvmt_frame* frame) {
-    if (frame) {
-        frame = frame->previous;
-        while (frame) {
-            if (frame->interpreter)
-                return frame;
-            frame = frame->previous;
-        }
-    }
-    return NULL;
-}
-
 void gvmt_fully_initialized_check(GVMT_Object object) {
     int i, buffer[GVMT_MAX_SHAPE_SIZE];
     int* shape = gvmt_shape(object, buffer);

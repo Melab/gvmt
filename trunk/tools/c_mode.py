@@ -844,7 +844,6 @@ class CMode(object):
             out << 'GVMT_Object refs[%d]; } gvmt_frame;' % self.ref_temps_max
             out << ' gvmt_frame.gvmt_frame.previous = _gvmt_caller_frame;'
             out << ' gvmt_frame.gvmt_frame.count = %d;' % self.ref_temps_max
-            out << ' gvmt_frame.gvmt_frame.interpreter = 0;'
             for i in range(self.ref_temps_max):
                 out << ' gvmt_frame.gvmt_frame.refs[%d] = 0;' % i
         else:
@@ -897,10 +896,6 @@ class CMode(object):
     
     def stack_insert(self, offset, size):   
         return Simple(gtypes.p, self.stack.insert(offset, size, self.out))
-    
-    def frame(self):
-        iframe = 'gvmt_interpreter_frame((GVMT_Frame)FRAME_POINTER)'
-        return Simple(gtypes.p, iframe)
     
     def hop(self, index):
         self.block_end()

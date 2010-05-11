@@ -2125,19 +2125,6 @@ static void emit_subtree(Node p) {
                 }
                 return;
             }
-            if (strncmp(name, "frame_item_", 11) == 0) {
-                if (name[11] == 'i' && name[12] == 0) {
-                    intrinsic("ADD_P PLOAD_I");
-                    print("%d ", sizeof(void*));
-                    return;
-                } else if (name[11] == 'p' && name[12] == 0) {
-                    intrinsic("ADD_P PLOAD_P ");
-                    return;
-                } else if (name[11] == 'r' && name[12] == 0) {
-                    intrinsic("ADD_P PLOAD_R ");
-                    return;
-                }
-            }
             if (strcmp(name, "drop") == 0) {
                 intrinsic("#0 DROP_N ");
                 return;
@@ -2213,10 +2200,6 @@ static void emit_subtree(Node p) {
             }
             if (strcmp(name, "far_jump") == 0) {
                 intrinsic("FAR_JUMP ");
-                return;
-            }
-            if (strcmp(name, "current_frame") == 0) {
-                intrinsic("FRAME ");
                 return;
             }
             if (strcmp(name, "fully_initialized") == 0) {

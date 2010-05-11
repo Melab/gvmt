@@ -161,10 +161,7 @@ class DeltaMode(object):
         
     def zero(self, val):
         pass
-    
-    def frame(self):
-        pass
-                       
+                 
     def n_call(self, func, tipe, args):
         self.stack_offset = StackOffset(True, 0)
                        

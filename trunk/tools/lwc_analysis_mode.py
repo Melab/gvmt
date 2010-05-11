@@ -129,9 +129,6 @@ class LwcAnalysisMode(object):
     def rstack(self):
         pass
     
-    def frame(self):
-        self.dont_compile = True
-        
     def alloca(self, tipe, size):
         self.dont_compile = True
         

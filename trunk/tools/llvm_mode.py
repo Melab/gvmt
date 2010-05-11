@@ -611,13 +611,7 @@ class LlvmPassMode(object):
         self.stack.flush_to_memory(self.out)
         sp = 'stack->top(current_block, 0)'
         return Simple(gtypes.p, 'new BitCastInst(%s, TYPE_P, "", current_block)' % sp)
-                    
-    def frame(self):
-        global _uid
-        _uid += 1      
-        self.out << ' Value *params_%d[] = { FRAME, 0 };\n' % _uid
-        return Simple(gtypes.p, 'CallInst::create(INTERPRETER_FRAME, params, current_block)')
-        
+                  
     def alloca(self, tipe, size):
         global _uid
         _uid += 1
