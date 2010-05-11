@@ -78,7 +78,6 @@ extern GVMT_THREAD_LOCAL GVMT_StackItem* gvmt_stack_limit;
  
 extern GVMT_THREAD_LOCAL GVMT_StackItem* gvmt_gc_free_pointer;
 extern GVMT_THREAD_LOCAL GVMT_StackItem* gvmt_gc_limit_pointer;
-extern GVMT_THREAD_LOCAL int gvmt_tracing_state;
 
 extern GVMT_THREAD_LOCAL int32_t gvmt_thread_id;
 extern GVMT_THREAD_LOCAL int gvmt_thread_non_native;
