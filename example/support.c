@@ -421,7 +421,6 @@ void print_function(GVMT_Object o) {
    print_symbol((GVMT_Object)f->name);
 }
 
-
 void print_closure(GVMT_Object o) {
     R_closure c = (R_closure)o;
     print_function((GVMT_Object)c->function);

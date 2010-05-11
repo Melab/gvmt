@@ -229,9 +229,6 @@ class LWC_CompilerMode(object):
         self.out << 'emit_load_stack_pointer(%s);\n' % r
         return r
      
-    def frame(self):
-        cant_compile()
-        
     def alloca(self, tipe, size):
         cant_compile()
         

@@ -250,7 +250,6 @@ uint32_t execution_count[256];
     out << '   struct gvmt_interpreter_frame gvmt_frame;\n'
     out << '   gvmt_frame.gvmt_frame.previous = _gvmt_caller_frame;\n' 
     out << '   gvmt_frame.gvmt_frame.count = %d;\n' % (max_refs + ref_locals)
-    out << '   gvmt_frame.gvmt_frame.interpreter = 1;\n'
     for i in range(max_refs):                       
         out << ' gvmt_frame.gvmt_frame.refs[%d] = 0;\n' % i
     for t, n in bytecodes.locals:

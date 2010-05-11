@@ -160,19 +160,6 @@ extern GVMT_Object NULL_R;
 extern void* NULL_P;
 #define ZERO ((int)NULL_P)
 
-/** Returns an opaque pointer the most recently excuted interpreter frame */
-void* gvmt_current_frame(void);
-
-/** Returns an opaque pointer the most recent interpreter frame that is a caller 
- * of the frame passed as a parameter */
-void* gvmt_caller_frame(void* frame);
-
-unsigned gvmt_frame_index(char* name);
-
-GVMT_Object gvmt_frame_item_r(void* frame, unsigned index);
-void* gvmt_frame_item_p(void* frame, unsigned index);
-intptr_t gvmt_frame_item_i(void* frame, unsigned index);
-
 /* Garbage collection interface functions */
 
 /* Informs GC that this obj is finalizable */

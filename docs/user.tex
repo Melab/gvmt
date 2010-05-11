@@ -44,17 +44,6 @@ The data stack can be examined and modified in C code, using intinsics:
 \end{itemize}
 Care should be taken with these functions as they manipulate the data stack, which is used to evaluate expression. It is best to keep any C statement using these intrinsics as simple as possible.
 
-\subsection{The call stack}
-The call stack is generally opaque, except for interpreter frames, which can be accessed using the following intinsics:
-\begin{itemize}
-\item \verb|gvmt_current_frame()| returns a opaque pointer to the currently executing interpreter frame.
-\item \verb|gvmt_caller_frame(void* frame)| takes a pointer to an interpreter frame and returns a pointer to its caller.
-\item \verb|gvmt_frame_index(char* name)| returns an index for a named local. This index can be used to read the local variables of a given frame.
-\item \verb|gvmt_frame_item_r(void* frame, unsigned index)| returns the reference local variable corresponding to the given index.
-\item \verb|gvmt_frame_item_p(void* frame, unsigned index)| returns the pointer local variable corresponding to the given index.
-\item \verb|gvmt_frame_item_i(void* frame, unsigned index)| returns the integer local variable corresponding to the given index.
-\end{itemize}
-
 \subsection{The garbage collector\label{sect:user-roots}}
 
 The following intrinsic allocates object (the GSC code is GC\_MALLOC).

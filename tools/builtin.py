@@ -489,19 +489,6 @@ class N_Call_No_GC(Instruction):
     def may_gc(self):
         return False
 
-class Frame(Instruction):
-    
-    def __init__(self):
-        self.name = 'FRAME'
-        self.inputs = [ ]
-        self.outputs = [ 'frame' ]
-        self.__doc__ = ('Pushes an opaque pointer representing the current '
-        'interpreter frame, if in the interpreter, or the most recently ' 
-        'executed interpreter frame, if not in the interpreter, to TOS.')
-        
-    def process(self, mode):
-        mode.stack_push(mode.frame())
-
 class Alloca(Instruction):
     
     def __init__(self, tipe):
@@ -1179,7 +1166,7 @@ def _init():
                GC_Safe, GC_Safe_Call, Flush, Stack, Insert, Unlock_Internal,
                push_state, pop_state, Opcode, Lock_Internal, Transfer,
                discard_state, IP, Pick, Zero, DropN, Symbol, FarJump, ZeroMemory, 
-               GC_FreePointerStore, GC_FreePointerLoad, Frame, GC_Malloc_Fast,
+               GC_FreePointerStore, GC_FreePointerLoad, GC_Malloc_Fast,
                GC_LimitPointerStore, GC_LimitPointerLoad, Next_IP, 
                GC_Allocate_Only, FullyInitialized, Lock, Unlock ]:
         i = cls()

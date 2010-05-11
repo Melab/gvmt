@@ -56,7 +56,6 @@ class CompilerStack {
 };
 
 class Architecture {
-    static llvm::Value *current_frame(llvm::Module *mod);
     static llvm::Function *create_and_push_handler(llvm::Module *mod);
     static llvm::Function *push_handler(llvm::Module *mod);
     static llvm::Function *pop_handler(llvm::Module *mod);

@@ -103,9 +103,6 @@ class ExternalMode(object):
     def c_call(self, func, tipe, pcount):
         self.call(func, tipe)
          
-    def frame(self):
-        pass
-     
     def laddr(self, name):
         pass
         

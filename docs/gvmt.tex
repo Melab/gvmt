@@ -45,16 +45,4 @@ Both functions take a user defined function and an initial trace object and call
 \verb|gvmt_full_trace| calls \verb|trace_func| for each call frame in the call stack.
 The parameters passed to \verb|trace_func| are the object returned by the previous call to \verb|trace_func|, followed by the interpreter instruction pointer, followed by the local variables in alphabetical order.
 
-\subsection{Examining frames}
-\begin{itemize}
-\item [] \verb|GVMT_Frame gvmt_top_frame(void)| returns an opaque pointer to the top frame.
-\item []  \verb|GVMT_Frame gvmt_next_frame(GVMT_Frame frame)| returns an opaque pointer to the caller frame to the one passed as an argument.
-\item []  \verb|X_type gvmt_local_variable_x(GVMT_Frame frame, char* name)| returns a local variable of type X.
-\end{itemize}
-If the same local variable is required often, it is faster to get an index for the local variable and use that to get the value.
-\begin{itemize}
-\item []  \verb|int gvmt_local_variable_index(char* name)| returns an index for the local variable. This index is fixed for the duration of the program, but its exact meaning is implementation defined and should only used as input for the following function.
-\item []  \verb|X_type gvmt_local_variable_by_index_x(GVMT_Frame frame, int index)| returns a local variable of type X, by index.
-\end{itemize}
-
 \end{document}

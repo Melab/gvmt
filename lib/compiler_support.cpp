@@ -52,7 +52,6 @@ Value *BaseCompiler::NO_ARGS[] = { 0 };
 Value *BaseCompiler::ZERO;
 
 Value *Architecture::WORD_SIZE;
-Value *Architecture::CURRENT_FRAME;
 Function *Architecture::POP_AND_FREE_HANDLER;
 Function *Architecture::CREATE_AND_PUSH_HANDLER;
 Function *Architecture::POP_HANDLER;
@@ -280,7 +279,6 @@ Value* CompilerStack::insert(int offset, llvm::Value* count, BasicBlock* bb) {
 }
 
 void Architecture::init(Module *module) {
-    CURRENT_FRAME = Architecture::current_frame(module);
     EXIT_NATIVE = Architecture::void_no_args_func("gvmt_exit_native", module);
     ENTER_NATIVE = Architecture::void_no_args_func("gvmt_enter_native", module);
     GC_SAFE_POINT = Architecture::void_no_args_func("gvmt_gc_safe_point", module);
@@ -297,14 +295,6 @@ void Architecture::init(Module *module) {
     cc.push_back(BaseCompiler::TYPE_P);
     FUNCTION_TYPE = FunctionType::get(BaseCompiler::POINTER_TYPE_P, cc, false);
     POINTER_FUNCTION_TYPE = PointerType::get(FUNCTION_TYPE, 0);
-}
-
-Value* Architecture::current_frame(Module *mod) {
-    GlobalVariable* ts = new GlobalVariable(BaseCompiler::TYPE_P, false, GlobalValue::ExternalLinkage, 0, "gvmt_thread_current_frame", mod);
-#ifndef  SINGLE_THREAD
-    ts->setThreadLocal(true);
-#endif
-    return ts;
 }
 
 Function* Architecture::set_jump(Module *mod) {
@@ -431,9 +421,6 @@ void BaseCompiler::initialiseFrame(Value* caller_frame, int locals,
     Value* previous_offset = ConstantInt::get(APInt(32, offsetof(struct gvmt_frame, previous)));
     Value* frame_previous = new BitCastInst(GetElementPtrInst::Create(frame, previous_offset, "frame_previous", bb), POINTER_TYPE_P, "x", bb);
     new StoreInst(caller_frame, frame_previous, bb);
-    Value* in_offset = ConstantInt::get(APInt(32, offsetof(struct gvmt_frame, interpreter)));
-    Value* frame_in = new BitCastInst(GetElementPtrInst::Create(frame, in_offset, "x", bb), POINTER_TYPE_I4, "frame_interpreter", bb);
-    new StoreInst(ConstantInt::get(APInt(32, 1)), frame_in, bb);
     Value* count_offset = ConstantInt::get(APInt(32, offsetof(struct gvmt_frame, count)));
     Value* frame_count = new BitCastInst(GetElementPtrInst::Create(frame, count_offset, "x", bb), POINTER_TYPE_I4, "frame_count", bb);
     new StoreInst(ConstantInt::get(APInt(32, count)), frame_count, bb);

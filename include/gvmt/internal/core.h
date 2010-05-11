@@ -85,7 +85,6 @@ extern GVMT_THREAD_LOCAL int gvmt_thread_non_native;
 struct gvmt_frame {
     struct gvmt_frame* previous;
 //    intptr_t ip;
-    intptr_t interpreter;
     uintptr_t count;
     GVMT_Object refs[0];
 };
@@ -165,8 +164,6 @@ GVMT_CALL unsigned int gvmt_length(GVMT_Object object);
 int gvmt_get_shape_at_offset(GVMT_Object object, uintptr_t offset);
 
 int gvmt_object_is_initialised(GVMT_Object object, uintptr_t offset);
-
-void* gvmt_interpreter_frame(struct gvmt_frame* frame);
 
 void gvmt_fully_initialized_check(GVMT_Object object);
 
