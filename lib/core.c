@@ -26,7 +26,6 @@ GVMT_THREAD_LOCAL GVMT_StackItem* gvmt_gc_limit_pointer;
 
 GVMT_THREAD_LOCAL GVMT_StackItem* gvmt_stack_pointer;
 
-GVMT_THREAD_LOCAL int gvmt_tracing_state;
 GVMT_THREAD_LOCAL int gvmt_thread_non_native;
 
 int gvmt_gc_waiting;
@@ -360,15 +359,6 @@ void* gvmt_caller_frame(struct gvmt_frame* frame) {
         }
     }
     return NULL;
-}
-
-intptr_t gvmt_get_tracing(void) {
-    return gvmt_tracing_state;  
-}
-
-/** Intrinsic for SET_TRACE */
-void gvmt_set_tracing(intptr_t s) {
-    gvmt_tracing_state = s;  
 }
 
 void gvmt_fully_initialized_check(GVMT_Object object) {

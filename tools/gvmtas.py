@@ -180,7 +180,7 @@ uint32_t execution_count[256];
         switch << '{\n'
         switch << '#define GVMT_CURRENT_OPCODE _gvmt_opcode_%s_%s\n' % (bytecodes.func_name, i.name)
         if tracing and trace_inst:
-            switch << 'if (gvmt_tracing_state) {\n'
+            switch << '{\n'
             temp = Buffer()
             mode = IMode(temp, externals, gc_name, bytecodes.func_name)
             trace_inst.top_level(mode)
