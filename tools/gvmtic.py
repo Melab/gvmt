@@ -136,9 +136,9 @@ def compile_instructions(int_ast, flags, lcc_dir, prefix = None):
     lcc_in = os.path.join(tempdir, 'functions.c')
     out = Out(lcc_in)
     for tkn in cpp:
-        out << '#line %d "%s"\n' % (tkn.location.line, tkn.location.file)
+        out << '\n#line %d "%s"\n' % (tkn.location.line, tkn.location.file)
         out << tkn.text
-    out << '#include "gvmt/gvmt.h"\n'
+    out << '\n#include "gvmt/gvmt.h"\n'
     if prefix:
         out << prefix
     out << '\n'
