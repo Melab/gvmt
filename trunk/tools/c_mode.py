@@ -470,7 +470,7 @@ class CMode(object):
     def _null_check(self, obj):
         if common.global_debug:
             self.out << ' if(%s == NULL) ' % obj 
-            self.out << '__gvmt_fatal("%s:%d: Attempted use of NULL'
+            self.out << '__gvmt_fatal("%s:%d: Attempted use of NULL '
             self.out << 'reference/pointer\\n", __FILE__, __LINE__);'      
         
     def rload(self, tipe, obj, offset):

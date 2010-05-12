@@ -114,10 +114,12 @@ _C_CHAR = r"'[^']+?'"
 _STREAM_INST = r'#[+-@]|#\d+|#\[\d+\]'
 _STREAM_NAME = r'#+%s' % _NAME
 
-_OTHER = (r'\.\.\.|->|<<|>>|==|!=|>=|<=|\|=|&=|\+=|-=|\*=|/=|' +
+_OTHER = (r'\.\.\.|->|<<=|>>=|<<|>>|==|!=|>=|<=|\|=|&=|\+=|-=|\*=|/=|' +
           r'\+\+|\|\||\^|&&|\||&|\+|-|\*|%|/|\?|\<|\>|=|!|~|\.')
 
 _others = set('+-/<>!~?.')
+_others.add('>>=')
+_others.add('<<=')
 _others.add('>>')
 _others.add('<<')
 _others.add('==')
@@ -221,6 +223,7 @@ class Lexer(object):
                     Token(END_OF_FILE, '', self.filename, self.line_no) ]
                 return
             if line[0] == '#':
+                line = line.rstrip()
                 self.pending = [Token(CPP, line, self.filename, self.line_no)]
                 return
             self.pending = self._tokenise_line(line)

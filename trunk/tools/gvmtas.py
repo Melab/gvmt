@@ -71,6 +71,7 @@ def write_header(bytecodes, header):
             header << '#define _gvmt_opcode_%s_%s %d\n' % (bytecodes.func_name, 
                                                            names[i], i)
     header << 'extern char* gvmt_opcode_names_%s[];\n' % bytecodes.func_name
+    header << 'extern int gvmt_opcode_lengths_%s[];\n' % bytecodes.func_name
 
 #    header << '#define  TOTAL_OPCODES %d\n' % count
 
@@ -324,6 +325,20 @@ uint32_t execution_count[256];
                 out << '    "%s",\n' % names[i]
             else:
                 out << '    "",\n'
+        out << '};\n'
+        out << '\nint gvmt_opcode_lengths_%s[] = {' % bytecodes.func_name
+        lengths = [ None ] * 256
+        for i in bytecodes.instructions:
+            if 'private' not in i.qualifiers:
+                assert i.opcode is not None
+                names[i.opcode] = i.name
+        last = 0        
+        for i in range(256):
+            if names[i]:
+                out << '    _gvmt_opcode_length_%s_%s,\n' % (
+                                bytecodes.func_name, names[i])
+            else:
+                out << '    0,\n'
         out << '};\n'
 
 def _write_func(inst, out, externals, gc_name, signature = None):

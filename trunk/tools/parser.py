@@ -149,10 +149,9 @@ def _parse_c_code_body(lexer):
             braces -= 1
         elif t.kind ==  lex.END_OF_FILE:
             _syntax_error(t, "'}'")
-        else:
-            while t.location.line != line:
-                code.append('\n')
-                line += 1
+        while t.location.line != line:
+            code.append('\n')
+            line += 1
         code.append(t.text)  
     return ' '.join(code)
     
