@@ -47,7 +47,7 @@ class LargeObjectSpace: Space {
     
     static GVMT_Object allocate_very_large_object(size_t size) {
         assert(size >= Zone::size/2);
-        assert (size > (1 << 29));
+        assert (size < (1 << 29));
         size += Block::size*2;
         VeryLargeObject* vlo = (VeryLargeObject*)Zone::allocate(size);
         vlo->size = size;
@@ -92,11 +92,13 @@ class LargeObjectSpace: Space {
     static void sweep_very_large_objects() {
         VeryLargeObject* prev = NULL;
         VeryLargeObject* obj = very_large_objects;
+        VeryLargeObject* next;
         while (obj) {
             if (Zone::marked(&obj->object)) {
                 *Zone::mark_byte(&obj->object) = 0;
                 assert(!Zone::marked(&obj->object));
                 prev = obj;
+                next = obj->next;
             } else {
                 if (prev == NULL) 
                     very_large_objects = obj->next;
@@ -104,9 +106,10 @@ class LargeObjectSpace: Space {
                     prev->next = obj->next;
                 size_t size = obj->size;
                 size = (size + (Zone::size - 1)) & -Zone::size;
+                next = obj->next;
                 munmap(obj, size);
             }
-            obj = obj->next;
+            obj = next;
         }
     }
     
