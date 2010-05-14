@@ -554,7 +554,7 @@ static small_set comp_func(int t1, int t2, Type t) {
     if (t1 == t2 || 
         (t1 == INTEGER_TYPE && t2 == OPAQUE_TYPE) ||
         (t1 == OPAQUE_TYPE && t2 == INTEGER_TYPE) ||
-        (t1 >= POINTER(OPAQUE_TYPE) && t2 >= POINTER(OPAQUE_TYPE)))
+        (t1 >= REFERENCE_TYPE && t2 >= REFERENCE_TYPE))
         return OPAQUE_SET;
     else {
         return EMPTY_SET;
