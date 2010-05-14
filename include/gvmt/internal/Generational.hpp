@@ -12,7 +12,7 @@ class Nursery {
     static inline GVMT_Object bump_pointer_alloc(int asize) {
         char* result = (char*)gvmt_gc_free_pointer;
         gvmt_gc_free_pointer = (GVMT_StackItem*)(((char*)result) + asize);
-        assert(Block::space_of(result) == Space::NURSERY);
+        assert(Space::is_young(result));
         assert(!Block::crosses(result, asize));
         assert(Zone::valid_address(result));
         return (GVMT_Object)result;

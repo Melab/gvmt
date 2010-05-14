@@ -1,14 +1,15 @@
 #include <stdlib.h>
 #include "gvmt/internal/core.h"
 #include <pthread.h>
+#include <stdio.h>
 
 typedef struct _gvmt_heavyweight_lock_t {
-    pthread_mutex_t lock;
-    pthread_cond_t condition;
+    pthread_mutex_t lock; // Must hold this mutex to change anything in the HW lock or to release it.
+    pthread_cond_t condition; // To signal that a thread has finished wiht the lock.
     struct _gvmt_heavyweight_lock_t* next;
-    int waiters;
-    int depth;
-    int thread_id;
+    int waiters; // Number of threads waiting on this HW lock.
+    int depth;  // Recursive locking depth
+    int thread_id; // Thread that owns this HW lock.
 } gvmt_heavyweight_lock_t;
 
 #if HAVE_COMPARE_AND_SWAP
@@ -56,8 +57,9 @@ GVMT_CALL static void gvmt_lock_contended(intptr_t *lock) {
     do {
         pthread_mutex_lock(&slow->lock);
         pthread_cond_wait(&slow->condition, &slow->lock);
-        if (COMPARE_AND_SWAP(&slow->thread_id, 0, gvmt_thread_id)) { 
+        if (slow->thread_id == 0) {
             int waiters;
+            slow->thread_id = gvmt_thread_id;
             pthread_mutex_unlock(&slow->lock);
             do {
                 waiters = slow->waiters;
@@ -82,7 +84,8 @@ GVMT_CALL void gvmt_fast_lock(intptr_t *lock) {
                 if (COMPARE_AND_SWAP(lock, fast, (fast & (~STATUS_MASK)) | BUSY)) {
                     // Have spin lock   
                      gvmt_heavyweight_lock_t *slow = allocate_heavyweight_lock();
-                     slow->thread_id = gvmt_thread_id;
+                     slow->thread_id = ID_MASK & fast;
+                     slow->depth = COUNT_MASK & fast;
                      slow->waiters = 1;
                      // Release spin lock and set to CONTENDED
                      *lock = (intptr_t)slow;
@@ -116,9 +119,12 @@ GVMT_CALL void gvmt_fast_lock(intptr_t *lock) {
 }
 
 GVMT_CALL static void gvmt_unlock_contended(intptr_t *lock) {
-    intptr_t ptr = *lock & (~CONTENDED); // May be BUSY be that doesn't matter here.
+    intptr_t ptr = *lock & -4; // Might be busy as another thread may incrementing waiters.
     gvmt_heavyweight_lock_t *slow = (gvmt_heavyweight_lock_t *)*lock;
-    assert(slow->thread_id == gvmt_thread_id);
+    if (slow->thread_id != gvmt_thread_id) {
+        fprintf(stderr, "Illegal attempt to unlock lock owned by another thread\n");
+        abort();
+    }
     if (slow->depth) {
         slow->depth--;
         return;
@@ -128,15 +134,11 @@ GVMT_CALL static void gvmt_unlock_contended(intptr_t *lock) {
     } while(!COMPARE_AND_SWAP(lock, ptr, ptr | BUSY));
     // Have spin lock.
     slow->thread_id = 0;
-    int waiters = slow->waiters;
-    if (waiters == 0) {
-        *lock = GVMT_LOCKING_UNLOCKED;
-    }
-    // Release spin lock.
-    *lock = ptr;
-    if (waiters) {
+    if (slow->waiters) {
+        *lock = ptr;
         pthread_cond_signal(&slow->condition);
     } else {
+        *lock = GVMT_LOCKING_UNLOCKED;
         free_heavyweight_lock(slow);
     }
 }
