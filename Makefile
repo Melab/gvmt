@@ -7,8 +7,8 @@
 # Add -nc (no clobber option) to put in standard build, clean can delete whole lcc directory...
 
 LCC_HOME=~/lcc/
-#NDBG=-DNDEBUG
-#OPT=-O3
+NDBG=-DNDEBUG
+OPT=-O3
 CC= gcc -std=c99 $(OPT) -fPIC -fomit-frame-pointer -Wall -iquote include -c
 # Add -fno-rtti to this when using LLVM 2.7
 CPP= g++ -fno-exceptions $(OPT) -D__STDC_LIMIT_MACROS -fomit-frame-pointer -Wall -iquote include -c
@@ -152,7 +152,7 @@ lcc: lcc.tar.gz gvmt_lcc/gvmt.c gvmt_lcc/svg.c gvmt_lcc/config.h \
 	cd lcc; make all
 	mkdir -p lcc/build/gcc
 	ln -s -f /usr/bin/cpp lcc/build/gcc/cpp
-
+	touch lcc
 
 install: prepare $(LIBRARY) lcc
 	mkdir -p  /usr/local/lib/gvmt
