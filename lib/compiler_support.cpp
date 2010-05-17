@@ -313,6 +313,7 @@ Function* Architecture::raise_exception(Module *mod) {
     FunctionType * ftype = FunctionType::get(Type::VoidTy, args, false);
     Function* f = Function::Create(ftype, GlobalValue::ExternalLinkage, "gvmt_raise_exception", mod);
     f->setCallingConv(llvm::CallingConv::X86_FastCall);
+    f->setDoesNotReturn(true); 
     return f;
 }
 
@@ -323,6 +324,7 @@ Function* Architecture::transfer(Module *mod) {
     FunctionType * ftype = FunctionType::get(Type::VoidTy, args, false);
     Function* f = Function::Create(ftype, GlobalValue::ExternalLinkage, "gvmt_transfer", mod);
     f->setCallingConv(llvm::CallingConv::X86_FastCall);
+    f->setDoesNotReturn(true); 
     return f;
 }
 

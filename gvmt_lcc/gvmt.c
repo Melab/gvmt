@@ -253,7 +253,7 @@ static int is_null(Node p) {
         } 
     }
     return 0;
-}
+} 
 
 int legal_bits_for_node(Node n) {
     switch(optype(n->op)) {
@@ -276,6 +276,8 @@ int legal_bits_for_node(Node n) {
 }
 
 int disambiguate(small_set s, Node n) {
+    if (is_null(n))
+        return INTEGER_TYPE;
     if (ONE_MEMBER(s))
         return first_set_bit(s);
     s.bits &= legal_bits_for_node(n);
