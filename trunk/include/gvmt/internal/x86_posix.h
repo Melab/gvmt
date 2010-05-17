@@ -4,6 +4,7 @@
 #define GVMT_X86_POSIX_H
 
 #define GVMT_CALL __attribute__((fastcall))
+#define GVMT_NO_RETURN __attribute__((noreturn))
 
 struct gvmt_registers {
     void *eip; 

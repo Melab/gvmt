@@ -49,9 +49,7 @@ typedef union gvmt_double_stack_item {
 
 GVMT_CALL int64_t gvmt_setjump(struct gvmt_registers* state, GVMT_StackItem* sp);
 
-//GVMT_CALL void gvmt_longjump(struct gvmt_registers* state, void* value);
-
-GVMT_CALL void gvmt_transfer(void* ex, GVMT_StackItem* sp);
+GVMT_NO_RETURN GVMT_CALL void gvmt_transfer(void* ex, GVMT_StackItem* sp);
 
 struct gvmt_exception_handler {
     struct gvmt_registers registers;
@@ -146,7 +144,7 @@ GVMT_CALL GVMT_Object gvmt_fast_allocate(size_t size);
 
 void inform_gc_new_stack(void);
 
-GVMT_CALL void gvmt_raise_exception(GVMT_Object ex);
+GVMT_NO_RETURN GVMT_CALL void gvmt_raise_exception(GVMT_Object ex);
 
 void __gvmt_fatal(char*fmt, ...);
 

@@ -54,7 +54,7 @@ void initialise_exception_stack(void) {
     } 
 }
 
-GVMT_CALL void gvmt_raise_exception(GVMT_Object ex) {
+GVMT_NO_RETURN GVMT_CALL void gvmt_raise_exception(GVMT_Object ex) {
 //    gvmt_longjump(&gvmt_exception_stack->registers, ex);
     gvmt_transfer(ex, gvmt_exception_stack->sp);
 }
