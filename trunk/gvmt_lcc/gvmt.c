@@ -2163,6 +2163,10 @@ static void emit_subtree(Node p) {
                 intrinsic("NEXT_IP ");
                 return;
             }
+            if (strcmp(name, "refer") == 0) {
+                intrinsic("DROP ");
+                return;
+            }            
             if (strncmp(name, "fetch", 5) == 0) {
                 if (name[5] =='\0') {
                     intrinsic("#@ ");

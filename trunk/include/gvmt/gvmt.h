@@ -193,7 +193,7 @@ void* gvmt_gc_pin(GVMT_Object obj);
 /* Treat an address as an object. Must only be applied to objects which
  * have been pinned AND have a root preventin them from being collected.
  */ 
-#define gvmt_pinned_address gvmt___tag__
+#define gvmt_pinned_object gvmt___tag__
 
 void gvmt_gc_free_root(void* root);
 
@@ -221,5 +221,8 @@ void gvmt_gc_resume(void);
 #define GVMT_NO_GC_BLOCK_BEGIN gvmt_gc_suspend(); {
     
 #define GVMT_NO_GC_BLOCK_END } gvmt_gc_resume();
+
+/** Ensure that a reference to object exists at this point */
+void gvmt_refer(GVMT_Object o);
 
 #endif 
