@@ -227,6 +227,17 @@ public:
             }
             obj = obj->next;
         }
+        VeryLargeObject* vl_obj = very_large_objects;
+        while (vl_obj) {
+            char* object = &vl_obj->object;
+            Zone* z = Zone::containing(object);
+            Line* line = Line::containing(object);
+            if (z->modified(line)) {
+                gc::scan_object<Collection>(object);
+                z->clear_modified(line);
+            }
+            vl_obj = vl_obj->next;
+        }
     }
 
 };
