@@ -143,7 +143,7 @@ bool is_mark(char* mem) {
     return Zone::marked(mem);   
 }
 
-const char* Space::area_names[] = { "Pinned", "Nursery", "Mature", "Large-objects" };   
+const char* Space::area_names[] = { "Pinned", "Nursery", "Free", "Large-objects", "Mature" };   
 
 const char* Space::area_name(Address a) {
     return area_names[Block::space_of(a)+2];
