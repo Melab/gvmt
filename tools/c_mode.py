@@ -1145,7 +1145,7 @@ class IMode(CMode):
         return Simple(gtypes.p, '_gvmt_ip')
         
     def opcode(self):
-        return Simple(gtypes.ip, '(GVMT_CURRENT_OPCODE)')
+        return Simple(gtypes.iptr, '(GVMT_CURRENT_OPCODE)')
 
     def next_ip(self):
         return Simple(gtypes.p, '(_gvmt_ip+%d)' % self.i_length)
