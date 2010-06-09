@@ -177,7 +177,7 @@ uint32_t execution_count[256];
             switch << '  _gvmt_label_%s_%s: ((void)0); ' % (bytecodes.func_name, i.name)
         else:
             switch << '  case _gvmt_opcode_%s_%s: ' % (bytecodes.func_name, i.name)
-        switch << ' /* Delta %s */ ' % i.flow_graph.deltas[1]
+        switch << ' /* Deltas %s %s %s */ ' % i.flow_graph.deltas
         switch << '{\n'
         switch << '#define GVMT_CURRENT_OPCODE _gvmt_opcode_%s_%s\n' % (bytecodes.func_name, i.name)
         if tracing and trace_inst:
