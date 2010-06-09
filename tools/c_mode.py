@@ -981,7 +981,6 @@ class CMode(object):
             
     def return_(self, type):
         self.stack.flush_to_memory(self.out)
-        self.stream_offset = 0
         if common.global_debug:
             fmt = ' gvmt_last_return_type = %s;'
             self.out << fmt % _return_type_codes[type]
