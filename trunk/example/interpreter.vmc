@@ -23,7 +23,8 @@ __preamble [private](R_closure c -- ) {
     literals = c->function->literals;
 }
 __trace [private](--) {
-    interpreter_trace(gvmt_ip());
+    if (tracing_on)
+        interpreter_trace(gvmt_ip());
 }
 
 nop = 0 (--) {

@@ -205,6 +205,7 @@ extern int flags_for_lib;
 extern char special_chars[256];
 extern int recursion_depth;
 extern int recursion_limit;
+extern int tracing_on; 
 
 #define head(l) (((R_cons)l)->car)
 #define tail(l) (((R_cons)l)->cdr)
