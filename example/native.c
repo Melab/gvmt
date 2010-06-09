@@ -38,6 +38,7 @@ int print_expression = 0;
 int disassemble = 0;
 int jit_compile = 1;
 int flags_for_lib = 0;
+int tracing_on = 0;
 
 // 64 K stack space
 #define STACK_SPACE 1 << 16
@@ -50,7 +51,7 @@ int main(int argc, char** argv) {
     gvmt_warn_on_unexpected_parameter_usage = 0;
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-t") == 0)
-            gvmt_set_tracing(1);
+            tracing_on = 1;
         else if (strcmp(argv[i], "-j") == 0)
             jit_compile = 0;
         else if (strcmp(argv[i], "-h") == 0) {

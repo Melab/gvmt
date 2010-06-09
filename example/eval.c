@@ -965,7 +965,7 @@ GVMT_Object init_vm(void) {
     struct lexer l;
     GVMT_Object result;
     int print = print_expression;
-    int trace = gvmt_get_tracing();
+    int trace = tracing_on;
     int dis = disassemble;
     gvmt_malloc_init(HEAP_SPACE, 0.0);
     recursion_depth = 0;
@@ -975,14 +975,14 @@ GVMT_Object init_vm(void) {
     global_environment = make_top_level_environment();
     if (flags_for_lib == 0) {
         print_expression = 0;
-        gvmt_set_tracing(0);
+        tracing_on = 0;
         disassemble = 0;
     }
     result = eval_loop(&l, 0, 1);
     if (result == NULL)
         exit(100);
     print_expression = print;
-    gvmt_set_tracing(trace);
+    tracing_on = trace;
     disassemble = dis;
     return result;
 }
@@ -1041,7 +1041,7 @@ R_closure compile_then_run(R_closure c) {
 //    disassembler(f->bytecodes, f->bytecodes + f->length, stdout);
 //    printf("\n");
     /* GVMT generated compiler generates machine code. */
-    f->execute = gvmt_compile_jit(f->bytecodes, f->bytecodes + f->length, GVMT_COMPILER_TYPE_R, name);
+    f->execute = gvmt_compile_jit(f->bytecodes, f->bytecodes + f->length, name);
     return f->execute(c);
 }
 
