@@ -118,9 +118,10 @@ class BaseCompiler {
     llvm::ModuleProvider* module_provider;
     llvm::FunctionPassManager* func_pass_manager;
     BaseCompiler(void);
-    /** Vllvm::ariables local to each function */
+    /** llvm::Variables local to each function */
     llvm::Function *current_function;
     llvm::BasicBlock *current_block;
+    llvm::BasicBlock *start_block; 
     bool unterminated_block;
     CompilerStack *stack;
     llvm::Value *FRAME;
@@ -130,7 +131,6 @@ class BaseCompiler {
     bool jitting;
     Globals *globals;
     int stack_cache_size;
-    int ret_type_code;
     void emit_print(int x, llvm::BasicBlock* bb);
   public:
     static llvm::Value* cast_to_I4(llvm::Value* from, llvm::BasicBlock* bb);
