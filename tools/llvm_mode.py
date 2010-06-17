@@ -804,7 +804,7 @@ class LlvmPassMode(object):
         s = self.__get()
         for i in range(1, size):
             value = self.__get()
-            s = '(%s << 8) | %s' % (s, value)
+            s = '((%s << 8) | %s)' % (s, value)
         assert size <= 4
         return Constant(gtypes.i4, s)
             

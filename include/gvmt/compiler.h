@@ -4,9 +4,9 @@
 #include "gvmt/gvmt.h"
 #include "gvmt/internal/compiler_shared.h"
 
-void gvmt_compile(uint8_t* begin, uint8_t* end, int ret_type, char* name);
+void gvmt_compile(uint8_t* begin, uint8_t* end, char* name);
 
-void* gvmt_compile_jit(uint8_t* begin, uint8_t* end, int ret_type, char* name);
+void* gvmt_compile_jit(uint8_t* begin, uint8_t* end, char* name);
 
 void gvmt_write_ir(void);
 

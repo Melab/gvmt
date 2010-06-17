@@ -22,8 +22,7 @@ class Compiler : public BaseCompiler {
 PUBLIC = '''public:
     Compiler(void);
     void init_types(void);
-    Function* compile(uint8_t *begin, uint8_t *end, 
-                      int ret_type_code, char* name, bool jit);
+    Function* compile(uint8_t *begin, uint8_t *end, char* name, bool jit);
     static Compiler* get_compiler(void);
 '''
 
@@ -36,14 +35,11 @@ Compiler* Compiler::get_compiler(void) {
     return compiler;
 }
  
-Function* Compiler::compile(uint8_t *begin, uint8_t *end, 
-                            int ret_type_code, char* name, bool jit) {
+Function* Compiler::compile(uint8_t *begin, uint8_t *end, char* name, bool jit) {
     if (jit)
         jitting = true;
     else
         jitting = false;
-    assert(ret_type_code >= 0 && ret_type_code < 20);
-    this->ret_type_code = ret_type_code;
     std::vector<int> starts;
     ip_start = begin;
     int length = end - begin;
@@ -53,6 +49,7 @@ Function* Compiler::compile(uint8_t *begin, uint8_t *end,
                                         GlobalValue::ExternalLinkage,
                                         name, module);
     current_function->setCallingConv(%s);
+    start_block = makeBB("__preamble");
     block_map.clear();
     for (std::vector<int>::iterator it=starts.begin(); it!=starts.end(); it++) {
         assert(*it >= 0 && *it < length);
@@ -146,8 +143,8 @@ void Compiler::second_pass(int length) {
     IP = ip_start;
     uint8_t* ip_end = ip_start + length;
     bool block_terminated = true;
-    std::map<int, BasicBlock*>::iterator it = block_map.begin();
-    current_block = it->second;
+    std::map<int, BasicBlock*>::iterator it = block_map.begin();    current_block = it->second;
+    current_block = start_block;
     stack = new CompilerStack(module);
     Function::arg_iterator register_args = current_function->arg_begin();
     Value* incoming_sp = register_args++;
@@ -222,6 +219,8 @@ def second_pass(bytecodes, out):
     for i in bytecodes.instructions:
         if i.name == '__preamble':
             out << '    compile___preamble();\n'
+    out << '    BranchInst::Create(it->second, current_block);\n'
+    out << '    current_block = it->second;\n'
     out << LOOP_START
     for i in bytecodes.instructions:
         if 'private' in i.qualifiers or 'nocomp' in i.qualifiers:
@@ -245,17 +244,16 @@ def second_pass(bytecodes, out):
     
 EXTERN_C = '''
 extern "C" {
-    void* gvmt_compile_jit(uint8_t* begin, uint8_t* end, 
-                           int ret_type, char* name) {
+    void* gvmt_compile_jit(uint8_t* begin, uint8_t* end, char* name) {
         Compiler* c = Compiler::get_compiler();
-        Function* f = c->compile(begin, end, ret_type, name, true);
+        Function* f = c->compile(begin, end, name, true);
         void* result = c->jit_compile(f, name);
         gvmt_last_return_type = RETURN_TYPE_P;
         return result;
     }
     
-    void gvmt_compile(uint8_t* begin, uint8_t* end, int ret_type, char* name) {
-        Compiler::get_compiler()->compile(begin, end, ret_type, name, false);
+    void gvmt_compile(uint8_t* begin, uint8_t* end, char* name) {
+        Compiler::get_compiler()->compile(begin, end, name, false);
         gvmt_last_return_type = RETURN_TYPE_V;
     }
     
