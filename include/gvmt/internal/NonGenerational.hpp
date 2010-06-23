@@ -12,19 +12,19 @@ template <class Policy> class NonGenCollection {
 public:
          
     static inline bool wants(GVMT_Object p) {
-        return p != NULL;
+        return gc::is_address(p);
     }
     
     static inline GVMT_Object apply(GVMT_Object p) {
-        if (p == NULL)
-            return NULL;
-        if (LargeObjectSpace::in(p))
-            return LargeObjectSpace::grey(p);
+        assert(gc::is_address(p));
+        Address a = Address(p);
+        if (LargeObjectSpace::in(a))
+            return LargeObjectSpace::grey(a);
         else
-            return Policy::grey(p);
+            return Policy::grey(a);
     }
     
-    static inline bool is_live(GVMT_Object p) {
+    static inline bool is_live(Address p) {
         return Policy::is_live(p);
     }
     

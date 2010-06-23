@@ -320,10 +320,6 @@ public:
     static const int LARGE = 1; 
     static const int MATURE = 2;
         
-    static inline bool is_young(GVMT_Object p) {
-        return Block::space_of(p) < 0;
-    }
-        
     static inline bool is_young(Address a) {
         return Block::space_of(a) < 0;
     }
@@ -332,20 +328,19 @@ public:
 
 class Memory {
     
-    static inline GVMT_Object forwarding_address(GVMT_Object p) {
-        uintptr_t bits = gc::untag(p).read_word() & (~FORWARDING_BIT);
-        Address r  = Address::from_bits(bits);
-        return gc::tag(r, gc::get_tag(p));
+    static inline GVMT_Object forwarding_address(Address p) {
+        uintptr_t bits = p.read_word() & (~FORWARDING_BIT);
+        return Address::from_bits(bits).as_object();
     } 
     
-    static inline void set_forwarding_address(GVMT_Object p, Address f) {
-        gc::untag(p).write_word(f.bits() | FORWARDING_BIT);
+    static inline void set_forwarding_address(Address p, Address f) {
+        p.write_word(f.bits() | FORWARDING_BIT);
     }
    
 public:
  
-    static inline int forwarded(GVMT_Object p) {
-        return gc::untag(p).read_word() & FORWARDING_BIT; 
+    static inline int forwarded(Address p) {
+        return p.read_word() & FORWARDING_BIT; 
     }
        
     static inline void move(Address from, Address to, size_t size) {
@@ -363,22 +358,21 @@ public:
         } while (to_ptr < end);
     }
     
-    template <class Policy> static inline GVMT_Object copy(GVMT_Object p) {
-        if (forwarded(p)) {
-            return forwarding_address(p);
+    template <class Policy> static inline GVMT_Object copy(Address a) {
+        if (forwarded(a)) {
+            return forwarding_address(a);
         }
 #ifndef NDEBUG
         int shape_buffer[GVMT_MAX_SHAPE_SIZE];
-        assert(*(intptr_t*)p);
         assert(size_from_shape(gvmt_shape(p, shape_buffer)) == gvmt_length(p));
 #endif
-        size_t size = align(gvmt_length(p));
+        size_t size = align(gvmt_length(a.as_object()));
         Address result = Policy::allocate(size);
-        move(gc::untag(p), result, size);
-        set_forwarding_address(p, result);
+        move(a, result, size);
+        set_forwarding_address(a, result);
         Zone::mark(result);
         GC::push_mark_stack(result);
-        return gc::tag(result, gc::get_tag(p));
+        return result.as_object();
     }
     
     

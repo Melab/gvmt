@@ -40,12 +40,12 @@ namespace gc {
             GVMT_Object obj = GC::finalizables.back();
             GC::finalizables.pop_back();
             if (Collection::wants(obj)) {
-                obj = Collection::apply(obj);
-                if (Collection::is_live(obj)) {
+                if (Collection::is_live(Address(obj))) {
                     GC::finalizables.push_front(obj);
                 } else {
                     // obj is not live, so it needs to be finalized
                     // Keep live, add to finalization Q, then remove from finalizables.
+                    obj = Collection::apply(obj);
                     GC::finalization_queue.push_front(obj);
                 }
             } else {
@@ -59,7 +59,7 @@ namespace gc {
                            end = GC::weak_references.end(); it != end; ++it) {
             // If *it is not live then zero it.
             if (Collection::wants(*it)) {  
-                if (Collection::is_live(*it)) {
+                if (Collection::is_live(Address(*it))) {
                     *it = Collection::apply(*it);
                 } else {
                     *it = 0;
@@ -86,11 +86,12 @@ namespace gc {
             Collection::scanned(obj, end);
         }
     }
-    
-    template <class Collection> GVMT_Object grey(GVMT_Object obj) {
-        if (Collection::wants(obj))
-            return Collection::apply(obj);
-    }
+//    
+//    /** remove this ***/
+//    template <class Collection> GVMT_Object grey(GVMT_Object obj) {
+//        if (Collection::wants(obj))
+//            return Collection::apply(obj);
+//    }
 
 }
 

@@ -91,7 +91,7 @@ public:
         if (result == NULL)
             return NULL;
         free_list = *reinterpret_cast<GVMT_Object*>(result);
-        Zone::mark(result);
+        Zone::mark(Address(result));
         return result;
     }
 

@@ -15,11 +15,12 @@ class CopyBase {
   public: 
     
     static inline GVMT_Object apply(GVMT_Object p) {
+        assert(gc::is_address(p));
         if (semispace::forwarded(p)) {
             return semispace::forwarding_address(p);
         }
         GVMT_Object to = semispace::move(p);
-        Address addr = gc::untag(to);
+        Address addr = Address(to);
         Card card = generational::card_id(addr);
         if (card != gen_copy::current_card) {
             gen_copy::current_card = card;
@@ -28,8 +29,8 @@ class CopyBase {
         return to;
     }
     
-    static inline bool is_live(GVMT_Object p) {
-        return semispace::forwarded(p);
+    static inline bool is_live(Address p) {
+        return semispace::forwarded(p.as_object());
     }
     
 };
@@ -38,7 +39,7 @@ class CopyMinor: public CopyBase {
 public:
     
     static inline bool wants(GVMT_Object p) {
-        return generational::in_nursery(p);
+        return gc::is_address(p) && generational::in_nursery(p);
     }
 };
 
@@ -46,10 +47,7 @@ class CopyMajor : public CopyBase {
 public:
     
     static inline bool wants(GVMT_Object p) {
-        if (p == NULL) {
-            return false;
-        }
-        return !gc::opaque(p);        
+        return gc::is_address(p);     
     }
 };
 

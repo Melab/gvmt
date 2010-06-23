@@ -114,7 +114,7 @@ class Immix {
     
     static void reclaim(Block* b) {
         unsigned free_lines = 0;
-        unsigned index, start = Zone::index_of<Line>(b);
+        unsigned index, start = Zone::index_of<Line>(Address(b));
         Zone *z = Zone::containing(b->start());
         for(index = 0; index < Block::size/Line::size; ++index) {
             if (z->collector_line_data[start+index] == 0) {
@@ -214,8 +214,8 @@ class Immix {
     }
 
     /** Return true if this object is grey or black */
-    static inline bool is_live(GVMT_Object obj) {
-        return Zone::marked(gc::untag(obj));
+    static inline bool is_live(Address obj) {
+        return Zone::marked(obj);
     }
      
     /** Returns the available space in bytes */
@@ -233,13 +233,12 @@ class Immix {
     }
     
     /** Mark this object as grey, that is live, but not scanned */
-    static inline GVMT_Object grey(GVMT_Object obj) {
-        Address addr = gc::untag(obj);
+    static inline GVMT_Object grey(Address addr) {
         if (!Zone::marked(addr)) {
             Zone::mark(addr);
             GC::push_mark_stack(addr);
         }
-        return obj;
+        return addr.as_object();
     }
       
     static void promote_pinned_block(Block *b) {
@@ -247,7 +246,7 @@ class Immix {
         b->set_space(Space::MATURE);
         Zone* z = Zone::containing(b);
         // Copy pinned to mark, then "reclaim" this block.
-        unsigned start = Zone::index_of<Line>(b);
+        unsigned start = Zone::index_of<Line>(Address(b));
         uint8_t* from = &z->pinned[start];
         uint8_t* to = &z->collector_line_data[start];
         memcpy(to, from, Block::size/Line::size);

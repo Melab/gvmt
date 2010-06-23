@@ -10,18 +10,15 @@ class Copy {  // Collection
 public:
     
     static inline bool wants(GVMT_Object p) {
-        if (p == NULL) {
-            return false;
-        }
-        return !gc::opaque(p);        
+        return gc::is_address(p);
     }
     
     static inline GVMT_Object apply(GVMT_Object p) {
         return semispace::copy(p);
     }
     
-    static inline bool is_live(GVMT_Object p) {
-        return semispace::forwarded(p);
+    static inline bool is_live(Address p) {
+        return semispace::forwarded(p.as_object());
     }
 };
 
