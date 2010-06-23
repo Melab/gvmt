@@ -100,17 +100,20 @@ Instruction stream manipulation operators are provided:
 
 Appendix \ref{app:inst} contains a full list of all abstract machine instructions 
 
-There are three bytecode names which are treated specially by the GVMT, these are:
+There are four bytecode names which are treated specially by the GVMT, these are:
 \begin{itemize}
 \item \_\_preamble 
 \item \_\_postamble
-\item \_\_trace
+\item \_\_enter
+\item \_\_exit
 \end{itemize}
 \verb|__preamble| is executed when the interpreter is called, before any bytecodes are executed.
 
 \verb|__postamble| is executed when the interpreter reaches the end of the bytecodes. Interpreters with a \verb|__postamble| instruction expect a second parameter, the end of the bytecode sequence. This is useful for `interpreters' which analyse code rather than executing it.
 
-\verb|__trace| is executed before the main bytecode definition for every bytecode executed.
+\verb|__enter| is executed before the main bytecode definition for every bytecode executed.
+
+\verb|__exit| is executed after the main bytecode definition for every bytecode executed.
 
 
 \subsubsection*{Examples}

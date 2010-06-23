@@ -360,7 +360,7 @@ int print_short(GVMT_Object o) {
         return fprintf(stderr, "NULL");
     } else if (o == EMPTY_LIST) {
         return fprintf(stderr, "() ");
-    } else if (gvmt_is_tagged(o)) { 
+    } else if (gvmt_is_tagged(o)) {
         void* p = gvmt_untag(o);
         return fprintf(stderr, "%d ", ((intptr_t)p)/2);
     } else {

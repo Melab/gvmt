@@ -22,7 +22,7 @@ __preamble [private](R_closure c -- ) {
     start_frame = frame = c->frame;   
     literals = c->function->literals;
 }
-__trace [private](--) {
+__enter [private](--) {
     if (tracing_on)
         interpreter_trace(gvmt_ip());
 }
