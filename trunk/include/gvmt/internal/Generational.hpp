@@ -163,19 +163,19 @@ public:
     typedef Policy policy;
     
     static inline bool wants(GVMT_Object p) {
-        return p != NULL;
+        return gc::is_address(p);
     }
     
     static inline GVMT_Object apply(GVMT_Object p) {
-        if (p == NULL)
-            return NULL;
-        if (LargeObjectSpace::in(p))
-            return LargeObjectSpace::grey(p);
+        assert(gc::is_address(p));
+        Address a = Address(p);
+        if (LargeObjectSpace::in(a))
+            return LargeObjectSpace::grey(a);
         else
-            return Policy::grey(p);
+            return Policy::grey(a);
     }
     
-    static inline bool is_live(GVMT_Object p) {
+    static inline bool is_live(Address p) {
         if (LargeObjectSpace::in(p))
             return LargeObjectSpace::is_live(p);
         else
@@ -195,22 +195,16 @@ public:
     typedef Policy policy;
     
     static inline bool wants(GVMT_Object p) {
-        if (p == NULL)
-            return false;
-        return Space::is_young(p);
-    }
-    
-    static inline bool wants(Address p) {
-        assert(p != Address());
-        assert (Block::containing(p)->space() != Space::PINNED);
-        return Space::is_young(p);
+        assert (p == NULL || Block::containing(p)->space() != Space::PINNED);
+        return gc::is_address(p) && Space::is_young(Address(p));
     }
     
     static inline GVMT_Object apply(GVMT_Object p) {
-        return Memory::copy<Policy>(p);
+        assert(gc::is_address(p));
+        return Memory::copy<Policy>(Address(p));
     }
     
-    static inline bool is_live(GVMT_Object p) {
+    static inline bool is_live(Address p) {
         return Memory::forwarded(p);
     }
     
@@ -225,30 +219,25 @@ public:
     typedef Policy policy;
     
     static inline bool wants(GVMT_Object p) {
-        if (p == NULL)
-            return false;
-        return Space::is_young(p);
-    }
-    
-    static inline bool wants(Address p) {
-        assert(p != Address());
-        return Space::is_young(p);
+        return gc::is_address(p) && Space::is_young(Address(p));
     }
     
     static inline GVMT_Object apply(GVMT_Object p) {
+        assert(gc::is_address(p));
         if (Block::containing(p)->space() == Space::PINNED) {
-            Address addr = gc::untag(p);
+            assert(gc::is_address(p));
+            Address addr = Address(p);
             if (!Zone::marked(addr)) {
                 Zone::mark(addr);
                 GC::push_mark_stack(addr);
             }
             return p;
         } else {
-            return Memory::copy<Policy>(p);
+            return Memory::copy<Policy>(Address(p));
         }
     }
     
-    static inline bool is_live(GVMT_Object p) {
+    static inline bool is_live(Address p) {
         if (Block::containing(p)->space() == Space::PINNED)
             return Zone::marked(p);
         else
@@ -328,7 +317,7 @@ public:
    
     /** Called by mutator code to pin an object */
     static inline void* pin(GVMT_Object obj) {
-        int block_index = Zone::index_of<Block>(obj);
+        int block_index = Zone::index_of<Block>(Address(obj));
         char* addr = &Zone::containing(obj)->spaces[block_index];
         char space = *addr;
         if (space != Space::PINNED) {

@@ -2,7 +2,6 @@
 #define GVMT_GC_H
 
 #include "gvmt/internal/core.h"
-#include "gvmt/internal/gc_config.h"
 #include <inttypes.h>
 #include <assert.h>
 #include "stdio.h"
@@ -37,9 +36,10 @@ public:
     
     inline Address(char* p) {
         this->p = p;   
+        assert((bits() & (sizeof(void*)-1)) == 0); 
     }
     
-    template <class T> Address(T* p) {
+    template <class T> explicit Address(T* p) {
         this->p = reinterpret_cast<char*>(p);  
     }
     
@@ -115,25 +115,28 @@ public:
 };  
 
 namespace gc {
+#ifdef GVMT_TAGGING
     
-    inline int opaque(GVMT_Object p) { 
-        return reinterpret_cast<intptr_t>(p) & GVMT_OPAQUE_MASK; 
+    inline bool is_address(GVMT_Object p) { 
+        return (p != NULL) && 
+        ((reinterpret_cast<intptr_t>(p) & 1) == 0); 
     }
     
-    inline int get_tag(GVMT_Object p) { 
-        return reinterpret_cast<intptr_t>(p) & GVMT_TAG_MASK; 
+    inline bool is_tagged(GVMT_Object p) { 
+        return (reinterpret_cast<intptr_t>(p) & 1) != 0; 
     }
     
-    inline Address untag(GVMT_Object p) {
-        uintptr_t untagged = reinterpret_cast<intptr_t>(p) &(~GVMT_TAG_MASK);
-        return Address(reinterpret_cast<char*>(untagged));
+#else
+    
+    inline bool is_address(GVMT_Object p) { 
+        return p != NULL;
     }
     
-    inline GVMT_Object tag(Address p, int tag) {
-        uintptr_t tagged = p.bits() | tag;
-        return reinterpret_cast<GVMT_Object>(tagged); 
+    inline bool is_tagged(GVMT_Object p) { 
+        return false;
     }
-    
+
+#endif
 };
 
 namespace object {
@@ -199,12 +202,7 @@ namespace object {
         }
         
     };
-        
-    /** Deprecated - possible error due to tagged nature of object */
-    inline iterator begin(GVMT_Object object, int* shape_buffer) {
-        return iterator(gc::untag(object), shape_buffer);
-    }
-
+    
     inline iterator begin(Address object, int* shape_buffer) {
         return iterator(object, shape_buffer);
     }

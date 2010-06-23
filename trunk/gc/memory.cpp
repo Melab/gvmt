@@ -3,7 +3,7 @@
 
 void Block::clear_modified_map() {
     Zone* z = Zone::containing(this);
-    size_t start = Zone::index_of<Line>(this);
+    size_t start = Zone::index_of<Line>(Address(this));
     size_t end = start + Block::size/Line::size;
     for(size_t i = start; i < end; i += 8) {
         int32_t* ptr = (int32_t*)&z->modified_map[i];

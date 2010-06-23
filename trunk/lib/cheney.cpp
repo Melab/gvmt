@@ -32,23 +32,15 @@ namespace cheney {
         GC::weak_references.intialise();
     }
     
-    inline int opaque(GVMT_Object p) { return reinterpret_cast<intptr_t>(p) & GVMT_OPAQUE_MASK; }
-    
-    inline int get_tag(GVMT_Object p) { return reinterpret_cast<intptr_t>(p) & GVMT_TAG_MASK; }
-    
-    inline GVMT_Object tag(Address p, int tag) {
-        return reinterpret_cast<GVMT_Object>(p.bits() | tag); 
-    }
-    
-    inline int forwarded(GVMT_Object p) { return gc::untag(p).read_word() & FORWARDING_BIT; }
+    inline int forwarded(GVMT_Object p) { return Address(p).read_word() & FORWARDING_BIT; }
     
     inline GVMT_Object forwarding_address(GVMT_Object p) {
-        Address r  = Address(reinterpret_cast<char*>(gc::untag(p).read_word() & (~FORWARDING_BIT)));
-        return gc::tag(r, get_tag(p));
+        Address r  = Address(reinterpret_cast<char*>(Address(p).read_word() & (~FORWARDING_BIT)));
+        return r.as_object();
     }    
     
     inline void set_forwarding_address(GVMT_Object p, Address f) {
-        gc::untag(p).write_word(f.bits() | FORWARDING_BIT); 
+        Address(p).write_word(f.bits() | FORWARDING_BIT); 
     }
     
     /** Moves from -> to. 
@@ -58,7 +50,7 @@ namespace cheney {
         int shape_buffer[16];
         int* shape = gvmt_shape((GVMT_Object)from, shape_buffer);
         int len =  0;
-        Address real_from = gc::untag(from);
+        Address real_from = Address(from);
         while (*shape) {
             if (*shape < 0)
                 len -= *shape++;
@@ -75,9 +67,6 @@ namespace cheney {
     
     inline bool to_be_copied(GVMT_Object p) {
         if (p == NULL) {
-            return false;
-        }
-        if (opaque(p)) {
             return false;
         }
         return true;        
@@ -97,7 +86,7 @@ namespace cheney {
         size_t size = align(move(p, addr));
         free = free + size;
         set_forwarding_address(p, addr);
-        return tag(addr, get_tag(p));
+        return addr.as_object();
     }
 
     void flip(void) {
@@ -139,7 +128,7 @@ namespace cheney {
             if (to_be_copied(*it))
                 *it = copy(*it);   
         }
-        while (scan < (GVMT_Object)free) {
+        while (scan < Address(free)) {
             int shape_buffer[GVMT_MAX_SHAPE_SIZE];
             object::iterator it = object::begin(scan, shape_buffer);
             for (; !it.at_end(); ++it) {
@@ -168,7 +157,7 @@ namespace cheney {
             }
         }
         // And scan any newly moved objects.
-        while (scan < (GVMT_Object)free) {
+        while (scan < Address(free)) {
             int shape_buffer[GVMT_MAX_SHAPE_SIZE];
             object::iterator it = object::begin(scan, shape_buffer);
             for (; !it.at_end(); ++it) {

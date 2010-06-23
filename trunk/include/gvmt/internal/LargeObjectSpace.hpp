@@ -115,10 +115,6 @@ class LargeObjectSpace: Space {
     
 public:
            
-    static inline bool in(GVMT_Object p) {
-        return Block::space_of(p) == Space::LARGE;
-    }
-           
     static inline bool in(Address a) {
         return Block::space_of(a) == Space::LARGE;
     }
@@ -184,19 +180,17 @@ public:
         return allocate_big_object(size);
     }
     
-    static inline GVMT_Object grey(GVMT_Object obj) {
-        Address addr = gc::untag(obj);
+    static inline GVMT_Object grey(Address addr) {
         assert(in(addr));
         if (!Zone::marked(addr)) {
             Zone::mark(addr);
             assert(Zone::marked(addr));
-            GC::push_mark_stack(obj);
+            GC::push_mark_stack(addr);
         }
-        return obj;
+        return addr.as_object();
     }
     
-    static inline bool is_live(GVMT_Object obj) {
-        Address addr = gc::untag(obj);
+    static inline bool is_live(Address addr) {
         return Zone::marked(addr);
     }
     

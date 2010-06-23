@@ -22,7 +22,7 @@ namespace generational {
     void init(size_t heap_size);
     
     static inline bool in_nursery(GVMT_Object p) {
-        return (reinterpret_cast<int>(p) & GVMT_OPAQUE_MASK) == 0 && 
+        return (reinterpret_cast<int>(p) & 1) == 0 && 
         p >= (GVMT_Object)nursery && p < (GVMT_Object)nursery_top; 
     }
     
@@ -71,7 +71,7 @@ namespace generational {
         // Check last card, but do not go past end.
         if (card == end_card && is_marked(end_card)) {
             Address p = first_object_on_card(end_card);
-            while (p < (GVMT_Object)end) {
+            while (p < Address(end)) {
                 object::iterator it = object::begin(p, shape_buffer);
                 for (; !it.at_end(); ++it) {
                     if (Collection::wants(*it))

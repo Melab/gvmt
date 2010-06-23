@@ -218,13 +218,14 @@ class SemiSpace {
     }
   
     /** Mark this object as grey, that is live, but not scanned */
-    static inline GVMT_Object grey(GVMT_Object obj) {
+    static inline GVMT_Object grey(Address obj) {
         return Memory::copy<SemiSpace>(obj);   
     }
     
     /** Return true if this object is grey or black */
-    static inline bool is_live(GVMT_Object obj) {
-        return Memory::forwarded(obj);
+    static inline bool is_live(Address a) {
+        assert(gc::is_address(a));
+        return Memory::forwarded(a);
     }
     
     static inline std::vector<Block*>::iterator begin_blocks() {

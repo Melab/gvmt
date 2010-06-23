@@ -10,15 +10,15 @@ namespace semispace {
     extern uint32_t space_size;
     extern GVMT_Object scan_ptr;
     
-    inline int forwarded(GVMT_Object p) { return gc::untag(p).read_word() & FORWARDING_BIT; }
+    inline int forwarded(GVMT_Object p) { return Address(p).read_word() & FORWARDING_BIT; }
     
     inline GVMT_Object forwarding_address(GVMT_Object p) {
-        Address r  = Address::from_bits(gc::untag(p).read_word() & (~FORWARDING_BIT));
-        return gc::tag(r, gc::get_tag(p));
+        Address r  = Address::from_bits(Address(p).read_word() & (~FORWARDING_BIT));
+        return r.as_object();
     }    
     
     inline void set_forwarding_address(GVMT_Object p, Address f) {
-        gc::untag(p).write_word(f.bits() | FORWARDING_BIT); 
+        Address(p).write_word(f.bits() | FORWARDING_BIT); 
     }
     
     inline GVMT_Object move(GVMT_Object from) {
@@ -26,7 +26,7 @@ namespace semispace {
         int* shape = gvmt_shape((GVMT_Object)from, shape_buffer);
         int len =  0;
         Address to = Address(free);
-        Address real_from = gc::untag(from);
+        Address real_from = Address(from);
         while (*shape) {
             if (*shape < 0)
                 len -= *shape++;
@@ -51,7 +51,7 @@ namespace semispace {
             } while (to_ptr < Address(free));
         }
         set_forwarding_address(from, to);
-        return gc::tag(to, gc::get_tag(from));
+        return to.as_object();
     }
 
     inline GVMT_Object copy(GVMT_Object p) {
@@ -73,7 +73,7 @@ namespace semispace {
     }
        
     template <class Collection> inline void scan() {
-        Address local_scan = scan_ptr;
+        Address local_scan = Address(scan_ptr);
         while (local_scan < Address(free)) {
             int shape_buffer[GVMT_MAX_SHAPE_SIZE];
             object::iterator it = object::begin(local_scan, shape_buffer);
