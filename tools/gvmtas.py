@@ -92,7 +92,7 @@ def emit_operand_table(bytecodes, out):
             out << table[i]
     out << '\n};\n#undef L\n'
 
-def write_interpreter(bytecodes, out, tracing, gc_name):
+def write_interpreter(bytecodes, out, gc_name):
     write_header(bytecodes, out);
     out << '''
 extern int sprintf(void*, ...);
@@ -114,15 +114,18 @@ uint32_t execution_count[256];
     post_check = False
     have_preamble = False
     popped = 1
-    trace_inst = None
+    enter_inst = None
+    exit_inst = None
     for i in bytecodes.instructions:
         if i.name == '__preamble':
             have_preamble = True
         elif i.name == '__postamble':
             popped += 1
             post_check = True
-        elif i.name == '__trace':
-            trace_inst = i
+        elif i.name == '__enter':
+            enter_inst = i
+        elif i.name == '__exit':
+            exit_inst = i
     for i in bytecodes.instructions:
         if i.name == '__preamble':
             temp = Buffer()
@@ -180,11 +183,11 @@ uint32_t execution_count[256];
         switch << ' /* Deltas %s %s %s */ ' % i.flow_graph.deltas
         switch << '{\n'
         switch << '#define GVMT_CURRENT_OPCODE _gvmt_opcode_%s_%s\n' % (bytecodes.func_name, i.name)
-        if tracing and trace_inst:
+        if enter_inst:
             switch << '{\n'
             temp = Buffer()
             mode = IMode(temp, externals, gc_name, bytecodes.func_name)
-            trace_inst.top_level(mode)
+            enter_inst.top_level(mode)
             if max_refs < mode.ref_temps_max:
                 max_refs = mode.ref_temps_max
             try:
@@ -208,6 +211,21 @@ uint32_t execution_count[256];
         temp.close()
         mode.declarations(switch);
         switch << temp
+        if exit_inst:
+            switch << '{\n'
+            temp = Buffer()
+            mode = IMode(temp, externals, gc_name, bytecodes.func_name)
+            exit.top_level(mode)
+            if max_refs < mode.ref_temps_max:
+                max_refs = mode.ref_temps_max
+            try:
+                mode.close()
+            except UnlocatedException, ex:
+                raise UnlocatedException("%s in compound instruction '%s'" % (ex.msg, i.name))
+            temp.close()
+            mode.declarations(switch);
+            switch << temp
+            switch << ' } \n'
         if post_check:
             switch << 'if (_gvmt_ip >= gvmt_ip_end) goto gvmt_postamble;\n' 
         if common.token_threading:
@@ -465,7 +483,7 @@ def write_info(info, out):
      
 from sys_compiler import CC_PATH, CC_ARGS
 
-def to_object(src_file, base_name, library, tracing, optimise, sys_headers, gc_name):
+def to_object(src_file, base_name, library, optimise, sys_headers, gc_name):
     code = src_file.code
     bytecodes = src_file.bytecodes
     info = src_file.info
@@ -482,7 +500,7 @@ def to_object(src_file, base_name, library, tracing, optimise, sys_headers, gc_n
     out << '\n'
     write_info(info, out)
     if bytecodes:
-        write_interpreter(bytecodes, out, tracing, gc_name)
+        write_interpreter(bytecodes, out, gc_name)
     write_code(code, out, gc_name)
     out.close()
     code = sys_compiler.c_to_object(base_name, optimise, library, True, sys_headers)
@@ -618,7 +636,6 @@ options = {
     'O' : "Optimise. Levels 0 to 3",
     'H dir' : "Look for gvmt internal headers in dir.",
     'o outfile-name' : 'Specify output file name',
-    't' : 'Turn on tracing (in interpreter)',
     'g' : 'Debug',
     'l' : 'Output GSO suitable for library code, no bytecode, root or heap sections allowed',
     'm memory_manager' : 'Memory manager (garbage collector) used',
@@ -626,12 +643,11 @@ options = {
 }       
 
 if __name__ == '__main__':    
-    opts, args = getopt.getopt(sys.argv[1:], 'ho:tlgO:H:m:T')
+    opts, args = getopt.getopt(sys.argv[1:], 'ho:lgO:H:m:T')
     if not args:
         common.print_usage(options)
         sys.exit(1)
     try:
-        tracing = False
         library = False
         optimise = '-O0'
         sys_headers = None
@@ -640,8 +656,6 @@ if __name__ == '__main__':
             if opt == '-h':
                 common.print_usage(options)
                 sys.exit(0)
-            elif opt == '-t':
-                tracing = True
             elif opt == '-l':
                 library = True
             elif opt == '-T':
@@ -663,7 +677,7 @@ if __name__ == '__main__':
         base_name = os.path.basename(args[0])
         m_file = os.path.join(sys_compiler.TEMPDIR, '%s.txt' % base_name)
         to_object(src_file, base_name, 
-                  library, tracing, optimise, sys_headers, gc_name)
+                  library, optimise, sys_headers, gc_name)
 #        out = open(m_file, 'w')
 #        sep = ''
         full_base = os.path.join(sys_compiler.TEMPDIR, base_name);

@@ -21,7 +21,7 @@ LIBRARY = build/gvmt.o build/gvmt_compiler.o build/gvmt_debug.o \
 	   build/gvmt_gc_gen_copy.a build/gvmt_gc_copy_tagged.a \
 	   build/gvmt_gc_gen_copy_tagged.a build/gvmt_gc_copy2.a \
 	   build/gvmt_gc_gencopy2.a build/gvmt_gc_genimmix2.a \
-	   build/gvmt_gc_none.o
+	   build/gvmt_gc_genimmix2_tagged.a build/gvmt_gc_none.o
 
 all: prepare $(LIBRARY) lcc
    
@@ -100,8 +100,15 @@ build/gvmt_gc_genimmix2.a: build/gc/GenImmix.o build/gc/gc_threads.o build/gc/gc
 	ar rcs  build/gvmt_gc_genimmix2.a build/gc/GenImmix.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o
 	touch build/gvmt_gc_genimmix2.a
 	
+build/gvmt_gc_genimmix2_tagged.a: build/gc/GenImmix_tagged.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o  
+	ar rcs  build/gvmt_gc_genimmix2_tagged.a build/gc/GenImmix_tagged.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o
+	touch build/gvmt_gc_genimmix2_tagged.a
+	
 build/gc/GenImmix.o : gc/GenImmix.cpp $I/Immix.hpp $I/Generational.hpp $(HEADERS) $(GC_HEADERS)  
 	$(CPP) $(NDBG) -g -o $@ $<
+	
+build/gc/GenImmix_tagged.o : gc/GenImmix.cpp $I/Immix.hpp $I/Generational.hpp $(HEADERS) $(GC_HEADERS)  
+	$(CPP) $(NDBG) -g -DGVMT_TAGGING -o $@ $<
           
 build/gc/GenCopy.o : gc/GenCopy.cpp $I/SemiSpace.hpp $I/Generational.hpp $(HEADERS) $(GC_HEADERS)  
 	$(CPP) $(NDBG) -g -o $@ $<
@@ -125,10 +132,10 @@ build/fast/scan.o: build/fast/scan.gso
 	python tools/gvmtlink.py -n -o build/fast/scan.o build/fast/scan.gso
 	
 build/gc/gc_copy_tagged.o: lib/gc_copy.cpp  
-	$(CPP) $(NDBG) -g -DGVMT_SCHEME_TAGGING -o $@ $<
+	$(CPP) $(NDBG) -g -DGVMT_TAGGING -o $@ $<
 	
 build/gc/gc_gen_copy_tagged.o: lib/gc_gen_copy.cpp  
-	$(CPP) $(NDBG) -g -DGVMT_SCHEME_TAGGING -o $@ $<
+	$(CPP) $(NDBG) -g -DGVMT_TAGGING -o $@ $<
 
 lcc.tar.gz: 
 	wget -q -O lcc.tar.gz http://sites.google.com/site/lccretargetablecompiler/downloads/4.2.tar.gz
@@ -169,6 +176,7 @@ install: prepare $(LIBRARY) lcc
 	cp build/gvmt_gc_copy2.a /usr/local/lib/
 	cp build/gvmt_gc_gencopy2.a /usr/local/lib/
 	cp build/gvmt_gc_genimmix2.a /usr/local/lib/
+	cp build/gvmt_gc_genimmix2_tagged.a /usr/local/lib/
 	cp tools/*.py /usr/local/lib/gvmt
 	cp gc/*.gsc /usr/local/lib/gvmt
 	cp scripts/* /usr/local/bin
