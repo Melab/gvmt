@@ -10,6 +10,8 @@ void gvmt_write_ref(FILE* out, GVMT_Object object) {
     char* buf = alloca(GVMT_MAX_OBJECT_NAME_LENGTH);
     if (object == NULL_R) {
         fprintf(out, "%s", "address 0\n");
+    } else if (gvmt_is_tagged(object)) {
+        fprintf(out, "uint%d %u\n", sizeof(void*)*8, gvmt_untag(object));
     } else {
         gvmt_readable_name(object, buf);
         fprintf(out, "address %s\n", buf);
@@ -41,7 +43,9 @@ void gvmt_marshal(GVMT_Object object, GSC_Stream m) {
             offset -= *shape;
         } else {
             for (i = 0; i < *shape; i++) {
-                gvmt_marshal(((GVMT_Object*)object)[offset+i], m);
+                GVMT_Object member = ((GVMT_Object*)object)[offset+i]; 
+                if (!gvmt_is_tagged(member))
+                    gvmt_marshal(member, m);
             }
             offset += *shape;
         }
