@@ -29,6 +29,7 @@ GVMT_THREAD_LOCAL GVMT_StackItem* gvmt_stack_pointer;
 GVMT_THREAD_LOCAL int gvmt_thread_non_native;
 
 int gvmt_gc_waiting;
+intptr_t gvmt_uninitialised_field = 4;
 
 int gvmt_abort_on_unexpected_parameter_usage = 0;
 int gvmt_warn_on_unexpected_parameter_usage = 1;                      
@@ -347,7 +348,7 @@ void gvmt_fully_initialized_check(GVMT_Object object) {
     while (*shape) {
         if (*shape > 0) {   
             for (i = 0; i < *shape; i++) {
-                if (field[i] == -1)
+                if (field[i] == gvmt_uninitialised_field)
                   __gvmt_fatal("Partly uinitialized object");  
             }   
             field += *shape;

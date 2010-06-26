@@ -224,7 +224,6 @@ class SemiSpace {
     
     /** Return true if this object is grey or black */
     static inline bool is_live(Address a) {
-        assert(gc::is_address(a));
         return Memory::forwarded(a);
     }
     
