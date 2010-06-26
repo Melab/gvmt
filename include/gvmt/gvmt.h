@@ -133,7 +133,11 @@ gvmt_lock_internal((GVMT_Object)obj, offsetof(type, field))
 #define GVMT_UNLOCK_FIELD(type, obj, field) \
 gvmt_lock_internal((GVMT_Object)obj, offsetof(type, field))
 
+/** Force a garbage collection. 
+ *  Usually better not to use this and allow the GVMT to decide when to do GC. */
+void gvmt_gc_collect(void);
 
+// Initialise compiler - Needs to change to allow multiple compilers.
 void gvmt_compiler_init(void);
 
 #define GVMT_TRY(ex) (ex) = (void*)gvmt_push_current_state(); if ((ex) == 0) {
@@ -224,5 +228,9 @@ void gvmt_gc_resume(void);
 
 /** Ensure that a reference to object exists at this point */
 void gvmt_refer(GVMT_Object o);
+
+// Value that cannot exist in any reference field. used in debug mode
+// to validate gvmt_fully_initialized(). Default value is 4.
+extern intptr_t gvmt_uninitialised_field;
 
 #endif 

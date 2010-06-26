@@ -119,11 +119,11 @@ namespace gc {
     
     inline bool is_address(GVMT_Object p) { 
         return (p != NULL) && 
-        ((reinterpret_cast<intptr_t>(p) & 1) == 0); 
+        ((reinterpret_cast<intptr_t>(p) & 3) == 0); 
     }
     
     inline bool is_tagged(GVMT_Object p) { 
-        return (reinterpret_cast<intptr_t>(p) & 1) != 0; 
+        return (reinterpret_cast<intptr_t>(p) & 3) != 0; 
     }
     
 #else

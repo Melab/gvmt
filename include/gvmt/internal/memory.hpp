@@ -362,10 +362,6 @@ public:
         if (forwarded(a)) {
             return forwarding_address(a);
         }
-#ifndef NDEBUG
-        int shape_buffer[GVMT_MAX_SHAPE_SIZE];
-        assert(size_from_shape(gvmt_shape(p, shape_buffer)) == gvmt_length(p));
-#endif
         size_t size = align(gvmt_length(a.as_object()));
         Address result = Policy::allocate(size);
         move(a, result, size);
