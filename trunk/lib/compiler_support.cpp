@@ -320,7 +320,7 @@ Function* Architecture::raise_exception(Module *mod) {
 Function* Architecture::transfer(Module *mod) {
     std::vector< const Type * >args;
     args.push_back(BaseCompiler::TYPE_R);
-    args.push_back(BaseCompiler::TYPE_P);
+    args.push_back(BaseCompiler::POINTER_TYPE_P);
     FunctionType * ftype = FunctionType::get(Type::VoidTy, args, false);
     Function* f = Function::Create(ftype, GlobalValue::ExternalLinkage, "gvmt_transfer", mod);
     f->setCallingConv(llvm::CallingConv::X86_FastCall);
@@ -615,7 +615,7 @@ void* BaseCompiler::jit_compile(Function* func, char* name) {
     int64_t t0, t1, t2;
     t0 = high_res_time();
 //    fprintf(stderr, "Verifying for %s\n", name);
-    verifyFunction(*func, PrintMessageAction);
+//    verifyFunction(*func, PrintMessageAction);
     if (execution_engine == 0) {
         // InitializeNativeTarget()
         module_provider = new ExistingModuleProvider(module);
@@ -645,7 +645,7 @@ void* BaseCompiler::jit_compile(Function* func, char* name) {
         func_pass_manager->add(createDeadStoreEliminationPass()); 
         func_pass_manager->add(createCFGSimplificationPass());    
         // Uncomment line below to generate CFGs.
-        func_pass_manager->add(createCFGPrinterPass());            
+//        func_pass_manager->add(createCFGPrinterPass());            
     }
     t1 = high_res_time();
     gvmt_total_optimisation_time += (t1 - t0);
