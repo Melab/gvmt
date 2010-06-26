@@ -41,6 +41,7 @@ namespace gc {
             GC::finalizables.pop_back();
             if (Collection::wants(obj)) {
                 if (Collection::is_live(Address(obj))) {
+                    obj = Collection::apply(obj);
                     GC::finalizables.push_front(obj);
                 } else {
                     // obj is not live, so it needs to be finalized

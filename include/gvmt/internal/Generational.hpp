@@ -195,7 +195,7 @@ public:
     typedef Policy policy;
     
     static inline bool wants(GVMT_Object p) {
-        assert (p == NULL || Block::containing(p)->space() != Space::PINNED);
+        assert (!gc::is_address(p) || Block::containing(p)->space() != Space::PINNED);
         return gc::is_address(p) && Space::is_young(Address(p));
     }
     
@@ -428,6 +428,11 @@ public:
         }
     }
 
+    static inline void full_collect() {
+        minor_collect();
+        major_collect();
+    }
+
 };
 
 template <class Policy> uint32_t Generational<Policy>::nursery_shortfall = 0;
@@ -442,7 +447,7 @@ extern "C" {
         assert(Zone::index_of<Block>(obj) >= 2);
         assert(Zone::index_of<Block>(obj+offset) >= 2);
         uint8_t* mod =z->modification_byte(Line::containing(obj));
-        assert(Zone::index_of<Block>(mod) == 0);
+        assert(Zone::index_of<Block>(Block::containing(mod)) == 0);
         *mod = 1;        
     }
     
