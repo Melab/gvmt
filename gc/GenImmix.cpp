@@ -26,6 +26,10 @@ extern "C" {
         GenImmix::init(heap_size_hint, residency);
         Zone::verify_heap();
     }
+    
+    void gvmt_gc_collect(void) {
+        GenImmix::full_collect();
+    }
         
     GVMT_LINKAGE_1 (gvmt_gc_pin, void* obj)
         GenImmix::pin(reinterpret_cast<GVMT_Object>(obj));
