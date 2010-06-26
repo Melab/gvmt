@@ -192,7 +192,7 @@ class Expr(object):
         return self
         
     def binary(self, tipe, op, right):
-        assert tipe != gtypes.r
+        assert tipe != gtypes.r 
         if op == operators.add and self.tipe in [gtypes.p, gtypes.r]:
             return PointerAdd(self, op, right)
         elif (op == operators.sub and self.tipe in [gtypes.p, gtypes.r] 
@@ -202,6 +202,10 @@ class Expr(object):
             return PointerAdd(self, op, right)
         elif op == operators.add and right.tipe in [gtypes.p, gtypes.r]:
             return PointerAdd(right, op, self)
+        elif tipe == gtypes.p:
+            assert (self.tipe in [gtypes.iptr, gtypes.uptr] and 
+                    right.tipe in [gtypes.iptr, gtypes.uptr])
+            return Binary(gtypes.iptr, self, op, right).cast(gtypes.p)
         else:
             return Binary(tipe, self.cast(tipe), op, right.cast(tipe))
         
