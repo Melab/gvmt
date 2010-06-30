@@ -597,7 +597,20 @@ class Pick(Instruction):
                         'and pushes it onto the evaluation stack.')
 
     def process(self, mode):
-        mode.stack_push(mode.stack_pick(mode.stream_fetch()))         
+        mode.stack_push(mode.stack_pick(mode.stream_fetch()))      
+        
+class Poke(Instruction):
+    def __init__(self):
+        self.name = 'PICK'
+        self.inputs = []
+        self.outputs = [ r'N\textsuperscript{th}' ]
+        self.operands = 1
+        self.__doc__ = ('Pops TOS. Then overwrites the Nth item with TOS.'
+                        'PICK N POKE N has no net effect.')
+
+    def process(self, mode):
+        tos = mode.stack_pop()
+        mode.stack_poke(mode.stream_fetch(), tos)      
         
 class Stack(Instruction):
 

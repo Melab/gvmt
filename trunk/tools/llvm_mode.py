@@ -80,7 +80,10 @@ class LlvmStack(Stack):
         self.reg_index += 1
         out << ' Value *gvmt_r%d = %s;\n' % (self.reg_index, Simple(gtypes.x, 
                             'stack->pick(current_block, %s)' % const(index)))
-        return Simple(gtypes.x, 'gvmt_r%d' % self.reg_index)            
+        return Simple(gtypes.x, 'gvmt_r%d' % self.reg_index)
+        
+    def poke(self, index, value, out):
+        out << ' stack->poke(current_block, %s, %s);\n' % (index, value)
         
     def flush_to_memory(self, out):
         out << ' stack->flush(current_block);\n'
@@ -862,6 +865,9 @@ class LlvmPassMode(object):
         
     def stack_pick(self, index):
         return self.stack.pick(index, self.out)
+        
+    def stack_poke(self, index, value):
+        self.stack.poke(index, value, self.out)
  
     def stack_flush(self):
         self.stack.flush_to_memory(self.out)

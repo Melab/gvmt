@@ -198,6 +198,9 @@ class LwcAnalysisMode(object):
     
     def stack_pick(self, index):
         pass
+        
+    def stack_poke(self, index, value):
+        pass
     
     def stack_flush(self):
         pass

@@ -81,8 +81,18 @@ class CStack(object):
         global _temp_index
         _temp_index += 1
         self.declarations['gvmt_r%d' % _temp_index] = 'GVMT_StackItem'
-        out << ' gvmt_r%d = gvmt_sp[%s-%d];' % (_temp_index, index, self.offset)
+        if self.offset < 0:
+            out << ' gvmt_r%d = gvmt_sp[%s+%d];' % (_temp_index, index, -self.offset)
+        else:
+            out << ' gvmt_r%d = gvmt_sp[%s-%d];' % (_temp_index, index, self.offset)
         return StackItem('gvmt_r%d' % _temp_index)
+        
+    def poke(self, index, value, out):
+        if self.offset < 0:
+            si = StackItem('gvmt_sp[%s+%d]' % (index, -self.offset))
+        else:
+            si = StackItem('gvmt_sp[%s-%d]' % (index, self.offset))
+        out << ' %s = %s;' % (si.cast(value.tipe), value)
         
     def flush_to_memory(self, out, ignore = 0):
         if self.offset:
@@ -863,6 +873,9 @@ class CMode(object):
         
     def stack_pick(self, index):
         return self.stack.pick(index, self.out)
+        
+    def stack_poke(self, index, value):
+        self.stack.poke(index, value, self.out)
         
     def sign(self, val):
         return Simple(gtypes.i8, '((int64_t)%s)' % val.cast(gtypes.i4))
