@@ -173,13 +173,25 @@ Value* CompilerStack::pop(BasicBlock* bb) {
 }
 
 Value* CompilerStack::pick(BasicBlock* bb, unsigned depth) {
+    assert(depth >= 0);
     if (stack.size() > depth) {
-         return stack[stack.size()-1-depth];
+        return stack[stack.size()-1-depth];
     } else {
         Value* top = get_pointer(bb);
         Value* ptr = GetElementPtrInst::Create(top, ConstantInt::get(APInt(32, depth-stack.size(), true)), "x", bb);
         LoadInst* result = new LoadInst(ptr, "val", bb);
         return result;
+    }
+}
+
+void CompilerStack::poke(BasicBlock* bb, unsigned depth, Value* val) {
+    assert(depth >= 0);
+    if (stack.size() > depth) {
+        stack[stack.size()-1-depth] = val;
+    } else {
+        Value* top = get_pointer(bb);
+        Value* ptr = GetElementPtrInst::Create(top, ConstantInt::get(APInt(32, depth-stack.size(), true)), "x", bb);
+        new StoreInst(val, ptr, bb);
     }
 }
  
@@ -223,7 +235,7 @@ void CompilerStack::max_join_depth(unsigned max, BasicBlock* bb) {
 
 void CompilerStack::join(BasicBlock* bb) {
     assert(join_depth >= 0);
-    assert(join_cache.size() >= join_depth);
+    assert(join_cache.size() >= (unsigned)join_depth);
     ensure_cache(join_depth, bb);
 //    save_pointer(bb);
 //    assert(!modified);
