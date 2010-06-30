@@ -19,7 +19,7 @@ def unitialised_temp(graph, index):
             if i.__class__ is builtin.Name and i.index == index:
                 if filename and line:
                     raise common.GVMTException(
-                               "%s:%s:Uninitialised variable '%s' declared in this scope" % 
+                               "%s:%s:Variable '%s' used before initialisation. Declared in this scope" % 
                                (filename, line, i.tname))
                 else:
                     raise common.UnlocatedException("Uninitialised temp '%s'" % i.tname)

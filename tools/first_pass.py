@@ -152,6 +152,9 @@ class FirstPassMode(object):
         
     def stack_pick(self, index):
         pass
+        
+    def stack_poke(self, index, value):
+        pass
     
     def stack_push(self, value):
         pass

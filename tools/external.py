@@ -150,6 +150,9 @@ class ExternalMode(object):
     
     def stack_pick(self, index):
         pass
+        
+    def stack_poke(self, index, value):
+        pass
             
     def stack_push(self, value):
         self.stack.append(value)

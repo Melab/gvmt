@@ -253,6 +253,9 @@ class DeltaMode(object):
     
     def stack_pick(self, value):
         pass
+        
+    def stack_poke(self, index, value):
+        pass
 
     def stack_pop_double(self):
         self.stack_offset += -2

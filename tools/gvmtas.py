@@ -183,25 +183,29 @@ uint32_t execution_count[256];
         switch << ' /* Deltas %s %s %s */ ' % i.flow_graph.deltas
         switch << '{\n'
         switch << '#define GVMT_CURRENT_OPCODE _gvmt_opcode_%s_%s\n' % (bytecodes.func_name, i.name)
-        if enter_inst:
-            switch << '{\n'
-            temp = Buffer()
-            mode = IMode(temp, externals, gc_name, bytecodes.func_name)
-            enter_inst.top_level(mode)
-            if max_refs < mode.ref_temps_max:
-                max_refs = mode.ref_temps_max
-            try:
-                mode.close()
-            except UnlocatedException, ex:
-                raise UnlocatedException("%s in compound instruction '%s'" % (ex.msg, i.name))
-            temp.close()
-            mode.declarations(switch);
-            switch << temp
-            switch << ' } \n'
+#        if enter_inst:
+#            switch << '{\n'
+#            temp = Buffer()
+#            mode = IMode(temp, externals, gc_name, bytecodes.func_name)
+#            enter_inst.top_level(mode)
+#            if max_refs < mode.ref_temps_max:
+#                max_refs = mode.ref_temps_max
+#            try:
+#                mode.close()
+#            except UnlocatedException, ex:
+#                raise UnlocatedException("%s in compound instruction '%s'" % (ex.msg, i.name))
+#            temp.close()
+#            mode.declarations(switch);
+#            switch << temp
+#            switch << ' } \n'
         temp = Buffer()
         mode = IMode(temp, externals, gc_name, bytecodes.func_name)
         mode.stream_fetch() # Opcode
+        if enter_inst:
+            enter_inst.top_level(mode)
         i.top_level(mode)
+        if exit_inst:
+            exit_inst.top_level(mode)            
         if max_refs < mode.ref_temps_max:
             max_refs = mode.ref_temps_max
         try:
@@ -211,21 +215,21 @@ uint32_t execution_count[256];
         temp.close()
         mode.declarations(switch);
         switch << temp
-        if exit_inst:
-            switch << '{\n'
-            temp = Buffer()
-            mode = IMode(temp, externals, gc_name, bytecodes.func_name)
-            exit.top_level(mode)
-            if max_refs < mode.ref_temps_max:
-                max_refs = mode.ref_temps_max
-            try:
-                mode.close()
-            except UnlocatedException, ex:
-                raise UnlocatedException("%s in compound instruction '%s'" % (ex.msg, i.name))
-            temp.close()
-            mode.declarations(switch);
-            switch << temp
-            switch << ' } \n'
+#        if exit_inst:
+#            switch << '{\n'
+#            temp = Buffer()
+#            mode = IMode(temp, externals, gc_name, bytecodes.func_name)
+#            exit_inst.top_level(mode)
+#            if max_refs < mode.ref_temps_max:
+#                max_refs = mode.ref_temps_max
+#            try:
+#                mode.close()
+#            except UnlocatedException, ex:
+#                raise UnlocatedException("%s in compound instruction '%s'" % (ex.msg, i.name))
+#            temp.close()
+#            mode.declarations(switch);
+#            switch << temp
+#            switch << ' } \n'
         if post_check:
             switch << 'if (_gvmt_ip >= gvmt_ip_end) goto gvmt_postamble;\n' 
         if common.token_threading:
