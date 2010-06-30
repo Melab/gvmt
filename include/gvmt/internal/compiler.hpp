@@ -46,6 +46,7 @@ class CompilerStack {
     void drop(int offset, llvm::Value* count,llvm::BasicBlock* bb);
     llvm::Value* insert(int offset, llvm::Value* count, llvm::BasicBlock* bb);
     llvm::Value* pick(llvm::BasicBlock* bb, unsigned index);
+    void poke(llvm::BasicBlock* bb, unsigned index, llvm::Value* value);
     /** Although this is signed, it can be never be less than zero. */
     int join_depth;
     /** max_join_depth must be called a block that dominates all arguments to join.
