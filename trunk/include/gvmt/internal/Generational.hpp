@@ -134,6 +134,7 @@ public:
     template <class Policy> static int promote_pinned_blocks() {
         sanity();
         std::vector<Block*>::iterator it;
+        int size = pinned.size();
         while (!pinned.empty()) {
             Block *b = pinned.back();
             pinned.pop_back();
@@ -144,8 +145,6 @@ public:
             b->clear_modified_map();
             sanity();
         }
-        int size = pinned.size();
-        pinned.clear();
         sanity();
         return size;
     }
