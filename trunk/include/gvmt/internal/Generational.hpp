@@ -326,8 +326,11 @@ public:
                 }
                 assert(Block::containing(obj)->space() == Space::PINNED); 
             } else {
-                assert(space == Space::MATURE);
-                Policy::pin(obj);
+                if (space == Space::MATURE)
+                    Policy::pin(obj);
+                // Large objects are already pinned
+                else 
+                    assert(space == Space::LARGE);
             }
         }
         return reinterpret_cast<void*>(obj);
