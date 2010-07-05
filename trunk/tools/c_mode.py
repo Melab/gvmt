@@ -1166,7 +1166,7 @@ class IMode(CMode):
         return Simple(gtypes.p, '(&FRAME_POINTER->%s)' % name) 
 
     def far_jump(self, addr):
-        self.out << ' _gvmt_ip = %s;' % addr
+        self.out << ' _gvmt_ip = %s;' % addr.cast(gtypes.p)
         self.stack.flush_to_memory(self.out)
         if common.token_threading:
             self.out << ' goto *gvmt_operand_table[*_gvmt_ip];'
