@@ -932,12 +932,10 @@ class FarJump(Instruction):
         self.outputs = [ ]
         self.__doc__ = ('Continue interpretation, with the current abstract '
                         'machine state, at the IP popped from the stack. '
-                        'If this instruction is executed in compiled code, '
-                        'execution leaves the compiler and continues in the '
-                        '\emph{interpreter}. In order to ensure jumps are '
-                        'compiled use JUMP instead. However, FAR_JUMP can be '
-                        'used as a means of exiting compiled code and resuming '
-                        'interpretation.')
+                        'This instruction is not supported in compiled code, '
+                        'In order to use jumps in compiled code use JUMP instead.'
+                        'FAR_JUMP is intended for unusual flow control in code '
+                        'processors and the like.')
         
     def process(self, mode):
         ip = mode.stack_pop()
