@@ -183,7 +183,7 @@ void gvmt_gc_free_weak_reference(void* ref);
  * otherwise it will be the object originally used to create the weak reference */ 
 #define gvmt_gc_write_weak_reference gvmt_gc_write_root
 
-/* Add a root to the GC root set and initialize it will NULL.
+/* Add a root to the GC root set and initialize it with NULL.
  * The root can be set to NULL or any other object. The object referred to 
  * by the root will kept alive even if referred to by no other objects.
  */
