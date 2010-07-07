@@ -86,7 +86,6 @@ def preamble(bytecodes, out):
         name = bytecodes.func_name
     else:
         name = 'gvmt_interpreter'
-    out << '    Value *%s_resume;\n' % name
     out << PUBLIC
     out << '};\n'
     out << COMPILE_FUNCTIONS % common.llvm_cc()
@@ -108,15 +107,17 @@ def _compile_body(inst, out, name):
         out << ' return true;\n'
     else:
         out << ' return block_terminated;\n'
-    out << '}\n' 
     out << '#undef GVMT_CURRENT_OPCODE\n'
 
 def functions(bytecodes, out):
     for i in bytecodes.instructions:
+        if 'nocomp' in i.qualifiers:
+            continue
         ops = i.flow_graph.deltas[0]
         formals = ', '.join(['int op%d' % j for j in range(ops)])
         out << 'bool Compiler::compile_%s(%s) {\n' % (i.name, formals)
         _compile_body(i, out, bytecodes.func_name)
+        out << '}\n' 
         
 def constructor(bytecodes, out, gc_name):
     if bytecodes.func_name:
@@ -125,7 +126,6 @@ def constructor(bytecodes, out, gc_name):
         name = 'gvmt_interpreter'
     out << '''Compiler::Compiler() {
     init_types();
-    %s_resume = new GlobalVariable(BaseCompiler::TYPE_I1, "", GlobalValue::ExternalLinkage, 0, "%s_resume", module);
     std::vector<const Type*>args;
     args.push_back(POINTER_TYPE_P);
     args.push_back(TYPE_P);
@@ -133,7 +133,7 @@ def constructor(bytecodes, out, gc_name):
     FunctionType* ftype = FunctionType::get(TYPE_R, args, false);
     GC_MALLOC_FUNC = Function::Create(ftype, GlobalValue::ExternalLinkage, "gvmt_%s_malloc", module);
 }  
-'''% (name, name, gc_name)
+'''% gc_name
 
 SECOND_PASS_INIT = '''
 extern uintptr_t gvmt_interpreter_%s_locals; 

@@ -309,30 +309,6 @@ uint32_t execution_count[256];
     if bytecodes.master:
         out << 'uintptr_t gvmt_interpreter_%s_locals = %d;\n' % (bytecodes.func_name, l)
         out << 'uintptr_t gvmt_interpreter_%s_locals_offset = %d;\n' % (bytecodes.func_name, max_refs)
-        out <<  'GVMT_CALL GVMT_StackItem* '
-        out << ' %s_resume(GVMT_StackItem* gvmt_sp, struct gvmt_frame* fp) {' % name
-        out << '''
-        uint8_t* gvmt_ip_start = (uint8_t*)gvmt_sp[0].p;
-        struct gvmt_interpreter_frame* FRAME_POINTER = (struct gvmt_interpreter_frame*)fp;
-        register uint8_t* _gvmt_ip; 
-        _gvmt_ip = gvmt_ip_start;
-        GVMT_StackItem return_value;
-    '''
-        if common.token_threading:
-            emit_operand_table(bytecodes, out)
-        if post_check:
-            nos = 'gvmt_sp[1].p'
-            out << '   uint8_t* gvmt_ip_end = (uint8_t*)%s\n;' % nos
-            out << '   gvmt_sp += 2;\n'
-        else:
-            out << '   gvmt_sp += 1;\n'
-        out << switch
-        out << default
-        if not common.token_threading:
-            out << '   }\n'
-            out << '  } while (1);\n'
-        out << postamble
-        out << '} /* End */\n'
     if bytecodes.master:
         write_offset(bytecodes, out)
         out << '\nchar *gvmt_opcode_names_%s[] = {' % bytecodes.func_name

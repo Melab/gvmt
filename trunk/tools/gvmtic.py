@@ -46,7 +46,8 @@ def _ip_fetch(c, location):
 def _c_function(name, location, qualifiers, code, out, local_vars):
     out << c_line(location.line, location.file)
     if 'private' in qualifiers:
-            out << 'static '
+        out << 'static '
+    out << '/* %s */\n' % qualifiers
     out << 'struct gvmt_illegal_return*  gvmt_lcc_%s (' % name
     sep = ''
     defn = {}
@@ -116,6 +117,7 @@ def compile_instructions(int_ast, flags, lcc_dir, prefix = None):
     gsc_insts = []
     stack_insts = []
     opcodes = {}
+    qualifiers = {}
     names = set()
     for i in int_ast.instructions:
         if i.name in names:
@@ -130,6 +132,7 @@ def compile_instructions(int_ast, flags, lcc_dir, prefix = None):
                 opcodes[i.name] = i.opcode
         else:
             gsc_insts.append(process_compound(i))
+        qualifiers[i.name] = i.qualifiers
     tempdir = os.path.join(sys_compiler.TEMPDIR, 'gvmtic')
     if not os.path.exists(tempdir):
         os.makedirs(tempdir)
@@ -156,7 +159,7 @@ def compile_instructions(int_ast, flags, lcc_dir, prefix = None):
         i = c_insts[0]
         _c_function(i.name, i.location, i.qualifiers, i.code, out, struct + variables)
     for i in c_insts[1:]:
-        _c_function(i.name, i.location,  i.qualifiers, i.code, out, variables)
+        _c_function(i.name, i.location, i.qualifiers, i.code, out, variables)
     out.close()
     lcc_out = os.path.join(tempdir, 'functions.s')
     flags.append('-Wf-xbytecodes');
@@ -174,6 +177,8 @@ def compile_instructions(int_ast, flags, lcc_dir, prefix = None):
         for i in gsc_file.bytecodes.instructions:
             if i.name in opcodes:
                 i.opcode = opcodes[i.name]
+            if i.name in qualifiers:
+                i.qualifiers = qualifiers[i.name]
     return gsc_file
     
 def get_output(opts):

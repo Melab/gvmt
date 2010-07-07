@@ -943,23 +943,7 @@ class LlvmPassMode(object):
         self.out << ' ReturnInst::Create(stack->get_pointer(current_block), current_block);\n'
         
     def far_jump(self, addr):
-        # LLVM won't allow jumps to arbitrary locations, so use call
-        # and immediate return. Tailcall optimisation should (?) turn it into a jump
-        global _uid
-        _uid += 1
-        self.stack.push(addr, self.out)
-        self.stack.flush_to_memory(self.out)
-        args = 'nargs_%d' % _uid
-        self.out << ' Value* %s[2];\n' % args
-        self.out << ' %s[0] = stack->get_pointer(current_block);\n' % args 
-        self.out << ' %s[1] = FRAME;\n' % args
-        self.out << ' Value* ir_%d = new BitCastInst(%s_resume, Architecture::POINTER_FUNCTION_TYPE, "", current_block);\n' % (_uid, self.i_name)
-        c = 'gvmt_far_jump_%d' % _uid
-        call = 'CallInst::Create(ir_%d, &%s[0], &%s[2], "", current_block)' % (_uid, args, args)
-        self.out << ' CallInst *%s = %s;\n' % (c, call)
-        self.out << ' %s->setCallingConv(%s);\n' % (c, common.llvm_cc())
-        self.block_terminated = True
-        self.out << ' ReturnInst::Create(%s, current_block);\n' % c
+        raise common.UnlocatedException("FAR_JUMP is not allowed in compiled code")
     
     def push_state(self, value):
         fmt = ' push_state(%s, current_block);\n'
