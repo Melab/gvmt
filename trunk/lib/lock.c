@@ -55,6 +55,8 @@ static void free_heavyweight_lock(gvmt_heavyweight_lock_t *lock) {
 GVMT_CALL static void gvmt_lock_contended(intptr_t *lock) {
     gvmt_heavyweight_lock_t *slow = (gvmt_heavyweight_lock_t *)*lock;
     do {
+        // This is slightly inefficient as it saves already saved pointers, but it is correct.
+        gvmt_enter_native(gvmt_stack_pointer, gvmt_frame_pointer);
         pthread_mutex_lock(&slow->lock);
         pthread_cond_wait(&slow->condition, &slow->lock);
         if (slow->thread_id == 0) {
@@ -64,6 +66,7 @@ GVMT_CALL static void gvmt_lock_contended(intptr_t *lock) {
             do {
                 waiters = slow->waiters;
             } while(!COMPARE_AND_SWAP(&slow->waiters, waiters, waiters-1));
+            gvmt_exit_native();
             return;
         }
     } while (1);
@@ -119,7 +122,7 @@ GVMT_CALL void gvmt_fast_lock(intptr_t *lock) {
 }
 
 GVMT_CALL static void gvmt_unlock_contended(intptr_t *lock) {
-    intptr_t ptr = *lock & -4; // Might be busy as another thread may incrementing waiters.
+    intptr_t ptr = *lock & -4; // Might be busy as another thread may be incrementing waiters.
     gvmt_heavyweight_lock_t *slow = (gvmt_heavyweight_lock_t *)*lock;
     if (slow->thread_id != gvmt_thread_id) {
         fprintf(stderr, "Illegal attempt to unlock lock owned by another thread\n");

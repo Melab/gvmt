@@ -359,3 +359,8 @@ void gvmt_fully_initialized_check(GVMT_Object object) {
     }
 }
 
+GVMT_CALL void gvmt_save_pointers(GVMT_StackItem* sp, GVMT_Frame fp) {
+    gvmt_stack_pointer = sp;
+    gvmt_frame_pointer = fp;
+}
+

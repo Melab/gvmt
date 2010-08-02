@@ -29,6 +29,8 @@ prepare:
 	mkdir -p build/debug
 	mkdir -p build/fast
 	mkdir -p build/gc
+	mkdir -p /tmp/gvmt/gvmtic
+	mkdir -p /tmp/gvmt/gvmtc
 
 build/debug/%.o : lib/%.c $(HEADERS) 
 	$(CC) -g -o $@ $<

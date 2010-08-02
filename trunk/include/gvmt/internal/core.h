@@ -165,6 +165,8 @@ int gvmt_object_is_initialised(GVMT_Object object, uintptr_t offset);
 
 void gvmt_fully_initialized_check(GVMT_Object object);
 
+GVMT_CALL void gvmt_save_pointers(GVMT_StackItem* sp, GVMT_Frame fp);
+
 #ifndef NDEBUG
 #define RETURN_TYPE_V  1
 #define RETURN_TYPE_I4 2

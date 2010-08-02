@@ -1022,6 +1022,10 @@ class LlvmPassMode(object):
         pass
        
     def lock(self, lock):
+        self.out << ' Value *params_%d[] = { stack->get_pointer(current_block), FRAME };\n' % _uid, 
+        params = 'params_%d' % _uid
+        self.out << ' Value *func = module->getOrInsertFunction("gvmt_save_pointers", TYPE_P, TYPE_P, NULL);'
+        self.out << ' CallInst::Create(func, &params_%d[0], &params_%d[2], "", current_block)->setCallingConv(CallingConv::X86_FastCall);\n' % (_uid, _uid)
         self.out << ' lock(%s, current_block);' % lock.cast(gtypes.p)
     
     def unlock(self, lock):

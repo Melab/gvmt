@@ -1097,6 +1097,7 @@ class CMode(object):
         self.out << ' if(!COMPARE_AND_SWAP(lock_%d, ' % _uid
         self.out << 'GVMT_LOCKING_UNLOCKED, '
         self.out << 'gvmt_thread_id | GVMT_LOCKING_LOCKED))'
+        self.out << ' gvmt_save_pointers(gvmt_sp, (GVMT_Frame)FRAME_POINTER);'
         self.out << ' gvmt_fast_lock(lock_%d);' % _uid
         
     def unlock(self, lock):
