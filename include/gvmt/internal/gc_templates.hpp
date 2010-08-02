@@ -76,7 +76,7 @@ namespace gc {
             if (Collection::wants(*it))
                 *it = Collection::apply(*it);
         }
-        return it.end();
+        return it.end_address();
     }
     
     template <class Collection> void transitive_closure() {
@@ -87,12 +87,6 @@ namespace gc {
             Collection::scanned(obj, end);
         }
     }
-//    
-//    /** remove this ***/
-//    template <class Collection> GVMT_Object grey(GVMT_Object obj) {
-//        if (Collection::wants(obj))
-//            return Collection::apply(obj);
-//    }
 
 }
 

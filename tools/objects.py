@@ -225,7 +225,7 @@ def read_file(src):
             line = line.strip()
             if HEADER.match(line):
                 if current:
-                    print "Nested struct at line %d", line_no
+                    print "Nested struct at line %d" line_no
                     sys.exit(1)
                 current, base, quals = HEADER.match(line).groups()
                 current = current.strip()
@@ -326,7 +326,7 @@ if __name__ == '__main__':
         common.print_usage(options)
         sys.exit(1)
     action = ''
-    out = common.Out(args[0] + '.h')
+    out = None
     for opt, value in opts:
         if opt == '-h':
             common.print_usage(options)
@@ -354,6 +354,8 @@ if __name__ == '__main__':
         print "Either -c or -m must be chosen"
         sys.exit(1)
     shapes = read_file(common.In(args[0]))  
+    if out is None:
+        out = common.Out(args[0] + '.c')
     if action == 'm':  
         if out.name[-2:] == '.c':
             hname = out.name[:-2] + '.h'

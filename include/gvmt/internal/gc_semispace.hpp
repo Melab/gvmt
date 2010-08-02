@@ -81,7 +81,7 @@ namespace semispace {
                 if (Collection::wants(*it))
                     *it = Collection::apply(*it);
             }
-            local_scan = it.end();
+            local_scan = it.end_address();
         } 
         scan_ptr = local_scan.as_object();
     }

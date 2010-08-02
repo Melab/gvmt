@@ -135,7 +135,7 @@ namespace cheney {
                 if (to_be_copied(*it))
                     *it = copy(*it);
             }
-            scan = it.end();
+            scan = it.end_address();
         } 
         // Now have to scan finalizers:
         int n = GC::finalizables.size();
@@ -164,7 +164,7 @@ namespace cheney {
                 if (to_be_copied(*it))
                     *it = copy(*it);
             }
-            scan = it.end();
+            scan = it.end_address();
         }         
         // Scan weak refs.
         for (Root::List::iterator it = GC::weak_references.begin(), 

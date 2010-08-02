@@ -659,9 +659,9 @@ void* BaseCompiler::jit_compile(Function* func, char* name) {
         // Uncomment line below to generate CFGs.
 //        func_pass_manager->add(createCFGPrinterPass());            
     }
+    func_pass_manager->run(*func);
     t1 = high_res_time();
     gvmt_total_optimisation_time += (t1 - t0);
-    func_pass_manager->run(*func);
     code = execution_engine->getPointerToFunction(func);
     // Function is no longer required.
     func->deleteBody();

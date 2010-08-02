@@ -187,7 +187,7 @@ namespace object {
          * Returns a reference to the memory immediately after 
          * the object. 
          */
-        inline Address end() {
+        inline Address end_address() {
             while (!at_end())
                 ++*(this);
             return Address(item);

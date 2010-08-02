@@ -64,11 +64,11 @@ namespace generational {
                         if (Collection::wants(*it))
                             *it = Collection::apply(*it);
                     }
-                    p = it.end();
+                    p = it.end_address();
                 } while (in_card(p, card));
             }
         }
-        // Check last card, but do not go past end.
+        // Check last card, but do not go past end of object.
         if (card == end_card && is_marked(end_card)) {
             Address p = first_object_on_card(end_card);
             while (p < Address(end)) {
@@ -77,7 +77,7 @@ namespace generational {
                     if (Collection::wants(*it))
                         *it = Collection::apply(*it);
                 }
-                p = it.end();
+                p = it.end_address();
             } 
         }
     }
