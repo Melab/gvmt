@@ -74,7 +74,16 @@ class LlvmStack(Stack):
         self.reg_index += 1
         out << ' Value *gvmt_r%d = %s;\n' % (self.reg_index, Simple(gtypes.x, 
                                              'stack->pop(current_block)'))
-        return Simple(gtypes.x, 'gvmt_r%d' % self.reg_index)    
+        return Simple(gtypes.x, 'gvmt_r%d' % self.reg_index) 
+        
+    def pop_double(self, tipe, out):
+        self.reg_index += 1
+        pop = 'stack->pop_double(TYPE_%s, current_block)' % tipe.suffix
+        out << ' Value *gvmt_r%d = %s;\n' % (self.reg_index, pop)
+        return Simple(tipe, 'gvmt_r%d' % self.reg_index)
+        
+    def push_double(self, value, out):
+        out << ' stack->push_double(%s);\n' % (value)
         
     def pick(self, index, out):
         self.reg_index += 1
@@ -115,15 +124,6 @@ class LlvmStack(Stack):
     
     def store(self, out):
         pass
-    
-    def pop_double(self, out):
-        self.reg_index += 1
-        out << ' Value *gvmt_r%d = %s;\n' % (self.reg_index, Simple(gtypes.x2, 
-                                           'stack->pop_double(current_block)'))
-        return Simple(gtypes.x2, 'gvmt_r%d' % self.reg_index)
-        
-    def push_double(self, value, out):
-        out << ' stack->push_double(%s);\n' % (value)
         
 #Log (base 2) values (up to 8)    
 _log2 = (  None, 0, 1, None, 2, None, None, None, 3) 
@@ -307,6 +307,18 @@ class Simple(Expr):
         
     def __int__(self):
         raise ValueError
+        
+class L_Addr(Simple):
+    
+    def __init__(self, tipe, txt):
+        Simple.__init__(self, tipe, txt)
+             
+    def pstore(self, tipe, value):
+        return (' (new StoreInst(%s, %s, current_block))->setVolatile(true);\n' %
+                    (value.cast(tipe), self.pcast(tipe)))
+        
+    def load(self, tipe):
+        return Simple(tipe, 'load_laddr(%s, current_block)' % self.pcast(tipe))      
  
 class Constant(Simple):
     
@@ -314,10 +326,16 @@ class Constant(Simple):
         if tipe.is_signed():
             Simple.__init__(self, tipe, 'ConstantInt::get(APInt(%d, %s, true))'
                             % (tipe.size*8, val))
-        else:
-            assert tipe.is_unsigned()
+        elif tipe.is_unsigned():
             Simple.__init__(self, tipe, 'ConstantInt::get(APInt(%d, %s))'
                             % (tipe.size*8, val))
+        else:
+            assert tipe.is_float()
+            if tipe == gtypes.f4:
+                const = 'ConstantFP::get(APFloat((float)%s))' % val
+            else:
+                const = 'ConstantFP::get(APFloat((double)%s))' % val
+            Simple.__init__(self, tipe, const)
         self.val = val
         
     def const(self):
@@ -376,8 +394,12 @@ class CompareExpr(Binary):
         Binary.__init__(self, gtypes.b, left, op, right)
         
     def __str__(self):
-        return 'new ICmpInst(%s, %s, %s, "", current_block)' % (
-                _op_name(self.op, self.left.tipe), self.left, self.right)
+        if self.left.tipe in (gtypes.f4, gtypes.f8):
+            return 'new FCmpInst(%s, %s, %s, "", current_block)' % (
+                    _op_name(self.op, self.left.tipe), self.left, self.right)
+        else:
+            return 'new ICmpInst(%s, %s, %s, "", current_block)' % (
+                    _op_name(self.op, self.left.tipe), self.left, self.right)
 
 class PointerAdd(Binary):
     
@@ -542,16 +564,16 @@ class LlvmPassMode(object):
     def sign(self, val):
         global _uid
         _uid += 1
-        s_ext = ' Value* t%d = new SExtInst(%s, IntegerType::get(%d), "", current_block)'
-        self.out << s_ext % (_uid, val, gtypes.iptr.size*8)
-        return Simple(gtypes.iptr, 't%d' % _uid)
+        s_ext = ' Value* t%d = new SExtInst(%s, IntegerType::get(%d), "", current_block);'
+        self.out << s_ext % (_uid, val, 64)
+        return Simple(gtypes.i8, 't%d' % _uid)
         
     def zero(self, val):
         global _uid
         _uid += 1
-        z_ext = ' Value* t%d = new ZExtInst(%s, IntegerType::get(%d), "", current_block)'
-        self.out << z_ext % (_uid, val, gtypes.iptr.size*8)
-        return Simple(gtypes.iptr, 't%d' % _uid)
+        z_ext = ' Value* t%d = new ZExtInst(%s, IntegerType::get(%d), "", current_block);'
+        self.out << z_ext % (_uid, val, 64)
+        return Simple(gtypes.u8, 't%d' % _uid)
             
     def _save_all(self):
         'Force all in-reg temps into memory, so that GC can find them'
@@ -612,7 +634,7 @@ class LlvmPassMode(object):
         return c 
         
     def laddr(self, name):
-        return Simple(gtypes.p, 'laddr_%s' % name)
+        return L_Addr(gtypes.p, 'laddr_%s' % name)
         
     def rstack(self):
         self.stack.flush_to_memory(self.out)
@@ -843,12 +865,12 @@ class LlvmPassMode(object):
                 self.out << ' %s;\n' % v
         for n, t in outputs:
             self.stack_push(variables[n])
-    
+
     def stack_pop(self):
         return self.stack.pop(self.out)
-    
+
     def stack_push(self, value):
-        if value.__class__ is not Constant:
+        if value.__class__ is not Constant and not isinstance(value, L_Addr):
             global _uid
             _uid += 1
             self.out << ' sv_%d = %s;\n' % (_uid, value)
@@ -856,11 +878,17 @@ class LlvmPassMode(object):
             value = Simple(value.tipe, 'sv_%d' % _uid)
         self.stack.push(value, self.out)
 
-    def stack_pop_double(self):
-        return self.stack.pop_double(self.out)
-        
+    def stack_pop_double(self, tipe):
+        return self.stack.pop_double(tipe, self.out)
+
     def stack_push_double(self, value):
         assert(value.tipe.size == 8)
+        if value.__class__ is not Constant:
+            global _uid
+            _uid += 1
+            self.out << ' sv_%d = %s;\n' % (_uid, value)
+            self.decls['sv_%d' % _uid] = '0'
+            value = Simple(value.tipe, 'sv_%d' % _uid)         
         return self.stack.push_double(value, self.out)
         
     def stack_pick(self, index):
@@ -868,6 +896,12 @@ class LlvmPassMode(object):
         
     def stack_poke(self, index, value):
         self.stack.poke(index, value, self.out)
+    
+    def stack_roll(self, index):
+        self.stack.roll(index, self.out)
+    
+    def stack_rroll(self, index):
+        self.stack.rroll(index, self.out)
  
     def stack_flush(self):
         self.stack.flush_to_memory(self.out)

@@ -209,7 +209,7 @@ def second_pass(bytecodes, out):
     for t, n in bytecodes.locals:
         if t == 'object':
             out << _OFFSET % offset
-            offset += gtypes.p.size
+            offset += gtypes.r.size
             out << L_ADDR % (n, n)
     for t, n in bytecodes.locals:
         if t != 'object':

@@ -25,6 +25,8 @@ class CompilerStack {
     void ensure_cache(int count, llvm::BasicBlock* bb);
     void push_memory(llvm::Value* val, llvm::BasicBlock* bb);
     llvm::Value* pop_memory(llvm::BasicBlock* bb);
+    void push_double_memory(llvm::Value* val, llvm::BasicBlock* bb);
+    llvm::Value* pop_double_memory(const llvm::Type* type, llvm::BasicBlock* bb);
     llvm::Value* LLVM_MEMSET;
     std::vector<llvm::Value*> join_cache;
 //    llvm::Value* stack_pointer;
@@ -39,6 +41,8 @@ class CompilerStack {
     CompilerStack(llvm::Module* mod);
     void push(llvm::Value* val);
     llvm::Value* pop(llvm::BasicBlock* bb);
+    void push_double(llvm::Value* val);
+    llvm::Value* pop_double(const llvm::Type* type, llvm::BasicBlock* bb);
     llvm::Value* top(llvm::BasicBlock* bb, int cached=0);
     void flush(llvm::BasicBlock* bb);
     void join(llvm::BasicBlock* bb);
@@ -47,6 +51,8 @@ class CompilerStack {
     llvm::Value* insert(int offset, llvm::Value* count, llvm::BasicBlock* bb);
     llvm::Value* pick(llvm::BasicBlock* bb, unsigned index);
     void poke(llvm::BasicBlock* bb, unsigned index, llvm::Value* value);
+    void roll(llvm::BasicBlock* bb, unsigned count);
+    void rroll(llvm::BasicBlock* bb, unsigned count);
     /** Although this is signed, it can be never be less than zero. */
     int join_depth;
     /** max_join_depth must be called a block that dominates all arguments to join.
@@ -140,7 +146,8 @@ class BaseCompiler {
     static llvm::Value* cast_to_P(llvm::Value* from, llvm::BasicBlock* bb);
     static llvm::Value* cast_to_R(llvm::Value* from, llvm::BasicBlock* bb);
     static llvm::Value* cast_to_B(llvm::Value* from, llvm::BasicBlock* bb);
-
+    static llvm::Value* load_laddr(llvm::Value* addr, llvm::BasicBlock* bb);
+    
     static const llvm::Type* TYPE_I1;
     static const llvm::Type* TYPE_I2;
     static const llvm::Type* TYPE_I4;

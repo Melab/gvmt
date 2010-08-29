@@ -49,7 +49,7 @@ class CStack(object):
         self.offset = 0
         self.declarations = declarations
      
-    def pop_double(self, out):
+    def pop_double(self, tipe, out):
         global _temp_index
         _temp_index += 1
         self.declarations['gvmt_dr%d' % _temp_index] = 'GVMT_DoubleStackItem'
@@ -92,8 +92,26 @@ class CStack(object):
             si = StackItem('gvmt_sp[%s+%d]' % (index, -self.offset))
         else:
             si = StackItem('gvmt_sp[%s-%d]' % (index, self.offset))
-        out << ' %s = %s;' % (si.cast(value.tipe), value)
-        
+        out << ' %s = %s;' % (si.cast(value.tipe), value)      
+            
+    def roll(self, index, out):
+        global _temp_index
+        _temp_index += 1
+        self.declarations['gvmt_r%d' % _temp_index] = 'GVMT_StackItem'
+        out << ' gvmt_r%d = gvmt_sp[%d-1];' % (_temp_index, index)
+        out << ' for(i = %s-1; i > 0; i--)' % index
+        out << ' gvmt_sp[i] = gvmt_sp[i-1];'
+        out << ' gvmt_sp[0] = gvmt_r%d;' % _temp_index
+    
+    def rroll(self, index, out):
+        global _temp_index
+        _temp_index += 1
+        self.declarations['gvmt_r%d' % _temp_index] = 'GVMT_StackItem'
+        out << ' gvmt_r%d = gvmt_sp[0];' % index
+        out << ' for(i = 0, n = %s-1; i < n; i++)' % index
+        out << ' gvmt_sp[i] = gvmt_sp[i+1];'
+        out << ' gvmt_sp[%d-1] = gvmt_r%d;' % (index, _temp_index)
+
     def flush_to_memory(self, out, ignore = 0):
         if self.offset:
             if self.offset < 0:
@@ -590,7 +608,7 @@ class CMode(object):
         elif tipe.size > gtypes.p.size:
             self.stack.push_double(a, self.out)
             self.stack.store(self.out)
-            result = self.stack.pop_double(self.out)
+            result = self.stack.pop_double(tipe, self.out)
         else:
             self.stack.push(a, self.out)
             self.stack.store(self.out)
@@ -876,6 +894,12 @@ class CMode(object):
         
     def stack_poke(self, index, value):
         self.stack.poke(index, value, self.out)
+    
+    def stack_roll(self, index):
+        self.stack.roll(index, self.out)
+    
+    def stack_rroll(self, index):
+        self.stack.rroll(index, self.out)
         
     def sign(self, val):
         return Simple(gtypes.i8, '((int64_t)%s)' % val.cast(gtypes.i4))
@@ -964,8 +988,8 @@ class CMode(object):
         else:
             return Simple(tipe, name)
 
-    def stack_pop_double(self):
-        return self.stack.pop_double(self.out)
+    def stack_pop_double(self, tipe):
+        return self.stack.pop_double(tipe, self.out)
         
     def stack_push_double(self, val):
         assert(val.tipe.size == 8)

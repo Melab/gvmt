@@ -12,7 +12,7 @@ class Stack(object):
     def push_double(self, value, out):
         raise NotImplementedError
         
-    def pop_double(self, out):
+    def pop_double(self, tipe, out):
         raise NotImplementedError
         
     def flush_cache(self, out):
@@ -65,14 +65,14 @@ class CachingStack(Stack):
         self.item_size.append(1)
         self._cache_size += 1
         
-    def pop_double(self, out):
+    def pop_double(self, tipe, out):
         if self.item_size and self.item_size[-1] == 2:
             self.item_size.pop()
             self._cache_size -= 2
             return self.cache.pop()
         else:
             self.flush_cache(out, 0)
-            return self.backing.pop_double(out)
+            return self.backing.pop_double(tipe, out)
             
     def pop(self, out):
         if self.item_size and self.item_size[-1] == 1:

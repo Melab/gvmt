@@ -256,8 +256,14 @@ class DeltaMode(object):
         
     def stack_poke(self, index, value):
         pass
+    
+    def stack_roll(self, index):
+        pass
+    
+    def stack_rroll(self, index):
+        pass
 
-    def stack_pop_double(self):
+    def stack_pop_double(self, tipe):
         self.stack_offset += -2
         self.set_consume()
         

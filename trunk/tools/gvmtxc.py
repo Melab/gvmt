@@ -62,6 +62,10 @@ if __name__ == '__main__':
                 int_instructions[i.name] = i
         gvmtas.assign_opcodes(int_file.bytecodes)
         names = set()
+        default_instruction = None
+        for i in trans.bytecodes.instructions:
+            if i.name == '__default':
+                default_instruction = i
         for i in trans.bytecodes.instructions:
             if 'private' not in i.qualifiers:
                 names.add(i.name)
@@ -87,6 +91,8 @@ if __name__ == '__main__':
                 # Create new no op instruction.
                 ops = i.flow_graph.deltas[0]
                 ins = [ builtin.instructions['#@'], builtin.instructions['DROP'] ] * ops
+                if default_instruction:
+                    ins.append(default_instruction)
                 i = compound.CompoundInstruction(i.name, i.opcode, 
                                                  i.qualifiers, ins)
                 trans.bytecodes.instructions.append(i)

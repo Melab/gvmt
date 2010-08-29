@@ -34,7 +34,7 @@ def _push(mode, tipe, val):
 def _pop(mode, tipe):
     'Pops value fo type tipe from stack'
     if tipe.size > gtypes.p.size:
-        return mode.stack_pop_double()
+        return mode.stack_pop_double(tipe)
     else:
         return mode.stack_pop()
 
@@ -98,7 +98,7 @@ class BinaryOp(Instruction):
     def process(self, mode):
         if (self.tipe.size > gtypes.p.size and self.op is not operators.lsh
             and self.op is not operators.rsh):
-            right = mode.stack_pop_double()
+            right = mode.stack_pop_double(self.tipe)
         else:
             right = mode.stack_pop()
         left = _pop(mode, self.tipe)
@@ -610,7 +610,35 @@ class Poke(Instruction):
 
     def process(self, mode):
         tos = mode.stack_pop()
-        mode.stack_poke(mode.stream_fetch(), tos)      
+        mode.stack_poke(mode.stream_fetch(), tos)   
+        
+class Roll(Instruction):
+    def __init__(self):
+        self.name = 'ROLL'
+        self.inputs = []
+        self.outputs = [ ]
+        self.operands = 1
+        self.__doc__ = ('Rolls (rotates) the N top items on the stack.'
+                        'Each item moves down one, except item N-1, which moves TOS.'
+                        'This operation is expensive for larger N.')
+
+    def process(self, mode):
+        tos = mode.stack_pop()
+        mode.stack_roll(mode.stream_fetch())   
+        
+class RRoll(Instruction):
+    def __init__(self):
+        self.name = 'RROLL'
+        self.inputs = []
+        self.outputs = [ ]
+        self.operands = 1
+        self.__doc__ = ('Reverse rolls (rotates) the N top items on the stack.'
+                        'Each item moves up one, except TOS, which moves to item N-1.'
+                        'This operation is expensive for larger N.')
+
+    def process(self, mode):
+        tos = mode.stack_pop()
+        mode.stack_rroll(mode.stream_fetch())   
         
 class Stack(Instruction):
 
@@ -1175,9 +1203,9 @@ def _init():
     
     for cls in [ Jump, Sign, GC_Malloc, GC_Malloc_Call, Push_current_state, Raise, Drop, 
                GC_Safe, GC_Safe_Call, Flush, Stack, Insert, Unlock_Internal,
-               push_state, pop_state, Opcode, Lock_Internal, Transfer,
+               push_state, pop_state, Opcode, Lock_Internal, Transfer, Roll,
                discard_state, IP, Pick, Zero, DropN, Symbol, FarJump, ZeroMemory, 
-               GC_FreePointerStore, GC_FreePointerLoad, GC_Malloc_Fast,
+               GC_FreePointerStore, GC_FreePointerLoad, GC_Malloc_Fast, RRoll,
                GC_LimitPointerStore, GC_LimitPointerLoad, Next_IP, 
                GC_Allocate_Only, FullyInitialized, Lock, Unlock ]:
         i = cls()
