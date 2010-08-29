@@ -156,10 +156,16 @@ class FirstPassMode(object):
     def stack_poke(self, index, value):
         pass
     
+    def stack_roll(self, index):
+        pass
+    
+    def stack_rroll(self, index):
+        pass
+    
     def stack_push(self, value):
         pass
 
-    def stack_pop_double(self):
+    def stack_pop_double(self, tipe):
         pass
         
     def stack_push_double(self, value):
@@ -308,8 +314,9 @@ def first_pass(bytecodes, out):
         out << '}\n'
     for i in bytecodes.instructions:
         if 'nocomp' in i.qualifiers:
-            out << _NO_COMP % (bytecodes.func_name, i.name, i.name)
-            continue
+            if 'private' not in i.qualifiers:
+                out << _NO_COMP % (bytecodes.func_name, i.name, i.name)
+                continue
         elif 'private' in i.qualifiers:
             # Just want globals and f_types, discard output.
             mode = FirstPassMode(common.Buffer(), f_types, glbls)

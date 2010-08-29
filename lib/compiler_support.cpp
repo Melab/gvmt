@@ -94,7 +94,8 @@ void CompilerStack::store_pointer(Value* ptr, BasicBlock* bb) {
 }
 
 Value* CompilerStack::get_pointer(BasicBlock* bb) {
-    return new LoadInst(stack_pointer_addr, "sp", bb);
+    llvm::Value* addr = stack_pointer_addr;
+    return new LoadInst(addr, "sp", bb);
 //    if (stack_pointer == 0) {
 //        assert(!modified);
 //        load_pointer(bb);
@@ -158,6 +159,8 @@ void CompilerStack::modify_pointer(int d, BasicBlock* bb) {
 //}
 
 void CompilerStack::push(Value* val) {
+    assert(val->getType() != BaseCompiler::TYPE_I8 && 
+           val->getType() != BaseCompiler::TYPE_F8);
     stack.push_back(val);
 }
 
@@ -165,8 +168,13 @@ Value* CompilerStack::pop(BasicBlock* bb) {
     Value* result;
     if (stack.size()) {
         result = stack.back();
-        stack.pop_back();
-        return result;
+        if (result) {
+            stack.pop_back();
+            return result;
+        } else {
+            flush(bb);
+            return pop_memory(bb);
+        }
     } else {
         return pop_memory(bb);
     }
@@ -175,19 +183,24 @@ Value* CompilerStack::pop(BasicBlock* bb) {
 Value* CompilerStack::pick(BasicBlock* bb, unsigned depth) {
     assert(depth >= 0);
     if (stack.size() > depth) {
-        return stack[stack.size()-1-depth];
-    } else {
-        Value* top = get_pointer(bb);
-        Value* ptr = GetElementPtrInst::Create(top, ConstantInt::get(APInt(32, depth-stack.size(), true)), "x", bb);
-        LoadInst* result = new LoadInst(ptr, "val", bb);
-        return result;
+        Value* result = stack[stack.size()-1-depth];
+        if (result) {
+            assert(depth == 0 || stack[stack.size()-depth]);
+            return result;
+        } else {
+            flush(bb);
+        }
     }
+    Value* top = get_pointer(bb);
+    Value* ptr = GetElementPtrInst::Create(top, ConstantInt::get(APInt(32, depth-stack.size(), true)), "x", bb);
+    return new LoadInst(ptr, "val", bb);
 }
 
 void CompilerStack::poke(BasicBlock* bb, unsigned depth, Value* val) {
     assert(depth >= 0);
     if (stack.size() > depth) {
         stack[stack.size()-1-depth] = val;
+        assert(depth == 0 || stack[stack.size()-depth]);
     } else {
         Value* top = get_pointer(bb);
         Value* ptr = GetElementPtrInst::Create(top, ConstantInt::get(APInt(32, depth-stack.size(), true)), "x", bb);
@@ -211,12 +224,61 @@ llvm::Value* CompilerStack::pop_memory(BasicBlock* bb) {
     return result;
 }
 
+llvm::Value* CompilerStack::pop_double_memory(const Type* type, BasicBlock* bb) {
+    Value* top = get_pointer(bb);
+    top = new BitCastInst(top, PointerType::get(type, 0), "valp", bb);
+    LoadInst* result = new LoadInst(top, "val", bb);
+    assert(result->getType() == type);
+    modify_pointer(2, bb);
+    return result;
+}
+
+llvm::Value* CompilerStack::pop_double(const Type* type, BasicBlock* bb) {
+    Value* item;
+    if (stack.size() < 2) {
+        if (stack.size() == 1) {
+            assert(stack.back());
+            flush(bb);
+        }
+        return pop_double_memory(type, bb);
+    } else {
+        item = stack.back();
+        if (item) {
+            // Not a double-sized value
+            flush(bb);
+            return pop_double_memory(type, bb);
+        } else {
+            stack.pop_back();
+            item = stack.back();
+            assert(item->getType() == BaseCompiler::TYPE_I8 || item->getType() == BaseCompiler::TYPE_F8);
+            stack.pop_back();
+            return item;
+        }
+    }
+}
+
 void CompilerStack::push_memory(llvm::Value* val, BasicBlock* bb) {
     modify_pointer(-1, bb);
     Value* top = get_pointer(bb);
     if (val->getType() != BaseCompiler::TYPE_P)
         top = new BitCastInst(top, PointerType::get(val->getType(), 0), "valp", bb);
     new StoreInst(val, top, bb);
+}
+
+void CompilerStack::push_double_memory(llvm::Value* val, BasicBlock* bb) {
+    assert(val);
+    modify_pointer(-2, bb);
+    Value* top = get_pointer(bb);
+    top = new BitCastInst(top, PointerType::get(val->getType(), 0), "valp", bb);
+    assert(val->getType() == BaseCompiler::TYPE_I8 || 
+           val->getType() == BaseCompiler::TYPE_F8);
+    new StoreInst(val, top, bb);
+}
+
+void CompilerStack::push_double(llvm::Value* val) {
+    assert(val->getType() == BaseCompiler::TYPE_I8 || val->getType() == BaseCompiler::TYPE_F8);
+    stack.push_back(val);
+    stack.push_back(NULL);
 }
 
 void CompilerStack::flush(BasicBlock* bb) {
@@ -242,10 +304,19 @@ void CompilerStack::join(BasicBlock* bb) {
 //    stack_pointer = 0;
     int n = join_depth;
     while (n) {
-        Value* v = BaseCompiler::cast_to_P(stack.front(), bb); 
+        Value* v = stack.front();
+        const Type* t = v->getType();
+        Value* ptr = join_cache[n];
+        if (t != BaseCompiler::TYPE_P) {
+            ptr = new BitCastInst(ptr, PointerType::get(t, 0), "ptr", bb);
+        }
+        new StoreInst(v, ptr, bb);
+        if (t == BaseCompiler::TYPE_I8 || t == BaseCompiler::TYPE_F8) {
+            stack.pop_front();
+            n--;
+        }
         stack.pop_front();
         n--;
-        new StoreInst(v, join_cache[n], bb);
     }
 }
 
@@ -260,9 +331,21 @@ void CompilerStack::start_block(BasicBlock* bb) {
 void CompilerStack::ensure_cache(int count, BasicBlock* bb) {
     int n = stack.size();
     while (n > count) {
-        push_memory(stack.front(), bb);
-        stack.pop_front();
-        n--;
+        Value* item = stack.front();
+        assert(item);
+        const Type* t = item->getType();
+        if (t == BaseCompiler::TYPE_I8 || t == BaseCompiler::TYPE_F8) {
+            push_double_memory(item, bb);            
+            stack.pop_front();  
+            item = stack.front();
+            assert(item == NULL);
+            stack.pop_front();
+            n -= 2;
+        } else {
+            push_memory(item, bb);
+            stack.pop_front();
+            n--;
+        }
     }
     while (n < count) {
         stack.push_front(pop_memory(bb));
@@ -479,6 +562,12 @@ Value* BaseCompiler::push_current_state(BasicBlock* bb) {
     return ex;
 }
 
+Value* BaseCompiler::load_laddr(Value* addr, BasicBlock* bb) {
+    LoadInst* result = new LoadInst(addr, "", bb);
+    result->setVolatile(true);
+    return result;
+}
+
 Value* BaseCompiler::pop_state(BasicBlock* bb) {
     CallInst* pop = CallInst::Create(Architecture::POP_HANDLER, &NO_ARGS[0], 
                                      &NO_ARGS[0], "", current_block);
@@ -580,13 +669,15 @@ Value* BaseCompiler::cast_to_P(Value* from, BasicBlock* bb) {
     const Type* from_type = from->getType();
     if (from_type == TYPE_P)
         return from;
-    if (from_type == TYPE_I4)
+    if (from_type == TYPE_I4 || from_type == TYPE_U4)
         return new IntToPtrInst(from, TYPE_P, "x", bb);
     if (from_type == TYPE_F4) {
         Value* int_tmp = new BitCastInst(from, TYPE_I4, "x", bb);
         return new IntToPtrInst(int_tmp, TYPE_P, "x", bb);
     } else {
-        assert(0 && "Illegal type");
+        assert(from_type != TYPE_I8 && from_type != TYPE_F8  &&
+               "Casting from double-sized to pointer");
+        assert(0 && "Unknown type");
         abort();
     }
 }

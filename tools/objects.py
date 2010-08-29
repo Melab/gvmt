@@ -225,7 +225,7 @@ def read_file(src):
             line = line.strip()
             if HEADER.match(line):
                 if current:
-                    print "Nested struct at line %d" line_no
+                    print "Nested struct at line %d" % line_no
                     sys.exit(1)
                 current, base, quals = HEADER.match(line).groups()
                 current = current.strip()

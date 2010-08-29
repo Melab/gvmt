@@ -153,11 +153,17 @@ class ExternalMode(object):
         
     def stack_poke(self, index, value):
         pass
+    
+    def stack_roll(self, index):
+        pass
+    
+    def stack_rroll(self, index):
+        pass
             
     def stack_push(self, value):
         self.stack.append(value)
 
-    def stack_pop_double(self):
+    def stack_pop_double(self, tipe):
         return self.stack_pop(),  self.stack_pop()
         
     def stack_push_double(self, value):

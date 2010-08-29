@@ -293,8 +293,8 @@ class LWC_CompilerMode(object):
     def stack_push(self, value):
         self.stack.push(value, self.out)
         
-    def stack_pop_double(self):
-        return self.stack.pop_double(self.out)
+    def stack_pop_double(self, tipe):
+        return self.stack.pop_double(tipe, self.out)
         
     def stack_push_double(self, value):
         assert(val.tipe.size == 8)
