@@ -70,26 +70,23 @@ class LlvmStack(Stack):
         assert isinstance(value, Expr)
         out << ' stack->push(%s);\n' % (value)
         
-    def pop(self, out):
+    def pop(self, tipe, out):
         self.reg_index += 1
-        out << ' Value *gvmt_r%d = %s;\n' % (self.reg_index, Simple(gtypes.x, 
-                                             'stack->pop(current_block)'))
-        return Simple(gtypes.x, 'gvmt_r%d' % self.reg_index) 
+        if tipe == gtypes.u4: tipe = gtypes.i4
+        if tipe == gtypes.u8: tipe = gtypes.i8
+        pop = 'stack->pop(TYPE_%s, current_block)' % tipe.suffix
+        if tipe == gtypes.x:
+            out <<  ' Value *gvmt_r%d = %s;\n' % (self.reg_index, pop)
+        else:
+            out << (' Value *gvmt_r%d = cast_to_%s(%s, current_block);\n' % 
+                    (self.reg_index, tipe.suffix, pop))
+        return Simple(tipe, 'gvmt_r%d' % self.reg_index)    
         
-    def pop_double(self, tipe, out):
+    def pick(self, tipe, index, out):
         self.reg_index += 1
-        pop = 'stack->pop_double(TYPE_%s, current_block)' % tipe.suffix
-        out << ' Value *gvmt_r%d = %s;\n' % (self.reg_index, pop)
+        pick = 'stack->pick(TYPE_%s, current_block, %s)' % (tipe.suffix, const(index))
+        out << ' Value *gvmt_r%d = %s;\n' % (self.reg_index, pick)
         return Simple(tipe, 'gvmt_r%d' % self.reg_index)
-        
-    def push_double(self, value, out):
-        out << ' stack->push_double(%s);\n' % (value)
-        
-    def pick(self, index, out):
-        self.reg_index += 1
-        out << ' Value *gvmt_r%d = %s;\n' % (self.reg_index, Simple(gtypes.x, 
-                            'stack->pick(current_block, %s)' % const(index)))
-        return Simple(gtypes.x, 'gvmt_r%d' % self.reg_index)
         
     def poke(self, index, value, out):
         out << ' stack->poke(current_block, %s, %s);\n' % (index, value)
@@ -155,7 +152,7 @@ class Expr(object):
                 self.cast(gtypes.p), tipe.suffix)
         
     def pstore(self, tipe, value):
-        return ' new StoreInst(%s, %s, current_block);\n' % (value.cast(tipe), 
+        return ' store(%s, %s, current_block);\n' % (value.cast(tipe), 
                                                              self.pcast(tipe))
         
     def load(self, tipe):
@@ -216,10 +213,10 @@ class Cast(Expr):
     
     def __init__(self, tipe, expr):
         Expr.__init__(self, tipe)
-        self.expr = expr   
+        self.expr = expr  
         assert expr.tipe.same_kind(tipe) or expr.tipe.size == tipe.size or (
            expr.tipe in [gtypes.b, gtypes.i1, gtypes.i2, gtypes.u1, gtypes.u2] 
-           and tipe.is_int()) or tipe is gtypes.b
+           and tipe.is_int()) or tipe is gtypes.b or tipe is gtypes.x or expr.tipe is gtypes.x
             
     def cast(self, tipe):
         if tipe == self.tipe:
@@ -236,12 +233,11 @@ class Cast(Expr):
         if no_cast(to, frm):
             return str(self.expr)
         if frm == gtypes.x:
-            assert to.size == frm.size or to is gtypes.b
             if to == gtypes.u4:
                 to = gtypes.i4
+            if to == gtypes.u8:
+                to = gtypes.i8
             return 'cast_to_%s(%s, current_block)' % (to.suffix, self.expr)
-        elif frm == gtypes.x2:
-            assert False
         if to in [gtypes.p, gtypes.r] and frm in [gtypes.p, gtypes.r]:
             return str(self.expr)
         elif to == gtypes.b:
@@ -307,18 +303,6 @@ class Simple(Expr):
         
     def __int__(self):
         raise ValueError
-        
-class L_Addr(Simple):
-    
-    def __init__(self, tipe, txt):
-        Simple.__init__(self, tipe, txt)
-             
-    def pstore(self, tipe, value):
-        return (' (new StoreInst(%s, %s, current_block))->setVolatile(true);\n' %
-                    (value.cast(tipe), self.pcast(tipe)))
-        
-    def load(self, tipe):
-        return Simple(tipe, 'load_laddr(%s, current_block)' % self.pcast(tipe))      
  
 class Constant(Simple):
     
@@ -330,11 +314,10 @@ class Constant(Simple):
             Simple.__init__(self, tipe, 'ConstantInt::get(APInt(%d, %s))'
                             % (tipe.size*8, val))
         else:
-            assert tipe.is_float()
             if tipe == gtypes.f4:
                 const = 'ConstantFP::get(APFloat((float)%s))' % val
             else:
-                const = 'ConstantFP::get(APFloat((double)%s))' % val
+                const = 'ConstantFP::get(APFloat((double)%s))' % val  
             Simple.__init__(self, tipe, const)
         self.val = val
         
@@ -399,7 +382,7 @@ class CompareExpr(Binary):
                     _op_name(self.op, self.left.tipe), self.left, self.right)
         else:
             return 'new ICmpInst(%s, %s, %s, "", current_block)' % (
-                    _op_name(self.op, self.left.tipe), self.left, self.right)
+                _op_name(self.op, self.left.tipe), self.left, self.right)
 
 class PointerAdd(Binary):
     
@@ -431,8 +414,8 @@ class PointerAdd(Binary):
               
     def pstore(self, tipe, value):
         gep = self._gep(tipe)
-        return ' new StoreInst(%s, %s, current_block);\n' % (value.cast(tipe), 
-                                                             gep)
+        val = value.cast(tipe)
+        return ' store(%s, %s, current_block);\n' % (val, gep)
             
 _next_label = 0
 _uid = 0
@@ -564,15 +547,15 @@ class LlvmPassMode(object):
     def sign(self, val):
         global _uid
         _uid += 1
-        s_ext = ' Value* t%d = new SExtInst(%s, IntegerType::get(%d), "", current_block);'
-        self.out << s_ext % (_uid, val, 64)
+        s_ext = ' Value* t%d = new SExtInst(%s, IntegerType::get(%d), "", current_block);\n'
+        self.out << s_ext % (_uid, val, gtypes.i8.size*8)
         return Simple(gtypes.i8, 't%d' % _uid)
         
     def zero(self, val):
         global _uid
         _uid += 1
-        z_ext = ' Value* t%d = new ZExtInst(%s, IntegerType::get(%d), "", current_block);'
-        self.out << z_ext % (_uid, val, 64)
+        z_ext = ' Value* t%d = new ZExtInst(%s, IntegerType::get(%d), "", current_block);\n'
+        self.out << z_ext % (_uid, val, gtypes.u8.size*8)
         return Simple(gtypes.u8, 't%d' % _uid)
             
     def _save_all(self):
@@ -580,7 +563,7 @@ class LlvmPassMode(object):
         for i in self.in_regs:
             if i not in self.in_mem and i in self.mem_temps:
                 tmp = 'tmp%d_%d' % (i, self.block.index)
-                fmt = ' new StoreInst(%s, ref_temp(%d, current_block), current_block);\n'
+                fmt = ' store(%s, ref_temp(%d, current_block), current_block);\n'
                 self.out << fmt % (tmp, self.mem_temps.index(i))
                 self.in_mem.add(i)
         self.in_regs = set()
@@ -634,7 +617,7 @@ class LlvmPassMode(object):
         return c 
         
     def laddr(self, name):
-        return L_Addr(gtypes.p, 'laddr_%s' % name)
+        return Simple(gtypes.p, 'laddr_%s' % name)
         
     def rstack(self):
         self.stack.flush_to_memory(self.out)
@@ -853,55 +836,24 @@ class LlvmPassMode(object):
     
     def stack_drop(self, offset, size):
         self.stack.drop(offset, size, self.out)
-        
-    def stack_permute(self, inputs, outputs):
-        variables = {}
-        for n, t in inputs[::-1]:
-            variables[n] = self.stack_pop()
-        for x in inputs:
-            if x not in outputs: 
-                #Evaluate for side effects:
-                v = variables[n]
-                self.out << ' %s;\n' % v
-        for n, t in outputs:
-            self.stack_push(variables[n])
-
-    def stack_pop(self):
-        return self.stack.pop(self.out)
-
+    
+    def stack_pop(self, tipe=gtypes.x):
+        return self.stack.pop(tipe, self.out)
+    
     def stack_push(self, value):
-        if value.__class__ is not Constant and not isinstance(value, L_Addr):
+        if value.__class__ is not Constant:
             global _uid
             _uid += 1
             self.out << ' sv_%d = %s;\n' % (_uid, value)
             self.decls['sv_%d' % _uid] = '0'
             value = Simple(value.tipe, 'sv_%d' % _uid)
         self.stack.push(value, self.out)
-
-    def stack_pop_double(self, tipe):
-        return self.stack.pop_double(tipe, self.out)
-
-    def stack_push_double(self, value):
-        assert(value.tipe.size == 8)
-        if value.__class__ is not Constant:
-            global _uid
-            _uid += 1
-            self.out << ' sv_%d = %s;\n' % (_uid, value)
-            self.decls['sv_%d' % _uid] = '0'
-            value = Simple(value.tipe, 'sv_%d' % _uid)         
-        return self.stack.push_double(value, self.out)
         
-    def stack_pick(self, index):
-        return self.stack.pick(index, self.out)
+    def stack_pick(self, tipe, index):
+        return self.stack.pick(tipe, index, self.out)
         
     def stack_poke(self, index, value):
         self.stack.poke(index, value, self.out)
-    
-    def stack_roll(self, index):
-        self.stack.roll(index, self.out)
-    
-    def stack_rroll(self, index):
-        self.stack.rroll(index, self.out)
  
     def stack_flush(self):
         self.stack.flush_to_memory(self.out)
@@ -957,7 +909,7 @@ class LlvmPassMode(object):
                 if i not in self.in_mem:
                     assert i in self.in_regs
                     tmp = 'tmp%d_%d' % (i, self.block.index)
-                    self.out << ' new StoreInst(%s, ref_temp(%d, current_block), current_block);\n' % (tmp, self.mem_temps.index(i))
+                    self.out << ' store(%s, ref_temp(%d, current_block), current_block);\n' % (tmp, self.mem_temps.index(i))
         self.block_terminated = True
     
     def local_branch(self, index, condition, t_or_f):

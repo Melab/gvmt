@@ -127,7 +127,7 @@ def constructor(bytecodes, out, gc_name):
     out << '''Compiler::Compiler() {
     init_types();
     std::vector<const Type*>args;
-    args.push_back(POINTER_TYPE_P);
+    args.push_back(POINTER_TYPE_X);
     args.push_back(TYPE_P);
     args.push_back(TYPE_I4);
     FunctionType* ftype = FunctionType::get(TYPE_R, args, false);

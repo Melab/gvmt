@@ -6,15 +6,9 @@ class Stack(object):
     def push(self, value, out):
         raise NotImplementedError
         
-    def pop(self, out):
+    def pop(self, tipe, out):
         raise NotImplementedError
     
-    def push_double(self, value, out):
-        raise NotImplementedError
-        
-    def pop_double(self, tipe, out):
-        raise NotImplementedError
-        
     def flush_cache(self, out):
         raise NotImplementedError
         
@@ -30,7 +24,7 @@ class Stack(object):
     def store(self, out):
         raise NotImplementedError 
         
-    def pick(self, index, out):
+    def pick(self, tipe, index, out):
         raise NotImplementedError 
         
     def top(self, out):
@@ -50,42 +44,23 @@ class CachingStack(Stack):
     def __init__(self, backing):
         self.backing = backing
         self.cache = []
-        self.item_size = []
         self._cache_size = 0
         self.declarations = backing.declarations
         
-    def push_double(self, value, out):
-        value = value.store(self.declarations, out)
-        self.cache.append(value)
-        self.item_size.append(2)
-        self._cache_size += 2
-        
     def push(self, value, out):
         self.cache.append(value)
-        self.item_size.append(1)
         self._cache_size += 1
         
-    def pop_double(self, tipe, out):
-        if self.item_size and self.item_size[-1] == 2:
-            self.item_size.pop()
-            self._cache_size -= 2
-            return self.cache.pop()
-        else:
-            self.flush_cache(out, 0)
-            return self.backing.pop_double(tipe, out)
-            
-    def pop(self, out):
-        if self.item_size and self.item_size[-1] == 1:
-            self.item_size.pop()
+    def pop(self, tipe, out):
+        if self.cache:
             self._cache_size -= 1
             return self.cache.pop()
         else:
-            self.flush_cache(out, 0)
-            return self.backing.pop(out)
+            return self.backing.pop(tipe, out)
             
-    def pick(self, index, out):
+    def pick(self, tipe, index, out):
         self.flush_cache(out, 0)
-        return self.backing.pick(index, out)
+        return self.backing.pick(tipe, index, out)
         
     def flush_cache(self, out, retain = 0):
         while self._cache_size > retain:
@@ -106,17 +81,12 @@ class CachingStack(Stack):
             
     def _push_back(self, out):
         c = self.cache.pop(0)
-        size = self.item_size.pop(0)
-        self._cache_size -= size
-        if size == 2:
-            self.backing.push_double(c, out)
-        else:    
-            self.backing.push(c, out)
+        self._cache_size -= 1
+        self.backing.push(c, out)
         
     def _pull_up(self, out):   
-        self.cache.insert(0, self.backing.pop(out))
+        self.cache.insert(0, self.backing.pop(gtypes.x, out))
         self._cache_size += 1
-        self.item_size.insert(0, 1)
         
     def insert(self, offset, size, out):
         #Is offset a build-time constant?
@@ -167,7 +137,6 @@ class CachingStack(Stack):
     def copy(self):
         result = self.__class__(self.backing.copy())
         result.cache = self.cache[:]
-        result.item_size = self.item_size[:]
         result._cache_size = self._cache_size
         return result
 

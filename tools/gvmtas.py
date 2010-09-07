@@ -133,7 +133,7 @@ uint32_t execution_count[256];
             preamble << ' do { /* Start __preamble */\n'
             mode = IMode(temp, externals, gc_name, bytecodes.func_name)
             for x in range(popped):
-                mode.stack_pop()
+                mode.stack_pop(gtypes.p)
             i.top_level(mode)
             mode.close()
             temp.close()
@@ -163,7 +163,7 @@ uint32_t execution_count[256];
         temp = Buffer()
         mode = IMode(temp, externals, gc_name, bytecodes.func_name)
         for x in range(popped):
-            mode.stack_pop()
+            mode.stack_pop(gtypes.p)
         mode.close()
         mode.declarations(preamble)
         preamble << temp
@@ -353,8 +353,6 @@ def _write_func(inst, out, externals, gc_name, signature = None):
     if signature is None:
         signature = externals[inst.name]
     out << '%s {' % signature
-#    else:
-#        out << 'GVMT_StackItem %s (void) {\n' % i.name
     mode.declarations(out);
     out << buf
     out << '}\n'

@@ -13,6 +13,7 @@
 
 
 using namespace llvm;
+const Type* BaseCompiler::TYPE_B;
 const Type* BaseCompiler::TYPE_I1;
 const Type* BaseCompiler::TYPE_I2;
 const Type* BaseCompiler::TYPE_I4;
@@ -22,6 +23,8 @@ const Type* BaseCompiler::TYPE_U1;
 const Type* BaseCompiler::TYPE_U2;
 const Type* BaseCompiler::TYPE_U4;
 const Type* BaseCompiler::TYPE_U8;
+
+const Type* BaseCompiler::TYPE_X;
 
 const Type* BaseCompiler::TYPE_IPTR;
 
@@ -36,6 +39,7 @@ PointerType* BaseCompiler::POINTER_TYPE_I1;
 PointerType* BaseCompiler::POINTER_TYPE_I2;
 PointerType* BaseCompiler::POINTER_TYPE_I4;
 PointerType* BaseCompiler::POINTER_TYPE_I8;
+PointerType* BaseCompiler::POINTER_TYPE_X;
                                    
 PointerType* BaseCompiler::POINTER_TYPE_U1;
 PointerType* BaseCompiler::POINTER_TYPE_U2;
@@ -85,17 +89,16 @@ CompilerStack::CompilerStack(Module *mod) {
 void CompilerStack::store_pointer(Value* ptr, BasicBlock* bb) {
     if (stack_pointer_addr == 0) {
         Value* one = ConstantInt::get(APInt(32, 1, true));
-        stack_pointer_addr = new AllocaInst(BaseCompiler::POINTER_TYPE_P, one, "gvmt_sp_addr", bb); 
+        stack_pointer_addr = new AllocaInst(BaseCompiler::POINTER_TYPE_X, one, "gvmt_sp_addr", bb); 
     }
-    new StoreInst(ptr, stack_pointer_addr, bb);
+    BaseCompiler::store(ptr, stack_pointer_addr, bb);
 //    stack_offset = 0;
 //    stack_pointer = ptr;
 //    modified = false;
 }
 
 Value* CompilerStack::get_pointer(BasicBlock* bb) {
-    llvm::Value* addr = stack_pointer_addr;
-    return new LoadInst(addr, "sp", bb);
+    return new LoadInst(stack_pointer_addr, "sp", bb);
 //    if (stack_pointer == 0) {
 //        assert(!modified);
 //        load_pointer(bb);
@@ -159,52 +162,43 @@ void CompilerStack::modify_pointer(int d, BasicBlock* bb) {
 //}
 
 void CompilerStack::push(Value* val) {
-    assert(val->getType() != BaseCompiler::TYPE_I8 && 
-           val->getType() != BaseCompiler::TYPE_F8);
     stack.push_back(val);
 }
 
-Value* CompilerStack::pop(BasicBlock* bb) {
+Value* CompilerStack::pop(const Type* t, BasicBlock* bb) {
     Value* result;
     if (stack.size()) {
         result = stack.back();
-        if (result) {
-            stack.pop_back();
-            return result;
-        } else {
-            flush(bb);
-            return pop_memory(bb);
-        }
+        stack.pop_back();
+        return result;
     } else {
-        return pop_memory(bb);
+        return pop_memory(t, bb);
     }
 }
 
-Value* CompilerStack::pick(BasicBlock* bb, unsigned depth) {
+Value* CompilerStack::pick(const Type* type, BasicBlock* bb, unsigned depth) {
     assert(depth >= 0);
     if (stack.size() > depth) {
-        Value* result = stack[stack.size()-1-depth];
-        if (result) {
-            assert(depth == 0 || stack[stack.size()-depth]);
-            return result;
-        } else {
-            flush(bb);
+        return stack[stack.size()-1-depth];
+    } else {
+        Value* top = get_pointer(bb);
+        Value* ptr = GetElementPtrInst::Create(top, ConstantInt::get(APInt(32, depth-stack.size(), true)), "x", bb);
+        if (PointerType::get(type, 0) != ptr->getType()) {
+            ptr = new BitCastInst(ptr, PointerType::get(type, 0), "p", bb);
         }
+        LoadInst* result = new LoadInst(ptr, "val", bb);
+        return result;
     }
-    Value* top = get_pointer(bb);
-    Value* ptr = GetElementPtrInst::Create(top, ConstantInt::get(APInt(32, depth-stack.size(), true)), "x", bb);
-    return new LoadInst(ptr, "val", bb);
 }
 
 void CompilerStack::poke(BasicBlock* bb, unsigned depth, Value* val) {
     assert(depth >= 0);
     if (stack.size() > depth) {
         stack[stack.size()-1-depth] = val;
-        assert(depth == 0 || stack[stack.size()-depth]);
     } else {
         Value* top = get_pointer(bb);
         Value* ptr = GetElementPtrInst::Create(top, ConstantInt::get(APInt(32, depth-stack.size(), true)), "x", bb);
-        new StoreInst(val, ptr, bb);
+        BaseCompiler::store(val, ptr, bb);
     }
 }
  
@@ -217,68 +211,19 @@ llvm::Value* CompilerStack::top(BasicBlock* bb, int cached) {
     return top;
 }
 
-llvm::Value* CompilerStack::pop_memory(BasicBlock* bb) {
+llvm::Value* CompilerStack::pop_memory(const Type* t, BasicBlock* bb) {
     Value* top = get_pointer(bb);
+    top = new BitCastInst(top, PointerType::get(t, 0), "valp", bb);
     LoadInst* result = new LoadInst(top, "val", bb);
     modify_pointer(1, bb);
     return result;
 }
 
-llvm::Value* CompilerStack::pop_double_memory(const Type* type, BasicBlock* bb) {
-    Value* top = get_pointer(bb);
-    top = new BitCastInst(top, PointerType::get(type, 0), "valp", bb);
-    LoadInst* result = new LoadInst(top, "val", bb);
-    assert(result->getType() == type);
-    modify_pointer(2, bb);
-    return result;
-}
-
-llvm::Value* CompilerStack::pop_double(const Type* type, BasicBlock* bb) {
-    Value* item;
-    if (stack.size() < 2) {
-        if (stack.size() == 1) {
-            assert(stack.back());
-            flush(bb);
-        }
-        return pop_double_memory(type, bb);
-    } else {
-        item = stack.back();
-        if (item) {
-            // Not a double-sized value
-            flush(bb);
-            return pop_double_memory(type, bb);
-        } else {
-            stack.pop_back();
-            item = stack.back();
-            assert(item->getType() == BaseCompiler::TYPE_I8 || item->getType() == BaseCompiler::TYPE_F8);
-            stack.pop_back();
-            return item;
-        }
-    }
-}
-
 void CompilerStack::push_memory(llvm::Value* val, BasicBlock* bb) {
     modify_pointer(-1, bb);
     Value* top = get_pointer(bb);
-    if (val->getType() != BaseCompiler::TYPE_P)
-        top = new BitCastInst(top, PointerType::get(val->getType(), 0), "valp", bb);
-    new StoreInst(val, top, bb);
-}
-
-void CompilerStack::push_double_memory(llvm::Value* val, BasicBlock* bb) {
-    assert(val);
-    modify_pointer(-2, bb);
-    Value* top = get_pointer(bb);
     top = new BitCastInst(top, PointerType::get(val->getType(), 0), "valp", bb);
-    assert(val->getType() == BaseCompiler::TYPE_I8 || 
-           val->getType() == BaseCompiler::TYPE_F8);
-    new StoreInst(val, top, bb);
-}
-
-void CompilerStack::push_double(llvm::Value* val) {
-    assert(val->getType() == BaseCompiler::TYPE_I8 || val->getType() == BaseCompiler::TYPE_F8);
-    stack.push_back(val);
-    stack.push_back(NULL);
+    BaseCompiler::store(val, top, bb);
 }
 
 void CompilerStack::flush(BasicBlock* bb) {
@@ -291,7 +236,8 @@ void CompilerStack::flush(BasicBlock* bb) {
 void CompilerStack::max_join_depth(unsigned max, BasicBlock* bb) {
     Constant* one = ConstantInt::get(APInt(32, 1, true));
     while(max > join_cache.size()) {
-        join_cache.push_back(new AllocaInst(BaseCompiler::TYPE_P, one, "join", bb));        
+        join_cache.push_back(new AllocaInst(BaseCompiler::TYPE_X, one, "join", bb));
+        join_types.push_back(BaseCompiler::POINTER_TYPE_X);
     }
 }
 
@@ -305,18 +251,12 @@ void CompilerStack::join(BasicBlock* bb) {
     int n = join_depth;
     while (n) {
         Value* v = stack.front();
-        const Type* t = v->getType();
-        Value* ptr = join_cache[n];
-        if (t != BaseCompiler::TYPE_P) {
-            ptr = new BitCastInst(ptr, PointerType::get(t, 0), "ptr", bb);
-        }
-        new StoreInst(v, ptr, bb);
-        if (t == BaseCompiler::TYPE_I8 || t == BaseCompiler::TYPE_F8) {
-            stack.pop_front();
-            n--;
-        }
         stack.pop_front();
         n--;
+        Type* ptr_type = PointerType::get(v->getType(), 0);
+        Value* ptr = new BitCastInst(join_cache[n], ptr_type, "p", bb);
+        BaseCompiler::store(v, ptr, bb);
+        join_types[n] = ptr_type;
     }
 }
 
@@ -324,31 +264,20 @@ void CompilerStack::start_block(BasicBlock* bb) {
     assert(stack.size() == 0);
     assert(join_depth >= 0);
     for(int n = 0; n < join_depth; n++) {
-        stack.push_front(new LoadInst(join_cache[n], "", bb));
+        Value* ptr = new BitCastInst(join_cache[n], join_types[n], "p", bb);
+        stack.push_front(new LoadInst(ptr, "", bb));
     }    
 }
 
 void CompilerStack::ensure_cache(int count, BasicBlock* bb) {
     int n = stack.size();
     while (n > count) {
-        Value* item = stack.front();
-        assert(item);
-        const Type* t = item->getType();
-        if (t == BaseCompiler::TYPE_I8 || t == BaseCompiler::TYPE_F8) {
-            push_double_memory(item, bb);            
-            stack.pop_front();  
-            item = stack.front();
-            assert(item == NULL);
-            stack.pop_front();
-            n -= 2;
-        } else {
-            push_memory(item, bb);
-            stack.pop_front();
-            n--;
-        }
+        push_memory(stack.front(), bb);
+        stack.pop_front();
+        n--;
     }
     while (n < count) {
-        stack.push_front(pop_memory(bb));
+        stack.push_front(pop_memory(BaseCompiler::TYPE_X, bb));
         n++;
     }
 }
@@ -386,9 +315,9 @@ void Architecture::init(Module *module) {
     TRANSFER = Architecture::transfer(module);
     WORD_SIZE = ConstantInt::get(APInt(32, 4, true));
     std::vector<const llvm::Type*> cc;
-    cc.push_back(BaseCompiler::POINTER_TYPE_P);
+    cc.push_back(BaseCompiler::POINTER_TYPE_X);
     cc.push_back(BaseCompiler::TYPE_P);
-    FUNCTION_TYPE = FunctionType::get(BaseCompiler::POINTER_TYPE_P, cc, false);
+    FUNCTION_TYPE = FunctionType::get(BaseCompiler::POINTER_TYPE_X, cc, false);
     POINTER_FUNCTION_TYPE = PointerType::get(FUNCTION_TYPE, 0);
 }
 
@@ -415,7 +344,7 @@ Function* Architecture::raise_exception(Module *mod) {
 Function* Architecture::transfer(Module *mod) {
     std::vector< const Type * >args;
     args.push_back(BaseCompiler::TYPE_R);
-    args.push_back(BaseCompiler::POINTER_TYPE_P);
+    args.push_back(BaseCompiler::POINTER_TYPE_X);
     FunctionType * ftype = FunctionType::get(Type::VoidTy, args, false);
     Function* f = Function::Create(ftype, GlobalValue::ExternalLinkage, "gvmt_transfer", mod);
     f->setCallingConv(llvm::CallingConv::X86_FastCall);
@@ -449,10 +378,12 @@ Function* Architecture::void_no_args_func(std::string name, Module *mod) {
 }
 
 BaseCompiler::BaseCompiler() {
+    TYPE_B = IntegerType::get(1); 
     TYPE_I1 = IntegerType::get(8); 
     TYPE_I2 = IntegerType::get(16); 
     TYPE_I4 = IntegerType::get(32); 
     TYPE_I8 = IntegerType::get(64); 
+    TYPE_X = IntegerType::get(sizeof(GVMT_StackItem)*8);
     TYPE_IPTR = IntegerType::get(8*sizeof(void*));
     ZERO = ConstantInt::get(APInt(32, 0, true));
                                   
@@ -469,7 +400,8 @@ BaseCompiler::BaseCompiler() {
     POINTER_TYPE_I2 = PointerType::get(TYPE_I2, 0) ;
     POINTER_TYPE_I4 = PointerType::get(TYPE_I4, 0) ;
     POINTER_TYPE_I8 = PointerType::get(TYPE_I8, 0) ;
-                                                  
+    POINTER_TYPE_X = PointerType::get(TYPE_X, 0) ;
+  
     POINTER_TYPE_U1 = POINTER_TYPE_I1;
     POINTER_TYPE_U2 = POINTER_TYPE_I2;
     POINTER_TYPE_U4 = POINTER_TYPE_I4;
@@ -517,13 +449,13 @@ void BaseCompiler::initialiseFrame(Value* caller_frame, int locals,
     Value* frame = new AllocaInst(TYPE_I1, frame_size, "frame", bb);
     Value* previous_offset = ConstantInt::get(APInt(32, offsetof(struct gvmt_frame, previous)));
     Value* frame_previous = new BitCastInst(GetElementPtrInst::Create(frame, previous_offset, "frame_previous", bb), POINTER_TYPE_P, "x", bb);
-    new StoreInst(caller_frame, frame_previous, bb);
+    store(caller_frame, frame_previous, bb);
     Value* count_offset = ConstantInt::get(APInt(32, offsetof(struct gvmt_frame, count)));
     Value* frame_count = new BitCastInst(GetElementPtrInst::Create(frame, count_offset, "x", bb), POINTER_TYPE_I4, "frame_count", bb);
-    new StoreInst(ConstantInt::get(APInt(32, count)), frame_count, bb);
+    store(ConstantInt::get(APInt(32, count)), frame_count, bb);
     FRAME = frame;
     for (int i = 0; i < locals; i++) {
-        new StoreInst(ConstantPointerNull::get(TYPE_R), ref_temp(i, bb), bb);
+        store(ConstantPointerNull::get(TYPE_R), ref_temp(i, bb), bb);
     }    
 //    Call to check_frame function - for debugging.
 //    Value *params[] = { frame, top_frame };
@@ -550,7 +482,7 @@ Value* BaseCompiler::push_current_state(BasicBlock* bb) {
     Value* handler_sp = ELEMENT_ADDR(gvmt_exception_handler, sp, handler, bb);
     Value* sp = stack->get_pointer(bb);
     handler_sp = new BitCastInst(handler_sp, PointerType::get(sp->getType(), 0), "x", bb);
-    new StoreInst(sp, handler_sp, bb);
+    store(sp, handler_sp, bb);
     Value* handler_registers = ELEMENT_ADDR(gvmt_exception_handler, registers, handler, bb);
     Value* args[] = { sp, handler_registers, 0 };
     CallInst* ret = CallInst::Create(Architecture::SET_JUMP, &args[0], &args[2], "x", bb);
@@ -560,12 +492,6 @@ Value* BaseCompiler::push_current_state(BasicBlock* bb) {
     Value* ex = new TruncInst(rsh, TYPE_I4, "", current_block);
     stack->store_pointer(sp, bb);
     return ex;
-}
-
-Value* BaseCompiler::load_laddr(Value* addr, BasicBlock* bb) {
-    LoadInst* result = new LoadInst(addr, "", bb);
-    result->setVolatile(true);
-    return result;
 }
 
 Value* BaseCompiler::pop_state(BasicBlock* bb) {
@@ -588,6 +514,7 @@ Value* BaseCompiler::gc_read(Value* object, Value* offset, BasicBlock* bb) {
 
 void BaseCompiler::gc_write(Value* object, Value* offset, Value* value, BasicBlock* bb) {
     Value* gep = GetElementPtrInst::Create(object, offset, "x", bb);
+    assert(value->getType() == TYPE_R);
     new StoreInst(value, new BitCastInst(gep, POINTER_TYPE_R, "x", bb), true, bb);
 }
 
@@ -624,6 +551,21 @@ void BaseCompiler::unlock(Value* lock, BasicBlock* bb) {
     CallInst::Create(func, &params[0], &params[1], "", bb)->setCallingConv(CallingConv::X86_FastCall); 
 }
 
+void BaseCompiler::store(Value* val, Value* ptr, BasicBlock* bb) {
+    assert(PointerType::get(val->getType(), 0) == ptr->getType());
+    new StoreInst(val, ptr, bb);
+}
+
+Value* BaseCompiler::save_and_restore(Value* from, const Type* to, BasicBlock* bb) {
+    assert(from->getType() == TYPE_X);
+    assert(isa<LoadInst>(from));
+    //fprintf(stderr, "Save and restore\n");
+    Value* ptr = ((LoadInst*)from)->getPointerOperand();
+    store(from, ptr, bb);
+    ptr = new BitCastInst(ptr, PointerType::get(to, 0), "x", bb);
+    return new LoadInst(ptr, "val", bb);
+}
+
 Value* BaseCompiler::cast_to_B(Value* from, BasicBlock* bb) {
     const Type* from_type = from->getType();
     if (from_type == IntegerType::get(1)) {
@@ -646,6 +588,8 @@ Value* BaseCompiler::cast_to_I4(Value* from, BasicBlock* bb) {
         return from;
     if (from_type == TYPE_F4) {
         return new BitCastInst(from, TYPE_I4, "x", bb);
+    } else if (from_type == TYPE_X) {
+        return save_and_restore(from, TYPE_I4, bb);
     } else {
         assert((from_type == TYPE_P) && "Illegal type");
         return new PtrToIntInst(from, TYPE_I4, "x", bb);
@@ -658,6 +602,8 @@ Value* BaseCompiler::cast_to_F4(Value* from, BasicBlock* bb) {
         return from;
     if (from_type == TYPE_I4) {
         return new BitCastInst(from, TYPE_F4, "x", bb);
+    } else if (from_type == TYPE_X) {
+        return save_and_restore(from, TYPE_F4, bb);
     } else {
         assert((from_type == TYPE_P) && "Illegal type");
         Value* int_tmp = new PtrToIntInst(from, TYPE_I4, "x", bb);
@@ -665,19 +611,45 @@ Value* BaseCompiler::cast_to_F4(Value* from, BasicBlock* bb) {
     }
 }
 
+Value* BaseCompiler::cast_to_I8(Value* from, BasicBlock* bb) {
+    const Type* from_type = from->getType();
+    if (from_type == TYPE_I8)
+        return from;
+    if (from_type == TYPE_F8) {
+        return new BitCastInst(from, TYPE_I8, "x", bb);
+    } else {
+        assert(0 && "Illegal type");
+        return NULL;
+    }
+}
+
+Value* BaseCompiler::cast_to_F8(Value* from, BasicBlock* bb) {
+    const Type* from_type = from->getType();
+    if (from_type == TYPE_F8)
+        return from;
+    if (from_type == TYPE_I8) {
+        return new BitCastInst(from, TYPE_F8, "x", bb);
+    } else if (from_type == TYPE_X) {
+        return save_and_restore(from, TYPE_I4, bb);
+    } else {
+        assert(0 && "Illegal type");
+        return NULL;
+    }
+}
+
 Value* BaseCompiler::cast_to_P(Value* from, BasicBlock* bb) {
     const Type* from_type = from->getType();
     if (from_type == TYPE_P)
         return from;
-    if (from_type == TYPE_I4 || from_type == TYPE_U4)
+    if (from_type == TYPE_I4)
         return new IntToPtrInst(from, TYPE_P, "x", bb);
     if (from_type == TYPE_F4) {
         Value* int_tmp = new BitCastInst(from, TYPE_I4, "x", bb);
         return new IntToPtrInst(int_tmp, TYPE_P, "x", bb);
+    } else if (from_type == TYPE_X) {
+        return save_and_restore(from, TYPE_I4, bb);
     } else {
-        assert(from_type != TYPE_I8 && from_type != TYPE_F8  &&
-               "Casting from double-sized to pointer");
-        assert(0 && "Unknown type");
+        assert(0 && "Illegal type");
         abort();
     }
 }
@@ -702,7 +674,7 @@ void BaseCompiler::write_ir(void) {
 //    fprintf(stderr, "Printing\n");
     PM.add(createPrintModulePass(&llvm::outs()));
     PM.run(*module);
-//    fprintf(stderr, "Verifying\n");
+    //    fprintf(stderr, "Verifying\n");
     verifyModule(*module, PrintMessageAction);
 }
 
@@ -717,8 +689,8 @@ void* BaseCompiler::jit_compile(Function* func, char* name) {
     void* code;
     int64_t t0, t1, t2;
     t0 = high_res_time();
-//    fprintf(stderr, "Verifying for %s\n", name);
-//    verifyFunction(*func, PrintMessageAction);
+    // Uncomment line below to run verifier.
+    //verifyFunction(*func, PrintMessageAction);
     if (execution_engine == 0) {
         // InitializeNativeTarget()
         module_provider = new ExistingModuleProvider(module);
@@ -748,7 +720,7 @@ void* BaseCompiler::jit_compile(Function* func, char* name) {
         func_pass_manager->add(createDeadStoreEliminationPass()); 
         func_pass_manager->add(createCFGSimplificationPass());    
         // Uncomment line below to generate CFGs.
-//        func_pass_manager->add(createCFGPrinterPass());            
+        // func_pass_manager->add(createCFGPrinterPass());            
     }
     func_pass_manager->run(*func);
     t1 = high_res_time();

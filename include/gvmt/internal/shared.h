@@ -34,6 +34,17 @@ extern int64_t gvmt_total_codegen_time;
 
 typedef union gvmt_reference_types *GVMT_Object;
 
+typedef union gvmt_stack_item {
+    GVMT_Object o;
+    int32_t i;
+    uint32_t u;
+    float f;
+    void *p;
+    int32_t l;
+    uint32_t w;
+    double d;
+} GVMT_StackItem;
+
 typedef struct gsc_stream* GSC_Stream;
 
 extern uintptr_t GVMT_MAX_OBJECT_NAME_LENGTH;

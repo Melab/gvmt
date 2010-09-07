@@ -11,7 +11,6 @@ class _Kind:
         self.doc = doc
         self.c_names = c_names
                          
-_kind_2 = _Kind('2', '2', 'double word',  ('GVMT_DoubleStackItem',)  )
 _kind_x = _Kind('X', 'X', 'type X',  ('GVMT_StackItem',)  )
 _kind_p = _Kind('ptr', 'P', 'pointer',  ('void*',)  )
 _kind_r = _Kind('R', 'R', 'reference', ('GVMT_Object',))
@@ -97,8 +96,7 @@ for t in (i1, i2, i4, i8, u1, u2, u4, u8, f4, f8, r, p, v):
 
 x = Type(_kind_x)
 if POINTER_SIZE == 4:
-    x2 = Type(_kind_2)
-    x2.size = 8
+    x.size = 8
     iptr = i4
     uptr = u4
 else:

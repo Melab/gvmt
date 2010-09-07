@@ -28,7 +28,7 @@ GVMT_THREAD_LOCAL GVMT_StackItem* gvmt_stack_pointer;
 
 GVMT_THREAD_LOCAL int gvmt_thread_non_native;
 
-int gvmt_gc_waiting;
+int gvmt_gc_waiting = 0;
 intptr_t gvmt_uninitialised_field = 4;
 
 int gvmt_abort_on_unexpected_parameter_usage = 0;
@@ -123,15 +123,15 @@ static void set_thread_id(void) {
 static void gvmt_init_thread(size_t stack_space) {
     assert(gvmt_initialised);
     set_thread_id();
-    // Round up stack space to multiple of DOUBLE_WORD_SIZE.
-    stack_space = (stack_space + DOUBLE_WORD_SIZE -1) & -DOUBLE_WORD_SIZE;
+    // Round up space.
+    stack_space = (stack_space + sizeof(GVMT_StackItem) -1) & -sizeof(GVMT_StackItem);
     gvmt_stack_limit = malloc(stack_space);
     if (gvmt_stack_limit == NULL)
         __gvmt_fatal("Cannot allocate memory for new stack\n");
-    GVMT_StackItem* sp = gvmt_stack_limit + stack_space/WORD_SIZE; 
+    GVMT_StackItem* sp = gvmt_stack_limit + stack_space/sizeof(GVMT_StackItem); 
 // This ensures that stack caching doesn't leave the memory stack less than empty.
-    sp[-1].i = 0;
-    sp[-2].i = 0;
+    sp[-1].p = NULL;
+    sp[-2].p = NULL;
     sp -= 2;
     gvmt_stack_base = gvmt_stack_pointer = sp;
     gvmt_frame_pointer = 0;
