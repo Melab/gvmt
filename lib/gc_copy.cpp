@@ -53,6 +53,7 @@ extern "C" {
         semispace::free = semispace::to_space + movable_size;
         allocator::free = semispace::free;
         allocator::limit = semispace::top_of_space;
+        mutator::init();
         finalizer::init();
         collector::init();
         t1 = high_res_time();

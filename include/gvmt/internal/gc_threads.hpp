@@ -18,8 +18,12 @@
 #include <pthread.h>
 
 namespace mutator {
+    
+    void init();
 
     void wait_for_collector(GVMT_StackItem* sp, GVMT_Frame fp);
+    
+    void request_gc();
    
 };
 
