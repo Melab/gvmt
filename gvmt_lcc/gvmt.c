@@ -1484,7 +1484,6 @@ static void print_ref_name(char* name, Type t) {
     }
 }
 
-
 int is_cse(Node p) {
     if (generic(p->op) == ADDRL) {
         Symbol s = p->syms[0];
@@ -1495,7 +1494,9 @@ int is_cse(Node p) {
 }
 
 Type ref_add(Type ref, int offset) {
-    Field f = deref(ref)->u.sym->u.s.flist;
+    Field f;
+    char *name = ref->u.sym->name;
+    f = deref(ref)->u.sym->u.s.flist;
     while (f) {
         if (f->offset == offset) {
             return f->type;
@@ -2138,6 +2139,14 @@ static void emit_subtree(Node p) {
             if (strcmp(name, "raise") == 0) {
                 intrinsic("RAISE ");
                 return;
+            }
+            if (strcmp(name, "stack_read_object") == 0) {
+                intrinsic("PLOAD_R ");
+                return;              
+            }
+            if (strcmp(name, "stack_write_object") == 0) {
+                intrinsic("PSTORE_R ");
+                return;              
             }
             if (strcmp(name, "push_current_state") == 0) {
                 intrinsic("PUSH_CURRENT_STATE ");
