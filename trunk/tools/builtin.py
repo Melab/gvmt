@@ -26,17 +26,11 @@ class Instruction(object):
             
 def _push(mode, tipe, val):
     'Pushes val of type tipe to stack'
-    if tipe.size > gtypes.p.size:
-        mode.stack_push_double(val)
-    else:
-        mode.stack_push(val)
-        
+    mode.stack_push(val)
+
 def _pop(mode, tipe):
     'Pops value fo type tipe from stack'
-    if tipe.size > gtypes.p.size:
-        return mode.stack_pop_double(tipe)
-    else:
-        return mode.stack_pop()
+    return mode.stack_pop(tipe)
 
 class Comment(Instruction):
     'For debugging purposes, may be discarded by tools.'
@@ -96,12 +90,8 @@ class BinaryOp(Instruction):
         self.__doc__ = "Binary operation: %s %s." % (tipe.doc, op.description)
         
     def process(self, mode):
-        if (self.tipe.size > gtypes.p.size and self.op is not operators.lsh
-            and self.op is not operators.rsh):
-            right = mode.stack_pop_double(self.tipe)
-        else:
-            right = mode.stack_pop()
-        left = _pop(mode, self.tipe)
+        right = mode.stack_pop(self.tipe)
+        left = mode.stack_pop(self.tipe)
         result = mode.binary(self.tipe, left, self.op, right)
         _push(mode, self.tipe, result)
             
@@ -238,7 +228,7 @@ class PLoad(Instruction):
                         'Push %s value loaded from address in TOS.') % tipe.doc
   
     def process(self, mode):
-        val = mode.pload(self.tipe, mode.stack_pop())
+        val = mode.pload(self.tipe, mode.stack_pop(gtypes.p))
         _push(mode, self.tipe, val)
         
 class PStore(Instruction):
@@ -252,7 +242,7 @@ class PStore(Instruction):
                         'Store %s value in NOS to address in TOS.') % tipe.doc 
         
     def process(self, mode):
-        array = mode.stack_pop()
+        array = mode.stack_pop(gtypes.p)
         val = _pop(mode, self.tipe)
         mode.pstore(self.tipe, array, val)
 
@@ -271,8 +261,8 @@ class RLoad(Instruction):
             
   
     def process(self, mode):
-        offset = mode.stack_pop()
-        obj = mode.stack_pop()
+        offset = mode.stack_pop(gtypes.iptr)
+        obj = mode.stack_pop(gtypes.r)
         val = mode.rload(self.tipe, obj, offset)
         _push(mode, self.tipe, val)
         
@@ -290,8 +280,8 @@ class RStore(Instruction):
                              ' collector are performed.')
         
     def process(self, mode):
-        offset = mode.stack_pop()
-        obj = mode.stack_pop()
+        offset = mode.stack_pop(gtypes.iptr)
+        obj = mode.stack_pop(gtypes.r)
         val = _pop(mode, self.tipe)
         mode.rstore(self.tipe, obj, offset, val)
         
@@ -306,8 +296,8 @@ class RStoreSimple(Instruction):
                         ' Toolkit internal use only.')
         
     def process(self, mode):
-        offset = mode.stack_pop()
-        obj = mode.stack_pop()
+        offset = mode.stack_pop(gtypes.iptr)
+        obj = mode.stack_pop(gtypes.r)
         val = _pop(mode, self.tipe)
         mode.rstore(self.tipe, obj, offset, val)
 
@@ -322,7 +312,7 @@ class FullyInitialized(Instruction):
                         'Drops TOS as a side effect.')
             
     def process(self, mode):
-        obj = mode.stack_pop()
+        obj = mode.stack_pop(gtypes.r)
         mode.fully_initialised(obj)
 
 class Branch(Instruction):
@@ -340,7 +330,7 @@ class Branch(Instruction):
             (['False', 'True'][way == True], index))
         
     def process(self, mode):
-        cond = mode.stack_pop()
+        cond = mode.stack_pop(gtypes.b)
         mode.local_branch(self.index, cond, self.way)
         
 class Hop(Instruction):
@@ -380,7 +370,7 @@ class Extend(Instruction):
         self.__doc__ = 'Extends %s value to full word.' % tipe.suffix
             
     def process(self, mode):
-        mode.stack_push(mode.extend(self.tipe, mode.stack_pop()))
+        mode.stack_push(mode.extend(self.tipe, mode.stack_pop(self.tipe)))
 
 class Symbol(Instruction):
       
@@ -407,7 +397,7 @@ class Call(Instruction):
                         'return value which must be of type %s.') % tipe
         
     def process(self, mode):
-        func = mode.stack_pop()
+        func = mode.stack_pop(gtypes.p)
         mode.call(func, self.tipe)
         
     def may_gc(self):
@@ -429,7 +419,7 @@ class V_Call(Instruction):
                 'N is fetched from the instruction stream.') % tipe
         
     def process(self, mode):
-        func = mode.stack_pop()
+        func = mode.stack_pop(gtypes.p)
         args = mode.stream_fetch()
         mode.c_call(func, self.tipe, args)
         
@@ -455,7 +445,7 @@ class N_Call(Instruction):
         'Pushes the return value which must be of type %s.') % (args, tipe)
         
     def process(self, mode):
-        func = mode.stack_pop()
+        func = mode.stack_pop(gtypes.p)
         val = mode.n_call(func, self.tipe, self.args)
         if self.tipe is not gtypes.v:
             _push(mode, self.tipe, val)
@@ -481,7 +471,7 @@ class N_Call_No_GC(Instruction):
         'block. If unsure use N_CALL.') % (tipe.suffix, args)
         
     def process(self, mode):
-        func = mode.stack_pop()
+        func = mode.stack_pop(gtypes.p)
         val = mode.n_call_no_gc(func, self.tipe, self.args)
         if self.tipe is not gtypes.v:
             _push(mode, self.tipe, val)
@@ -503,7 +493,7 @@ class Alloca(Instruction):
         'invalidated and reclaimed by a RETURN instruction.') % tipe.doc
          
     def process(self, mode):
-        mode.stack_push(mode.alloca(self.tipe, mode.stack_pop()))
+        mode.stack_push(mode.alloca(self.tipe, mode.stack_pop(gtypes.uptr)))
          
 class GC_Malloc(Instruction):
     
@@ -516,7 +506,7 @@ class GC_Malloc(Instruction):
                         'faster inline version. Defaults to GC_MALLOC_CALL.')
          
     def process(self, mode):
-        mode.stack_push(mode.gc_malloc(mode.stack_pop()))
+        mode.stack_push(mode.gc_malloc(mode.stack_pop(gtypes.uptr)))
         
     def may_gc(self):
         return True
@@ -532,7 +522,7 @@ class GC_Allocate_Only(Instruction):
                         'For internal toolkit use only.')
          
     def process(self, mode):
-        mode.stack_push(mode.gc_malloc(mode.stack_pop()))
+        mode.stack_push(mode.gc_malloc(mode.stack_pop(gtypes.uptr)))
         
     def may_gc(self):
         return True
@@ -548,7 +538,7 @@ class GC_Malloc_Call(Instruction):
                         'toolkit to substitute appropriate inline code.')
         
     def process(self, mode):
-        mode.stack_push(mode.gc_malloc(mode.stack_pop()))
+        mode.stack_push(mode.gc_malloc(mode.stack_pop(gtypes.uptr)))
         
     def may_gc(self):
         return True
@@ -564,7 +554,7 @@ class GC_Malloc_Fast(Instruction):
                         'the toolkit to substitute appropriate inline code.')
          
     def process(self, mode):
-        mode.stack_push(mode.gc_malloc_fast(mode.stack_pop()))
+        mode.stack_push(mode.gc_malloc_fast(mode.stack_pop(gtypes.uptr)))
        
         
 class LAddr(Instruction):
@@ -588,58 +578,30 @@ class LAddr(Instruction):
         mode.stack_push(mode.laddr(self.tname))
         
 class Pick(Instruction):
-    def __init__(self):
-        self.name = 'PICK'
+    def __init__(self, tipe):
+        self.name = 'PICK_%s' % tipe.suffix
         self.inputs = []
         self.outputs = [ r'N\textsuperscript{th}' ]
         self.operands = 1
+        self.tipe = tipe
         self.__doc__ = ('Picks the Nth item from the stack(TOS is index 0)'
                         'and pushes it onto the evaluation stack.')
 
     def process(self, mode):
-        mode.stack_push(mode.stack_pick(mode.stream_fetch()))      
+        mode.stack_push(mode.stack_pick(self.tipe, mode.stream_fetch()))      
         
 class Poke(Instruction):
     def __init__(self):
         self.name = 'PICK'
-        self.inputs = []
+        self.inputs = [ 'N' ]
         self.outputs = [ r'N\textsuperscript{th}' ]
         self.operands = 1
         self.__doc__ = ('Pops TOS. Then overwrites the Nth item with TOS.'
                         'PICK N POKE N has no net effect.')
 
     def process(self, mode):
-        tos = mode.stack_pop()
-        mode.stack_poke(mode.stream_fetch(), tos)   
-        
-class Roll(Instruction):
-    def __init__(self):
-        self.name = 'ROLL'
-        self.inputs = []
-        self.outputs = [ ]
-        self.operands = 1
-        self.__doc__ = ('Rolls (rotates) the N top items on the stack.'
-                        'Each item moves down one, except item N-1, which moves TOS.'
-                        'This operation is expensive for larger N.')
-
-    def process(self, mode):
-        tos = mode.stack_pop()
-        mode.stack_roll(mode.stream_fetch())   
-        
-class RRoll(Instruction):
-    def __init__(self):
-        self.name = 'RROLL'
-        self.inputs = []
-        self.outputs = [ ]
-        self.operands = 1
-        self.__doc__ = ('Reverse rolls (rotates) the N top items on the stack.'
-                        'Each item moves up one, except TOS, which moves to item N-1.'
-                        'This operation is expensive for larger N.')
-
-    def process(self, mode):
-        tos = mode.stack_pop()
-        mode.stack_rroll(mode.stream_fetch())   
-        
+        tos = mode.stack_pop(gtypes.uptr)
+     
 class Stack(Instruction):
 
     def __init__(self):
@@ -713,8 +675,8 @@ class Sign(Instruction):
         
     def process(self, mode):
         if gtypes.p.size == 4:
-            tos = mode.stack_pop()
-            mode.stack_push_double(mode.sign(tos))
+            tos = mode.stack_pop(gtypes.i4)
+            mode.stack_push(mode.sign(tos))
          
 class Zero(Instruction):
     
@@ -728,8 +690,8 @@ class Zero(Instruction):
         
     def process(self, mode):
         if gtypes.p.size == 4:
-            tos = mode.stack_pop()
-            mode.stack_push_double(mode.zero(tos))
+            tos = mode.stack_pop(gtypes.u4)
+            mode.stack_push(mode.zero(tos))
          
 class Push_current_state(Instruction):
     
@@ -755,7 +717,7 @@ class push_state(Instruction):
                          'to the state stack.')
         
     def process(self, mode):
-        mode.push_state(mode.stack_pop())
+        mode.push_state(mode.stack_pop(gtypes.p))
         
 class pop_state(Instruction):
     
@@ -792,7 +754,7 @@ class Raise(Instruction):
         'state stack, pushing the value back to the restored stack.')
         
     def process(self, mode):
-        tos = mode.stack_pop()
+        tos = mode.stack_pop(gtypes.r)
         mode._raise(tos)
          
 class Transfer(Instruction):
@@ -806,7 +768,7 @@ class Transfer(Instruction):
         'state stack. Unlike RAISE, TRANSFER does not modify the stack. ')
         
     def process(self, mode):
-        tos = mode.stack_pop()
+        tos = mode.stack_pop(gtypes.r)
         mode.transfer(tos)
         
 class Return(Instruction):
@@ -948,7 +910,7 @@ class Insert(Instruction):
                         'to the stack.')
 
     def process(self, mode):
-        size = mode.stack_pop()
+        size = mode.stack_pop(gtypes.iptr)
         offset = mode.stream_fetch()
         mode.stack_push(mode.stack_insert(offset, size))
  
@@ -966,7 +928,7 @@ class FarJump(Instruction):
                         'processors and the like.')
         
     def process(self, mode):
-        ip = mode.stack_pop()
+        ip = mode.stack_pop(gtypes.p)
         mode.far_jump(ip)
  
 class DropN(Instruction):
@@ -980,7 +942,7 @@ class DropN(Instruction):
         'from the stack at offset fetched from stream.')
 
     def process(self, mode):
-        size = mode.stack_pop()
+        size = mode.stack_pop(gtypes.iptr)
         offset = mode.stream_fetch()
         mode.stack_drop(offset, size)
         
@@ -991,8 +953,9 @@ class Drop(Instruction):
         self.inputs = [ 'top' ]
         self.outputs = [ ]
         self.__doc__ = 'Drops the top value from the stack.'
+        
     def process(self, mode):
-        mode.stack_pop()
+        mode.stack_pop(gtypes.p)
         
 class Immediate(Instruction):
     
@@ -1074,8 +1037,8 @@ class ZeroMemory(Instruction):
                         'For GC use only')
         
     def process(self, mode):
-        size = mode.stack_pop()
-        obj = mode.stack_pop()
+        size = mode.stack_pop(gtypes.uptr)
+        obj = mode.stack_pop(gtypes.r)
         mode.zero_memory(obj, size)
 
 
@@ -1099,7 +1062,7 @@ class GC_FreePointerStore(Instruction):
         self.__doc__ = 'Store to the free pointer. For GC use only'
         
     def process(self, mode):
-        mode.gc_free_pointer_store(mode.stack_pop())
+        mode.gc_free_pointer_store(mode.stack_pop(gtypes.p))
 
 class GC_LimitPointerLoad(Instruction):
     
@@ -1110,7 +1073,7 @@ class GC_LimitPointerLoad(Instruction):
         self.__doc__ = 'Load the limit pointer. For GC use only'
         
     def process(self, mode):
-        mode.stack_push(mode.gc_limit_pointer_load())
+        mode.stack_push(mode.gc_limit_pointer_load(gtypes.p))
 
 class GC_LimitPointerStore(Instruction):
     
@@ -1121,7 +1084,7 @@ class GC_LimitPointerStore(Instruction):
         self.__doc__ = 'Store to the limit pointer. For GC use only'
         
     def process(self, mode):
-        mode.gc_limit_pointer_store(mode.stack_pop())
+        mode.gc_limit_pointer_store(mode.stack_pop(gtypes.p))
         
 class Lock(Instruction):
     
@@ -1132,7 +1095,7 @@ class Lock(Instruction):
         self.__doc__ = 'Locks the fast-lock popped from TOS'
         
     def process(self, mode):
-        mode.lock(mode.stack_pop())
+        mode.lock(mode.stack_pop(gtypes.iptr))
         
 class Unlock(Instruction):
     
@@ -1143,7 +1106,7 @@ class Unlock(Instruction):
         self.__doc__ = 'Unlocks the fast-lock popped from TOS'
         
     def process(self, mode):
-        mode.unlock(mode.stack_pop())
+        mode.unlock(mode.stack_pop(gtypes.iptr))
         
 class Lock_Internal(Instruction):
     
@@ -1155,8 +1118,8 @@ class Lock_Internal(Instruction):
         at offset NOS. Pops both object and offset from stack.'''
         
     def process(self, mode):
-        obj = mode.stack_pop()
-        offset = mode.stack_pop()
+        obj = mode.stack_pop(gtypes.r)
+        offset = mode.stack_pop(gtypes.uptr)
         mode.lock_internal(obj, offset)
         
 class Unlock_Internal(Instruction):
@@ -1169,8 +1132,8 @@ class Unlock_Internal(Instruction):
         at offset NOS. Pops both object and offset from stack.'''
         
     def process(self, mode):
-        obj = mode.stack_pop()
-        offset = mode.stack_pop()
+        obj = mode.stack_pop(gtypes.r)
+        offset = mode.stack_pop(gtypes.uptr)
         mode.unlock_internal(obj, offset)
         
 instructions = {}
@@ -1203,9 +1166,9 @@ def _init():
     
     for cls in [ Jump, Sign, GC_Malloc, GC_Malloc_Call, Push_current_state, Raise, Drop, 
                GC_Safe, GC_Safe_Call, Flush, Stack, Insert, Unlock_Internal,
-               push_state, pop_state, Opcode, Lock_Internal, Transfer, Roll,
-               discard_state, IP, Pick, Zero, DropN, Symbol, FarJump, ZeroMemory, 
-               GC_FreePointerStore, GC_FreePointerLoad, GC_Malloc_Fast, RRoll,
+               push_state, pop_state, Opcode, Lock_Internal, Transfer,
+               discard_state, IP, Zero, DropN, Symbol, FarJump, ZeroMemory, 
+               GC_FreePointerStore, GC_FreePointerLoad, GC_Malloc_Fast,
                GC_LimitPointerStore, GC_LimitPointerLoad, Next_IP, 
                GC_Allocate_Only, FullyInitialized, Lock, Unlock ]:
         i = cls()
@@ -1214,7 +1177,7 @@ def _init():
         i = IP_Fetch(x)
         instructions[i.name] = i
     for tipe in reg_types:
-        for cls in [Call, V_Call, Return]:
+        for cls in [Call, V_Call, Return, Pick]:
             i = cls(tipe)
             instructions[i.name] = i
         for cls in [TLoad, TStore, N_Call, N_Call_No_GC]:

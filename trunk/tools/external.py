@@ -140,35 +140,19 @@ class ExternalMode(object):
             
     def stream_push(self, value):
         pass
-        
-    def stack_permute(self, in_, out):
-        pass
     
-    def stack_pop(self):
+    def stack_pop(self, tipe=None):
         if self.stack:
             return self.stack.pop()
     
-    def stack_pick(self, index):
+    def stack_pick(self, tipe, index):
         pass
         
     def stack_poke(self, index, value):
         pass
-    
-    def stack_roll(self, index):
-        pass
-    
-    def stack_rroll(self, index):
-        pass
             
     def stack_push(self, value):
         self.stack.append(value)
-
-    def stack_pop_double(self, tipe):
-        return self.stack_pop(),  self.stack_pop()
-        
-    def stack_push_double(self, value):
-        self.stack_push(value)
-        self.stack_push(value)
           
     def stack_flush(self):
         self.stack = []

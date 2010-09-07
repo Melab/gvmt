@@ -34,8 +34,8 @@ def _ip_fetch(c, location):
         return 'gvmt_fetch()'
     elif c == 2 or c == 4:
         return 'gvmt_fetch%d()' % c
-    elif c > gtype.p.size:
-        raise GVMTException("%s: Too large an operand", location)
+    elif c > gtypes.p.size:
+        raise GVMTException("%s: Too large an operand" % location)
     elif c & 1:
         return '((%s << 8) | gvmt_fetch())' % _ip_fetch(c-1)
     elif c == 6:
@@ -75,7 +75,7 @@ def _c_function(name, location, qualifiers, code, out, local_vars):
         out << 'void'
     out << ') {\n'
     if varargs:
-        out << '    GVMT_Object *%s = gvmt_stack_top();\n' % varargs
+        out << '    GVMT_StackItem *%s = gvmt_stack_top();\n' % varargs
     for v in local_vars:
         if v.location:
             out << c_line(v.location.line, v.location.file)

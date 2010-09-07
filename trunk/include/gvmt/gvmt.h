@@ -58,10 +58,14 @@ void gvmt_transfer(GVMT_Object ex);
 void gvmt_drop(size_t s);
 
 /** Intrinsic for STACK */
-GVMT_Object* gvmt_stack_top(void);
+GVMT_StackItem* gvmt_stack_top(void);
 
 /** Intrinsic for #0 INSERT */
-GVMT_Object* gvmt_insert(size_t s);
+GVMT_StackItem* gvmt_insert(size_t s);
+
+GVMT_Object gvmt_stack_read_object(GVMT_StackItem *item);
+
+void gvmt_stack_write_object(GVMT_StackItem *item, GVMT_Object o);
 
 /** Intrinsic for ALLOCA_I1 */
 void *gvmt_alloca(size_t s);

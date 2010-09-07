@@ -29,14 +29,14 @@ typedef union gvmt_stack_item {
 } GVMT_StackItem;
 
 #else
-
-typedef union gvmt_stack_item {
-    int32_t i;
-    uint32_t u;
-    float f;
-    void *p;
-    GVMT_Object o;
-} GVMT_StackItem;
+//
+//typedef union gvmt_stack_item {
+//    int32_t i;
+//    uint32_t u;
+//    float f;
+//    void *p;
+//    GVMT_Object o;
+//} GVMT_StackItem;
 
 typedef union gvmt_double_stack_item {
     int64_t i;
@@ -167,7 +167,6 @@ void gvmt_fully_initialized_check(GVMT_Object object);
 
 GVMT_CALL void gvmt_save_pointers(GVMT_StackItem* sp, GVMT_Frame fp);
 
-#ifndef NDEBUG
 #define RETURN_TYPE_V  1
 #define RETURN_TYPE_I4 2
 #define RETURN_TYPE_I8 3
@@ -176,7 +175,6 @@ GVMT_CALL void gvmt_save_pointers(GVMT_StackItem* sp, GVMT_Frame fp);
 #define RETURN_TYPE_P  6
 #define RETURN_TYPE_R  7
 extern GVMT_THREAD_LOCAL int gvmt_last_return_type;
-#endif
 
 #include <sys/mman.h>
 

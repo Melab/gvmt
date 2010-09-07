@@ -1,7 +1,7 @@
 #ifndef __STDARG
 #define __STDARG
 
-typedef union gvmt_reference_types ** va_list;
+typedef union gvmt_stack_item* va_list;
 
 #define va_start(list, start) ((void)list=gvmt_stack_top())
 

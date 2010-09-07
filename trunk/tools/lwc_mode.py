@@ -287,21 +287,14 @@ class LWC_CompilerMode(object):
     def stack_drop(self, offset, size):
         self.stack.drop(offset, size, self.out)
         
-    def stack_pop(self):
+    def stack_pop(self,tipe=None):
         return self.stack.pop(self.out)
         
     def stack_push(self, value):
         self.stack.push(value, self.out)
         
-    def stack_pop_double(self, tipe):
-        return self.stack.pop_double(tipe, self.out)
-        
-    def stack_push_double(self, value):
-        assert(val.tipe.size == 8)
-        return self.stack.push_double(val, self.out)
-        
-    def stack_pick(self, index):
-        return self.stack.pick(int(index), self.out)
+    def stack_pick(self, tipe, index):
+        return self.stack.pick(tipe, int(index), self.out)
  
     def stack_flush(self):
         self.stack.flush_to_memory(self.out)
@@ -405,7 +398,7 @@ class LWC_FunctionMode(IMode):
             raise _exception(
                   "Value(s) pushed back to stream at end of instruction")
         if self.return_tos:
-            tos = self.stack_pop()
+            tos = self.stack_pop(gtypes.p)
             self.stack.flush_to_memory(self.out)
             self.out << ' return %s;' % tos
         else:

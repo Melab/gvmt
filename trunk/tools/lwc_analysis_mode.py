@@ -181,31 +181,17 @@ class LwcAnalysisMode(object):
     def stack_drop(self, offset, size):
         self.stack = []
 
-    def stack_pop(self):
+    def stack_pop(self, tipe=None):
         if self.stack:
             return self.stack.pop()
     
     def stack_push(self, value):
         self.stack.append(value)
     
-    def stack_pop_double(self, tipe):
-        self.stack_pop()
-        self.stack_pop()
-    
-    def stack_push_double(self, value):
-        self.stack_push(None)
-        self.stack_push(None)
-    
-    def stack_pick(self, index):
+    def stack_pick(self, tipe, index):
         pass
         
     def stack_poke(self, index, value):
-        pass
-    
-    def stack_roll(self, index):
-        pass
-    
-    def stack_rroll(self, index):
         pass
     
     def stack_flush(self):

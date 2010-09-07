@@ -33,10 +33,13 @@ _suffices = {
     gtypes.i1 : 'i',
     gtypes.i2 : 'i',
     gtypes.i4 : 'i',
+    gtypes.i8 : 'l',
     gtypes.u1 : 'u',
     gtypes.u2 : 'u',
     gtypes.u4 : 'u',
+    gtypes.u8 : 'w',
     gtypes.f4 : 'f',
+    gtypes.f8 : 'd',
     gtypes.r  : 'o' ,
     gtypes.p  : 'p'
 }
@@ -48,44 +51,35 @@ class CStack(object):
     def __init__(self, declarations):
         self.offset = 0
         self.declarations = declarations
-     
-    def pop_double(self, tipe, out):
+        
+    def pop(self, tipe, out):  
         global _temp_index
         _temp_index += 1
-        self.declarations['gvmt_dr%d' % _temp_index] = 'GVMT_DoubleStackItem'
-        fmt = ' gvmt_dr%d = *((GVMT_DoubleStackItem*)(gvmt_sp+%d));'
-        out << fmt % (_temp_index, -self.offset)
-        self.offset -= 2
-        return DoubleStackItem('gvmt_dr%d' % _temp_index)
-        
-    def pop(self, out):  
-        global _temp_index
-        _temp_index += 1
-        self.declarations['gvmt_r%d' % _temp_index] = 'GVMT_StackItem'
-        out << ' gvmt_r%d = gvmt_sp[%d];' % (_temp_index, -self.offset)
-        self.offset -= 1
-        return StackItem('gvmt_r%d' % _temp_index)
-            
-    def push_double(self, value, out): 
-        self.offset += 2
-        c_code = '(*((GVMT_DoubleStackItem*)(gvmt_sp+%d)))' % -self.offset
-        si = DoubleStackItem(c_code)
-        out << ' %s = %s;' % (si.cast(value.tipe), value)
-        
+        if tipe is gtypes.x:
+            self.declarations['gvmt_r%d' % _temp_index] = 'GVMT_StackItem'
+            out << ' gvmt_r%d = gvmt_sp[%d];' % (_temp_index, -self.offset)
+            self.offset -= 1
+            return StackItem('gvmt_r%d' % _temp_index)
+        else:
+            self.declarations['gvmt_r%d' % _temp_index] = tipe.c_name
+            out << ' gvmt_r%d = gvmt_sp[%d].%s;' % (_temp_index, -self.offset, _suffices[tipe])
+            self.offset -= 1
+            return Simple(tipe, 'gvmt_r%d' % _temp_index)
+ 
     def push(self, value, out): 
         self.offset += 1
         si = StackItem('gvmt_sp[%d]' % (-self.offset))
         out << ' %s = %s;' % (si.cast(value.tipe), value)
 
-    def pick(self, index, out):
+    def pick(self, tipe, index, out):
         global _temp_index
         _temp_index += 1
-        self.declarations['gvmt_r%d' % _temp_index] = 'GVMT_StackItem'
+        self.declarations['gvmt_r%d' % _temp_index] = tipe.c_name
         if self.offset < 0:
-            out << ' gvmt_r%d = gvmt_sp[%s+%d];' % (_temp_index, index, -self.offset)
+            out << ' gvmt_r%d = gvmt_sp[%s+%d].%s;' % (_temp_index, index, -self.offset, _suffices[tipe])
         else:
-            out << ' gvmt_r%d = gvmt_sp[%s-%d];' % (_temp_index, index, self.offset)
-        return StackItem('gvmt_r%d' % _temp_index)
+            out << ' gvmt_r%d = gvmt_sp[%s-%d].%s;' % (_temp_index, index, self.offset, _suffices[tipe])
+        return Simple(tipe, 'gvmt_r%d' % _temp_index)
         
     def poke(self, index, value, out):
         if self.offset < 0:
@@ -93,25 +87,7 @@ class CStack(object):
         else:
             si = StackItem('gvmt_sp[%s-%d]' % (index, self.offset))
         out << ' %s = %s;' % (si.cast(value.tipe), value)      
-            
-    def roll(self, index, out):
-        global _temp_index
-        _temp_index += 1
-        self.declarations['gvmt_r%d' % _temp_index] = 'GVMT_StackItem'
-        out << ' gvmt_r%d = gvmt_sp[%d-1];' % (_temp_index, index)
-        out << ' for(i = %s-1; i > 0; i--)' % index
-        out << ' gvmt_sp[i] = gvmt_sp[i-1];'
-        out << ' gvmt_sp[0] = gvmt_r%d;' % _temp_index
-    
-    def rroll(self, index, out):
-        global _temp_index
-        _temp_index += 1
-        self.declarations['gvmt_r%d' % _temp_index] = 'GVMT_StackItem'
-        out << ' gvmt_r%d = gvmt_sp[0];' % index
-        out << ' for(i = 0, n = %s-1; i < n; i++)' % index
-        out << ' gvmt_sp[i] = gvmt_sp[i+1];'
-        out << ' gvmt_sp[%d-1] = gvmt_r%d;' % (index, _temp_index)
-
+      
     def flush_to_memory(self, out, ignore = 0):
         if self.offset:
             if self.offset < 0:
@@ -240,34 +216,6 @@ class StackItem(Expr):
         
     def store(self, decl, out):
         return self
-        
-class DoubleStackItem(Expr):
-    
-    def __init__(self, txt):
-        Expr.__init__(self, gtypes.x2)
-        assert isinstance(txt, str)
-        self.txt = txt
-        
-    def cast(self, tipe):
-        if tipe is gtypes.x2:
-            return self
-        if tipe is gtypes.i8:
-            return Simple(tipe, '%s.i' % self.txt)
-        elif tipe is gtypes.u8:
-            return Simple(tipe, '%s.u' % self.txt)
-        elif tipe is gtypes.f8:
-            return Simple(tipe, '%s.f' % self.txt)
-        else:
-            raise Exception('Unexpected type: %s' % tipe)
-            
-    def indir(self, tipe):
-        assert False
-            
-    def __str__(self):
-        return self.txt
-        
-    def store(self, decl, out):
-        return self
 
 class Simple(Expr):
 
@@ -319,19 +267,13 @@ class Cast(Expr):
     def __init__(self, tipe, expr):
         Expr.__init__(self, tipe)
         self.expr = expr
-        if tipe == gtypes.x2:
-            raise Exception("!!")
         
     def __str__(self):
         if (self.tipe == gtypes.f4 or self.expr.tipe == gtypes.f4 or 
             self.tipe == gtypes.f8 or self.expr.tipe == gtypes.f8):
-            assert self.tipe.size == self.expr.tipe.size     
-            if self.expr.tipe.size > gtypes.p.size:
-                dsi = DoubleStackItem('((GVMT_DoubleStackItem)%s)' % self.expr)
-                return dsi.cast(self.tipe).__str__()
-            else:
-                si = StackItem('((GVMT_StackItem)%s)' % self.expr)
-                return si.cast(self.tipe).__str__()
+            assert self.tipe.size == self.expr.tipe.size
+            si = StackItem('((GVMT_StackItem)%s)' % self.expr)
+            return si.cast(self.tipe).__str__()
         elif self.tipe == gtypes.p and self.expr.tipe.size < gtypes.p.size:
             return '((void*)(intptr_t)(%s))' % self.expr
         else:
@@ -556,11 +498,7 @@ class CMode(object):
             if tipe != gtypes.v:
                 fmt = ' %s call_%d = *((%s*)gvmt_sp);'
                 self.out << fmt % (tipe.c_name, _uid, tipe.c_name)
-                if tipe.size <= gtypes.p.size:
-                    self.stack.push(Simple(tipe, 'call_%d' % _uid), self.out)
-                else:
-                    result = Simple(tipe, 'call_%d' % _uid)
-                    self.stack.push_double(result, self.out)
+                self.stack.push(Simple(tipe, 'call_%d' % _uid), self.out)
             self.out << ' gvmt_sp = %s+%s;' % (top, pcount)
                 
     def call(self, func, tipe):
@@ -605,14 +543,10 @@ class CMode(object):
         if tipe is gtypes.v:
             self.out << ' %s;' % a
             result = None
-        elif tipe.size > gtypes.p.size:
-            self.stack.push_double(a, self.out)
-            self.stack.store(self.out)
-            result = self.stack.pop_double(tipe, self.out)
         else:
             self.stack.push(a, self.out)
             self.stack.store(self.out)
-            result = self.stack.pop(self.out)
+            result = self.stack.pop(tipe, self.out)
         if gc:
             self.out << ' gvmt_sp = gvmt_exit_native();'
         return result
@@ -700,19 +634,6 @@ class CMode(object):
         self.out << ' if(gvmt_gc_waiting) gvmt_gc_safe_point'
         self.out << '(gvmt_sp, (GVMT_Frame)FRAME_POINTER);'
 
-    def stack_permute(self, inputs, outputs):
-        variables = {}
-        for n, t in inputs[::-1]:
-            variables[n] = self.stack_pop()
-        for x in inputs:
-            if x not in outputs: 
-                #Evaluate for side effects:
-                v = variables[n]
-                if '(' in str(v):
-                    self.out << ' (void)(%s);' % v
-        for n, t in outputs:
-            self.stack_push(variables[n])
-        
     def compound(self, name, qualifiers, graph):
         global _next_label
         self.stack.store(self.out)
@@ -859,8 +780,8 @@ class CMode(object):
         assert isinstance(value, Expr)
         self.stream_stack.append(value)
     
-    def stack_pop(self):
-        return self.stack.pop(self.out)
+    def stack_pop(self, tipe = gtypes.x):
+        return self.stack.pop(tipe, self.out)
         
     def top_level(self, name, qualifiers, graph):
         out = self.out
@@ -889,18 +810,12 @@ class CMode(object):
         assert isinstance(value, Expr)
         self.stack.push(value, self.out)
         
-    def stack_pick(self, index):
-        return self.stack.pick(index, self.out)
+    def stack_pick(self, tipe, index):
+        return self.stack.pick(tipe, index, self.out)
         
     def stack_poke(self, index, value):
         self.stack.poke(index, value, self.out)
     
-    def stack_roll(self, index):
-        self.stack.roll(index, self.out)
-    
-    def stack_rroll(self, index):
-        self.stack.rroll(index, self.out)
-        
     def sign(self, val):
         return Simple(gtypes.i8, '((int64_t)%s)' % val.cast(gtypes.i4))
         
@@ -987,13 +902,6 @@ class CMode(object):
                 return Simple(self.temp_types[index], name).cast(tipe)
         else:
             return Simple(tipe, name)
-
-    def stack_pop_double(self, tipe):
-        return self.stack.pop_double(tipe, self.out)
-        
-    def stack_push_double(self, val):
-        assert(val.tipe.size == 8)
-        return self.stack.push_double(val, self.out)
         
     def tstore(self, tipe, index, value):
         self.stack.store(self.out)
