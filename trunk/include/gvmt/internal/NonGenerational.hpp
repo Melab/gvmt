@@ -53,7 +53,7 @@ public:
                                        size_t size) {
         void *mem = fast_allocate(size);
         if (mem == NULL) {
-            gvmt_gc_waiting = true;
+            mutator::request_gc();
             mutator::wait_for_collector(sp, fp);
             if (size >= LARGE_OBJECT_SIZE) {
                 return LargeObjectSpace::allocate(size, true);      
@@ -73,8 +73,9 @@ public:
         Heap::ensure_space(4 * MB);
         GC::weak_references.intialise();    
         LargeObjectSpace::init();
-        finalizer::init();
+        mutator::init();
         collector::init();
+        finalizer::init();
     }
    
     /** Called by mutator code to pin an object */

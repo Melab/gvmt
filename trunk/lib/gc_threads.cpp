@@ -53,7 +53,10 @@ namespace mutator {
     
     inline void decrement_rt_count(void);
     
-};
+    void init() {
+        pthread_cond_init(&all_stopped, NULL);
+    }
+}
 
 /** This virtual thread exists solely to ensure that mutator::threads 
  * remains above zero when no GC is required, 
@@ -95,6 +98,15 @@ namespace dummy_thread {
 #endif
 };
 
+namespace mutator {   
+
+    void request_gc() {
+        gvmt_gc_waiting = true;
+        dummy_thread::stop();
+    }
+    
+}
+
 typedef void* (*pth_func)(void* arg);
 
 namespace collector {
@@ -129,6 +141,7 @@ namespace collector {
     }
     
     void init(void) {
+        pthread_cond_init(&done, NULL);
         int error = pthread_create(&thread, NULL, (pth_func)run, NULL);
         if (error) {
             fprintf(stderr, "Cannot start collector thread");
@@ -192,7 +205,7 @@ namespace mutator {
             rt = mutator::threads;
             // If mutator::threads < 0 it means collector is running.
             assert(rt >= 0);
-            if (rt <= 0) {
+            while (rt == 0) {
                 pthread_mutex_lock(&collector::lock);
                 rt = mutator::threads;
                 assert(rt >= 0);
@@ -226,7 +239,6 @@ namespace mutator {
         gvmt_stack_pointer = sp;
         gvmt_frame_pointer = fp;
         int rt;
-        dummy_thread::stop();
         do {
             rt = mutator::threads;
             assert(rt > 0);
@@ -235,21 +247,9 @@ namespace mutator {
         if (mutator::threads == 0) {
            pthread_cond_signal(&all_stopped);
         }
-//        if (gvmt_gc_waiting && mutator::threads == 0) {
-//            // Decrement threads, so debugging can see collection is occuring
-//            mutator::threads--;
-//            gvmt_do_collection();
-//            allocator::zero_limit_pointers();
-//            gvmt_gc_waiting = false;
-//            // "Restart" dummy thread
-//            dummy_thread::running = 1;
-//            mutator::threads = 1;
-//            pthread_cond_broadcast(&collector::done);
-//        } else {
-            do {
-                pthread_cond_wait(&collector::done, &collector::lock);
-            } while (gvmt_gc_waiting);
-//        }
+        do {
+            pthread_cond_wait(&collector::done, &collector::lock);
+        } while (gvmt_gc_waiting);
         pthread_mutex_unlock(&collector::lock);   
         increment_rt_count();
         assert(gvmt_gc_limit_pointer == 0);
@@ -283,7 +283,6 @@ namespace mutator {
     void wait_for_collector(GVMT_StackItem* sp, GVMT_Frame fp) {
         gvmt_stack_pointer = sp;
         gvmt_frame_pointer = fp;
-        dummy_thread::stop();
         pthread_mutex_lock(&collector::lock);
         mutator::threads--;
         if (mutator::threads == 0) {
@@ -355,7 +354,7 @@ namespace allocator {
             block = free;
             new_free = block + size;
             while (new_free > limit) {
-                gvmt_gc_waiting = true;
+                mutator::request_gc();
                 mutator::wait_for_collector(sp, fp);
                 block = free;
                 new_free = block + size;
@@ -373,8 +372,8 @@ namespace allocator {
         pthread_mutex_lock(&lock);
         if (free + size > limit) {
             // Need to stop all threads.
-            gvmt_gc_waiting = true;
             pthread_mutex_unlock(&lock);
+            mutator::request_gc();
             mutator::wait_for_collector(sp, fp);
             pthread_mutex_lock(&lock);
         }
@@ -424,8 +423,6 @@ extern "C" {
     // Specific implementations need to implement:
     // void gvmt_malloc_init(uint32_t s, float residency);
     // char* gvmt_gc_name;
-    
-    int gvmt_gc_waiting;
     
     GVMT_Object gvmt_threads_malloc(GVMT_StackItem* sp, GVMT_Frame fp, uintptr_t size) {
         return (GVMT_Object)allocator::malloc(sp, fp, size);

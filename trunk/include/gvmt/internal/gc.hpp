@@ -396,23 +396,23 @@ public:
 
 class Stack {
     
-    GVMT_Object* base;
-    GVMT_Object** pointer_addr;
+    GVMT_StackItem* base;
+    GVMT_StackItem** pointer_addr;
         
     public:
     
     Stack(GVMT_StackItem* stack_base,
           GVMT_StackItem** stack_pointer_addr) {
-        this->base = (GVMT_Object*)stack_base;
-        this->pointer_addr = (GVMT_Object**)stack_pointer_addr;
+        this->base = stack_base;
+        this->pointer_addr = stack_pointer_addr;
     }
     
     class iterator {
-        GVMT_Object* item;
+        GVMT_StackItem* item;
         
     public:
         
-        iterator(GVMT_Object* item) {
+        iterator(GVMT_StackItem* item) {
             this->item = item;
         }
         
@@ -422,7 +422,7 @@ class Stack {
         }
         
         inline GVMT_Object& operator*() {
-            return *item;
+            return item->o;
         }
         
         inline bool operator==(iterator& other) {

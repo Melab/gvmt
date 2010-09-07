@@ -55,8 +55,9 @@ extern "C" {
         cheney::init(s);
         allocator::free = cheney::free;
         allocator::limit = cheney::top_of_space;
-        finalizer::init();
+        mutator::init();
         collector::init();
+        finalizer::init();
     }
     
     GVMT_Object gvmt_copy_threads_malloc(GVMT_StackItem* sp, GVMT_Frame fp, uintptr_t size) {

@@ -115,8 +115,9 @@ extern "C" {
         semispace::scan<CopyMajor>();
         allocator::free = generational::nursery;
         allocator::limit = generational::nursery_top;
-        finalizer::init();
+        mutator::init();
         collector::init();
+        finalizer::init();
         t1 = high_res_time();
         gvmt_total_collection_time += (t1 - t0);
     }
