@@ -102,7 +102,7 @@ def _lcc_post(ilist):
             operators.gt, operators.le, operators.ge]:
             if _redundant(ilist[i+1: i + 9], targetted):
                 ilist = ilist[:i] + [ ilist[i].invert(), ilist[i+3] ] + ilist[i+9:]
-        i += 2
+        i += 1
     # Remove unnecessary temps
     i = 0
     dead = set()
