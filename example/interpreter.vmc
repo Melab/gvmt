@@ -320,7 +320,7 @@ vector(... values, int #count -- R_frame v) {
     int i;
     v = make_vector(count);
     for(i = 0; i < count; i++) {
-        v->values[i] = values[i];
+        v->values[i] = gvmt_stack_read_object(values+i);
     }
     gvmt_drop(count);
 }
@@ -527,5 +527,5 @@ branch_t: is_true branch ;
 
 branch_f: is_false branch ;
     
-pick: PICK;
+pick: PICK_R;
 

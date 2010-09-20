@@ -608,7 +608,7 @@ GVMT_Object execute(R_bytes code, R_frame literals) {
     while (c) {
         c = c->function->execute(c);
     }
-    result = gvmt_stack_top()[0];
+    result = gvmt_stack_read_object(gvmt_stack_top());
     gvmt_drop(1);
     return result;
 } 
@@ -618,12 +618,12 @@ GVMT_Object execute(R_bytes code, R_frame literals) {
 GVMT_Object interpreter_trace(uint8_t* ip) {
     int i, n, printed;  
     char* opname = gvmt_opcode_names_interpreter[*ip];
-    GVMT_Object *stack = gvmt_stack_top();
+    GVMT_StackItem *stack = gvmt_stack_top();
     n = gvmt_stack_depth(); 
     printed = fprintf(stderr, indent);
     fprintf(stderr, "[");
     for (i = n-1; i >= 0; i--)
-        printed += print_short(stack[i]);
+        printed += print_short(gvmt_stack_read_object(stack+i));
     fprintf(stderr, "]  ");
     while (printed < 20) {
         printed ++;
