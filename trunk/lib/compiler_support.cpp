@@ -630,7 +630,7 @@ Value* BaseCompiler::cast_to_F8(Value* from, BasicBlock* bb) {
     if (from_type == TYPE_I8) {
         return new BitCastInst(from, TYPE_F8, "x", bb);
     } else if (from_type == TYPE_X) {
-        return save_and_restore(from, TYPE_I4, bb);
+        return save_and_restore(from, TYPE_F8, bb);
     } else {
         assert(0 && "Illegal type");
         return NULL;
@@ -647,7 +647,7 @@ Value* BaseCompiler::cast_to_P(Value* from, BasicBlock* bb) {
         Value* int_tmp = new BitCastInst(from, TYPE_I4, "x", bb);
         return new IntToPtrInst(int_tmp, TYPE_P, "x", bb);
     } else if (from_type == TYPE_X) {
-        return save_and_restore(from, TYPE_I4, bb);
+        return save_and_restore(from, TYPE_P, bb);
     } else {
         assert(0 && "Illegal type");
         abort();
