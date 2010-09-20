@@ -1073,7 +1073,7 @@ class GC_LimitPointerLoad(Instruction):
         self.__doc__ = 'Load the limit pointer. For GC use only'
         
     def process(self, mode):
-        mode.stack_push(mode.gc_limit_pointer_load(gtypes.p))
+        mode.stack_push(mode.gc_limit_pointer_load())
 
 class GC_LimitPointerStore(Instruction):
     
