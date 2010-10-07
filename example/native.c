@@ -12,7 +12,7 @@
  
  
 /* The shape function for GVMT Garbage Collection.
- * It is allowed to use internal pointer as the object will not
+ * It is OK to use internal pointers as the object will not
  * be moved during this call */
 GVMT_CALL int* gvmt_shape(GVMT_Object obj, int* buffer) {
     struct type* type = ((R_cons)obj)->type;
@@ -30,7 +30,6 @@ GVMT_CALL int* gvmt_shape(GVMT_Object obj, int* buffer) {
         return ((R_cons)obj)->type->shape;
     }
 }
-
 
 extern int test_lexer(void);
 extern signed char fib[];
