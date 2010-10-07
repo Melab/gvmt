@@ -106,6 +106,7 @@ There are four bytecode names which are treated specially by the GVMT, these are
 \item \_\_postamble
 \item \_\_enter
 \item \_\_exit
+\item \_\_default
 \end{itemize}
 \verb|__preamble| is executed when the interpreter is called, before any bytecodes are executed.
 
@@ -115,6 +116,7 @@ There are four bytecode names which are treated specially by the GVMT, these are
 
 \verb|__exit| is executed after the main bytecode definition for every bytecode executed.
 
+\verb|__default| is used in secondary interpreter definitions. When no explicit definition exists for a bytecode, the \verb|__default| is used instead. \verb|__default| must not modify the instruction stream. 
 
 \subsubsection*{Examples}
 
