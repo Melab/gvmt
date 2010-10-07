@@ -6,59 +6,56 @@ import sys, re, getopt
 import common
 import gtypes
 
-TYPE = r'u?int(?:8|16|32|64)?|float|double|(P|R)(?:\(\w+(?:\*| )*\))?'
+#TYPE = r'u?int(?:8|16|32|64)?|float|double|(P|R)(?:\(\w+(?:\*| )*\))?'
+TYPE = r'\w+\**|GVMT_OBJECT\(\w+\)\*+'
 SUPER = r'(?:\: *(\w+))?'
 QUALIFIERS = r'(?:\( *(\w+(?: +\w+)*) *\))?'
 
-HEADER = re.compile(r'^(\w+) *%s *%s *\{$' % (SUPER, QUALIFIERS))
-ENTRY = re.compile(r'([^;\[\]]*) (\w+) *(?:\[(\d*)\])? *%s *(?:;(.*))?$' % QUALIFIERS)
+#HEADER = re.compile(r'^(\w+) *%s *%s *\{$' % (SUPER, QUALIFIERS))
+HEADER = re.compile(r' *GVMT_OBJECT\((\w+)\) *\{ *(?:// *(\w+) *)?')
+#ENTRY = re.compile(r'([^;\[\]]*) (\w+) *(?:\[(\d*)\])? *%s *(?:;(.*))?$' % QUALIFIERS)
+ENTRY = re.compile(r' *(%s) +(\w+) *(?:\[(\d*)\])? *; *(/[/*].*)?' % TYPE)
 SEMICOLON = re.compile(';')
 EMPTY = re.compile(r'( |\t)*$')
 SPACES = re.compile(r'[ \t]+')
 CLOSE = re.compile(r' *\} *')
 
-legal_types = { 'char' : gtypes.u1, 'signed char' : gtypes.i1,  'unsigned char' : gtypes.u1, 
-                 'int8_t' : gtypes.i1, 'uint8_t' : gtypes.u1, 
+legal_types = {  'int8_t' : gtypes.i1, 'uint8_t' : gtypes.u1, 
                  'int16_t' : gtypes.i2, 'uint16_t' : gtypes.u2, 
                  'int32_t' : gtypes.i4, 'uint32_t' : gtypes.u4, 
                  'int64_t' : gtypes.i8, 'uint64_t' : gtypes.u8, 
-                 'short' : gtypes.i2, 'unsigned short' : gtypes.u2, 
-                 'int' : gtypes.i4, 'unsigned' : gtypes.u4, 'unsigned int' : gtypes.u4, 
+                 'short' : gtypes.i2, 'unsigned short' : gtypes.u2,
+                 'int' : gtypes.i4, 'unsigned' : gtypes.u4, 
                  'float' : gtypes.f4, 'double' : gtypes.f8, 
-                 'float32' : gtypes.f4, 'float64' : gtypes.f8
-                 }
+              }
                  
 if gtypes.p.size == 4:
-    legal_types['long'] = gtypes.i4
-    legal_types['unsigned long'] = gtypes.u4
     legal_types['intptr_t'] = gtypes.i4
     legal_types['uintptr_t'] = gtypes.u4
 else:
-    legal_types['long'] = gtypes.i8
-    legal_types['unsigned long'] = gtypes.i8
     legal_types['intptr_t'] = gtypes.i8
     legal_types['uintptr_t'] = gtypes.u8
 
-def parse_type(txt):
-    if txt.startswith('R('):
-        if txt[-1] != ')':
-            raise common.UnlocatedException("Illformed reference type '%s'" % txt)
-        return gtypes.r, txt[2:-1]
-    elif txt.startswith('P('):
-        if txt[-1] != ')':
-            raise common.UnlocatedException("Illformed pointer type '%s'" % txt)
-        return gtypes.p, txt[2:-1]
+def parse_type(txt, comment):
+    if txt.startswith('GVMT_OBJECT('):
+        if txt[-2] == ')':
+            return gtypes.r, txt[12:-2]
+        else:
+            return gtypes.p, txt
+    elif txt.endswith('*'):
+        return gtypes.p, txt
     elif txt in legal_types:
         return legal_types[txt], None
+    elif comment and 'pointer' in comment:
+        return gtypes.p, txt
     else:
         raise common.UnlocatedException("Unrecognised type '%s'" % txt)
 
 class Entry:
     
     def __init__(self, line): 
-        tipe, name, count, qualifiers, comment = ENTRY.match(line).groups()
-        self.qualifiers = qualifiers
-        self.tipe, self.annotation = parse_type(tipe.strip())
+        tipe, name, count, comment = ENTRY.match(line).groups()
+        self.tipe, self.annotation = parse_type(tipe.strip(), comment)
         self.name = name
         if count:
             self.count = int(count)
@@ -77,14 +74,14 @@ class Entry:
             else:
                 out << '    %s %s[];' % (self.type_name(), self.name)          
         out << '    /* %s %s %s %s %s */\n' % (self.tipe, self.name, 
-                                         self.count, self.qualifiers, self.comment)
+                                         self.count, self.comment)
    
     def header(self, sname, out):
-        if self.tipe == gtypes.p or self.qualifiers and 'special' in self.qualifiers:
+        if self.tipe == gtypes.p:
             out << 'void user_marshal_%s_%s(FILE* out, GVMT_OBJECT(%s)* obj);\n' % (sname, self.name, sname)
         
     def write_member(self, sname, out):
-        if self.tipe == gtypes.p or self.qualifiers and 'special' in self.qualifiers:
+        if self.tipe == gtypes.p:
             out << '    user_marshal_%s_%s(out, object);\n' % (sname, self.name) 
             return
         if self.tipe == gtypes.r:
@@ -156,15 +153,12 @@ class Struct:
     def __init__(self, name, qualifiers):
         self.name = name
         self.entries = []
-        self._flattened = False
         self.qualifiers = qualifiers
-        self.base = None
+        self._flattened = False
         
     def _flatten(self):
         if not self._flattened:
             self._flattened = True
-            if self.base:
-                self.entries = self.base._flatten() + self.entries
             self.shape = _get_shape(self.entries)
         return self.entries
 
@@ -214,7 +208,7 @@ class Struct:
             out << 'void gvmt_marshal_%s(FILE* out, GVMT_OBJECT(%s)* object);\n' % (self.name, self.name) 
         
 def read_file(src):
-    'Reads the object description file and returns a list of Structs'
+    'Reads a header file and returns a list of Structs it finds'
     current = None
     line_no = src.line
     line = src.readline()
@@ -227,30 +221,21 @@ def read_file(src):
                 if current:
                     print "Nested struct at line %d" % line_no
                     sys.exit(1)
-                current, base, quals = HEADER.match(line).groups()
+                current, quals = HEADER.match(line).groups()
                 current = current.strip()
                 structs[current] = Struct(current, quals)
-                bases[current] = base
             elif ENTRY.match(line):
                 if current:
                     structs[current].entries.append(Entry(line))
-                else:
-                    print "Entry outside of struct at line %d", line_no
-                    sys.exit(1)
             elif EMPTY.match(line):
                 pass
             elif CLOSE.match(line):
                 current = None
-            else:
+            elif current:
                 print "Unrecognised line, '%s' at line %d" % (line, line_no) 
                 sys.exit(1)
             line_no = src.line
             line = src.readline()
-        for key in structs:
-            if bases[key]:
-                structs[key].base = structs[bases[key]]
-            else:
-                structs[key].base = None
         result = list(structs.values())
         for s in result:
             s._flatten()
@@ -309,7 +294,7 @@ def funcs(structs, c, h):
     _header(structs, h)
     h.close()
     c << '#include "gvmt/marshaller.h"\n'
-    c << '#include "%s"\n' % h.name
+    c << '\n'
     for s in structs:
         s.write_func(c)
     c.close()
@@ -320,9 +305,6 @@ if __name__ == '__main__':
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'mstho:p:')
     except:
-        common.print_usage(options)
-        sys.exit(1)
-    if len(args) != 1:
         common.print_usage(options)
         sys.exit(1)
     action = ''
@@ -353,7 +335,7 @@ if __name__ == '__main__':
     if not action:
         print "Either -c or -m must be chosen"
         sys.exit(1)
-    shapes = read_file(common.In(args[0]))  
+    shapes = read_file(common.In(args))  
     if out is None:
         out = common.Out(args[0] + '.c')
     if action == 'm':  
