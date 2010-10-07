@@ -18,35 +18,6 @@ extern "C" {
 
 #include "gvmt/internal/arch.h"
 
-#if __WORDSIZE == 64
-
-typedef union gvmt_stack_item {
-    int64_t i;
-    uint64_t u;
-    double f;
-    void *p;
-    GVMT_Object o;
-} GVMT_StackItem;
-
-#else
-//
-//typedef union gvmt_stack_item {
-//    int32_t i;
-//    uint32_t u;
-//    float f;
-//    void *p;
-//    GVMT_Object o;
-//} GVMT_StackItem;
-
-typedef union gvmt_double_stack_item {
-    int64_t i;
-    uint64_t u;
-    double f;
-    void* w[2];
-} GVMT_DoubleStackItem;
-
-#endif
-
 GVMT_CALL int64_t gvmt_setjump(struct gvmt_registers* state, GVMT_StackItem* sp);
 
 GVMT_NO_RETURN GVMT_CALL void gvmt_transfer(void* ex, GVMT_StackItem* sp);

@@ -40,8 +40,8 @@ typedef union gvmt_stack_item {
     uint32_t u;
     float f;
     void *p;
-    int32_t l;
-    uint32_t w;
+    int64_t l;
+    uint64_t w;
     double d;
 } GVMT_StackItem;
 
