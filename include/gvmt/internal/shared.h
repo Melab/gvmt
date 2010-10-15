@@ -34,17 +34,6 @@ extern int64_t gvmt_total_codegen_time;
 
 typedef union gvmt_reference_types *GVMT_Object;
 
-typedef union gvmt_stack_item {
-    GVMT_Object o;
-    int32_t i;
-    uint32_t u;
-    float f;
-    void *p;
-    int64_t l;
-    uint64_t w;
-    double d;
-} GVMT_StackItem;
-
 typedef struct gsc_stream* GSC_Stream;
 
 extern uintptr_t GVMT_MAX_OBJECT_NAME_LENGTH;
@@ -55,6 +44,17 @@ extern uintptr_t GVMT_MAX_SHAPE_SIZE;
 uintptr_t gvmt_stack_depth(void);
 
 #define GVMT_LOCK_INITIALIZER 1
+
+typedef union gvmt_stack_value {
+    int32_t i;
+    uint32_t u;
+    float f;
+    void *p;
+    intptr_t j;
+    int64_t l;
+    uint64_t w;
+    double d;
+} GVMT_Value;
 
 #ifdef __cplusplus
 }

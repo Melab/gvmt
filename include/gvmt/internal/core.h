@@ -8,6 +8,17 @@
 #include "gvmt/internal/shared.h"
 #include "gvmt/internal/mem.h"
 
+typedef union gvmt_stack_item {
+    GVMT_Object o;
+    int32_t i;
+    uint32_t u;
+    float f;
+    void *p;
+    int64_t l;
+    uint64_t w;
+    double d;
+} GVMT_StackItem;
+
 #ifdef __cplusplus
 extern "C" {
 #endif 
@@ -107,6 +118,7 @@ void gvmt_gc_safe_point(GVMT_StackItem* sp, GVMT_Frame fp);
 
 extern void* _gvmt_global_symbols;
 
+void gvmt_init_thread(size_t stack_space);
 
 GVMT_StackItem* gvmt_exit_native(void); 
 GVMT_CALL void gvmt_enter_native(GVMT_StackItem* sp, GVMT_Frame fp);

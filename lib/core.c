@@ -85,11 +85,6 @@ static GVMT_StackItem* push_args(GVMT_StackItem* sp, int pcount, va_list ap) {
 
 typedef GVMT_CALL GVMT_StackItem* (*gvmt_func_ptr)(GVMT_StackItem* sp, GVMT_Frame fp);
 
-static GVMT_StackItem* gvmt_call(GVMT_StackItem* sp, GVMT_Frame fp, gvmt_func_ptr func, int pcount, va_list ap) {
-    sp = push_args(sp, pcount, ap);
-    return func(sp, fp);
-}
-
 uintptr_t gvmt_stack_depth(void) {
     return gvmt_stack_base-gvmt_stack_pointer;
 }
@@ -120,7 +115,7 @@ static void set_thread_id(void) {
 
 #endif
 
-static void gvmt_init_thread(size_t stack_space) {
+void gvmt_init_thread(size_t stack_space) {
     assert(gvmt_initialised);
     set_thread_id();
     // Round up space.
@@ -151,7 +146,8 @@ static void gvmt_start(size_t stack_space, gvmt_func_ptr func,
     val.ret = gvmt_setjump(&h->registers, sp);
     void *ex = val.regs.ex;
     if (ex == NULL) {
-        gvmt_call(sp, 0, func, pcount, ap);
+        sp = push_args(sp, pcount, ap);
+        sp = func(sp, 0);
     } else {
         //Push the exception
         sp[-1].o = ex;
@@ -197,12 +193,25 @@ void gvmt_enter(uintptr_t stack_space, gvmt_func_ptr func, int pcount, ...) {
     va_end(ap);
 }
 
-void gvmt_reenter(gvmt_func_ptr func, int pcount, ...) {
+GVMT_Value gvmt_call(gvmt_func_ptr func, int pcount, ...) {
+    GVMT_Value result;
+    GVMT_Frame fp;
     va_list ap;
     va_start(ap, pcount);
     GVMT_StackItem *sp = gvmt_exit_native();
-    gvmt_call(sp, gvmt_frame_pointer, func, pcount, ap);
+    fp = gvmt_frame_pointer;
+    gvmt_last_return_type = 0;
+    sp = push_args(sp, pcount, ap);
+    sp = func(sp, fp);
+    if (gvmt_last_return_type == RETURN_TYPE_R) {
+        fprintf(stderr, "Returning a reference to native code is unsafe.");
+        abort();
+    }
+    result = ((GVMT_Value*)sp)[0];
+    sp++;
     va_end(ap);
+    gvmt_enter_native(sp, fp);
+    return result;
 }
     
 void gvmt_start_machine(uintptr_t stack_space, gvmt_func_ptr func, int pcount, ...) {
