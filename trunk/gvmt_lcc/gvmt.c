@@ -104,7 +104,7 @@ static void print_type(Type t) {
     if (isstruct(t)) {
         char* tag_name = t->u.sym->name;
         Field f = t->u.sym->u.s.flist;
-        if (opaque_struct(t)) {
+        if (opaque_struct(t) && strcmp(tag_name, "gvmt_stack_item")) {
             print(".type struct %s\n", tag_name);
         } else {
             print(".type object %s\n",  stringn(tag_name + 12, strlen(tag_name + 12)));
@@ -597,9 +597,9 @@ static small_set indir(int t, Type type) {
         } else {
             return MEMBERS_SET;
         }
-    case STRUCT_TYPE: case OPAQUE_TYPE: case INTEGER_TYPE:
+    case STRUCT_TYPE: case ERROR: case INTEGER_TYPE:
         return EMPTY_SET;
-    case ERROR:
+    case OPAQUE_TYPE:
         return EMPTY_SET;
     default:
         return make_set(t - 4);
@@ -648,10 +648,10 @@ static void preamble(Symbol f, Symbol caller[], Symbol callee[], int ncalls);
 
 static int makeTemp(Symbol p) {
 	if (p->sclass == AUTO) {
-		if (p->addressed || isunion(p->type)) {
+		if (p->addressed || isstruct(p->type)) {
 			return 0;
 		} else {
-            p->sclass = REGISTER;
+            p->sclass = REGISTER;                     
           	return 1;
 		}
 	} else if (p->sclass == REGISTER) {
@@ -675,7 +675,7 @@ char *local_name(Symbol p) {
     if (p->sclass == REGISTER) {
         return stringd(temps++);        
     } else {
-        assert(p->x.type);
+        //assert(p->x.type);
         for (i = 0; local_names[i]; i++)
             if (strcmp(local_names[i], p->name) == 0)
                 return stringd(local_offsets[i]);
@@ -773,10 +773,14 @@ void gvmt_function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
     for (i = 0; callee[i]; i++) {
         Symbol p = callee[i];
         Symbol q = caller[i];
+        if (isstruct(p->type) || isstruct(q->type)) {
+            currentline = p->src.y;
+            gvmt_error("Illegal parameter type for '%s'; structs must be passed by reference\n", p->name);
+        }
         assert(q);
         if(is_local(p->name)) {
             currentline = p->src.y;
-            gvmt_error("Instruction parameter '%s' shadows Interpreter local", p->name);
+            gvmt_error("Instruction parameter '%s' shadows Interpreter local\n", p->name);
         }
         gvmt_local(p);
         q->sclass = p->sclass;
@@ -1253,9 +1257,13 @@ char* type_char(Node p) {
     case P:
         assert(p->kids[0]);
         return pointer_type(p->x.exact_type);
+    case V:
+        assert("VOID!" && 0);
+    case B:
+        assert("STRUCT!" && 0);
     default: 
         assert(0);
-    }  
+    }
 }
 
 int get_type(Type t) {
@@ -1544,7 +1552,7 @@ static void symbolise_node(Node p) {
         } else {
             t = p->kids[0]->x.ptype;
             if (t) {
-                if (is_ref(t)) {
+                if (isptr(t) && isstruct(deref(t))) {
                     p->x.ptype = ref_add(t, 0);
                 } else if (isptr(t) && t != voidptype) {
                     p->x.ptype = deref(t);
@@ -1561,7 +1569,7 @@ static void symbolise_node(Node p) {
 	case ADD:
         t = p->kids[0]->x.ptype;
         if (t && (specific(p->kids[1]->op) == CNST + I || specific(p->kids[1]->op) == CNST + U)) {
-            if (is_ref(t)) {
+            if (isptr(t) && isstruct(deref(t))) {
                 t = ref_add(t, p->kids[1]->syms[0]->u.c.v.i);
                 if (t)
                     p->x.ptype = ptr(t);
@@ -2463,7 +2471,7 @@ Interface gvmtIR = {
         0,  /* little_endian */
         0,  /* mulops_calls */
         0,  /* wants_callb */
-        0,  /* wants_argb */
+        1,  /* wants_argb */
         0,  /* left_to_right */
         0,  /* wants_dag */
         1,  /* unsigned_char */

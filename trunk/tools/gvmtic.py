@@ -75,7 +75,7 @@ def _c_function(name, location, qualifiers, code, out, local_vars):
         out << 'void'
     out << ') {\n'
     if varargs:
-        out << '    GVMT_StackItem *%s = gvmt_stack_top();\n' % varargs
+        out << '    GVMT_Value *%s = gvmt_stack_top();\n' % varargs
     for v in local_vars:
         if v.location:
             out << c_line(v.location.line, v.location.file)

@@ -182,7 +182,8 @@ namespace finalizer {
 
     void* run(void* args) {
         (void)args;
-        gvmt_enter(1 << 16, (gvmt_func_ptr)finalise, 0);  
+        gvmt_init_thread(1 << 16);
+        gvmt_call((gvmt_func_ptr)finalise, 0);
         return 0;
     }
    
