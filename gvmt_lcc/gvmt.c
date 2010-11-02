@@ -2077,13 +2077,13 @@ static void emit_subtree(Node p) {
                 gvmt_error("Cannot use address of heap object %s in code\n", p->syms[0]->name);
             } else {
                 // Could be a name, or a complex address like: name 8 ADD_P
-                char buf[100];
+                char* buf = (char*)malloc(strlen(p->syms[0]->x.name) + 10);
                 char* space;
-                assert(strlen(p->syms[0]->x.name) < 92);
                 sprintf(buf, "ADDR(%s  ", p->syms[0]->x.name);
                 space = strchr(buf, ' ');
                 *space = ')';
                 print("%s", buf);
+                free(buf);
             }
         }
         break;
