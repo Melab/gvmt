@@ -144,15 +144,20 @@ if __name__ == '__main__':
             no_heap = True
         elif opt == '-2':
             zones = True
+    opened = set()
     for name in args:
-        f = open(name, 'rb')
-        g = gso.read(f)
-        gsos.append(g)
-        f.close()
-        c = open('%s%s' % (name, sys_compiler.OBJ_EXT), 'wb')
-        c.write(g.code)
-        c.close()
-    obj_list = [name for name in args]
+        if name in opened:
+            print ("gvmtlink warning: File '%s' listed multiple times (linked only once)" % name)
+        else:
+            opened.add(name)
+            f = open(name, 'rb')
+            g = gso.read(f)
+            gsos.append(g)
+            f.close()
+            c = open('%s%s' % (name, sys_compiler.OBJ_EXT), 'wb')
+            c.write(g.code)
+            c.close()
+    obj_list = [name for name in opened]
     base_name = os.path.join(sys_compiler.TEMPDIR, 'gvmt_memory')
     tmp = common.Buffer()
     for g in gsos:
