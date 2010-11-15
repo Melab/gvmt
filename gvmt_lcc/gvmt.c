@@ -76,7 +76,7 @@ static print_typename(Type t) {
         print(")");
     } else if (isunsigned(t)) {
         print ("uint%d", t->size*8); 
-    } else if (isint(t)) {
+    } else if (isint(t) || isenum(t)) {
         print("int%d", t->size*8); 
     } else if (isfloat(t)) { 
         print("float%d", t->size*8);
