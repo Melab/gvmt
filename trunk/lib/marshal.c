@@ -88,7 +88,7 @@ IntegerHashSet integer_hash_set_new(GVMT_Arena arena) {
 
 /* This function is NOT part of the API */
 GVMT_LINKAGE_2(_gvmt_fetch_shape, GVMT_Object object, int* buffer)
-    int* shape = gvmt_shape(object, buffer);
+    int* shape = gvmt_user_shape(object, buffer);
     // Need to copy shape, just in case object-type is moved.
     if (shape != buffer) {
         int *to = buffer;
@@ -115,7 +115,7 @@ uint32_t size_from_shape(int* shape) {
 
 GVMT_LINKAGE_1(object_size, GVMT_Object object)
    int buffer[GVMT_MAX_SHAPE_SIZE];
-   GVMT_RETURN_I(size_from_shape(gvmt_shape(object, buffer)));
+   GVMT_RETURN_I(size_from_shape(gvmt_user_shape(object, buffer)));
 }
 
 void gsc_write_uint16_t(FILE* out, uint16_t val) {

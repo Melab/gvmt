@@ -14,7 +14,7 @@
 /* The shape function for GVMT Garbage Collection.
  * It is OK to use internal pointers as the object will not
  * be moved during this call */
-GVMT_CALL int* gvmt_shape(GVMT_Object obj, int* buffer) {
+GVMT_CALL int* gvmt_user_shape(GVMT_Object obj, int* buffer) {
     struct type* type = ((R_cons)obj)->type;
     if (type == &type_symbol || type == &type_string) {
         buffer[0] = -3;
