@@ -48,7 +48,7 @@ namespace cheney {
      * Returns the size of the object just moved */
     inline size_t move(GVMT_Object from, Address to) {
         int shape_buffer[16];
-        int* shape = gvmt_shape((GVMT_Object)from, shape_buffer);
+        int* shape = gvmt_user_shape((GVMT_Object)from, shape_buffer);
         int len =  0;
         Address real_from = Address(from);
         while (*shape) {

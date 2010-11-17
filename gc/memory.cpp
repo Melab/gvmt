@@ -118,7 +118,7 @@ void Block::verify() {
         if (p.read_word() == 0) {
             p = Line::containing(p)->end();
         } else {                
-            size_t size = align(gvmt_length(p.as_object()));
+            size_t size = align(gvmt_user_length(p.as_object()));
             assert(!Block::crosses(p, size));
             if (Line::containing(p) != current_line) {
                 current_line = Line::containing(p);

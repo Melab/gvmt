@@ -13,7 +13,7 @@ void gvmt_write_ref(FILE* out, GVMT_Object object) {
     } else if (gvmt_is_tagged(object)) {
         fprintf(out, "uint%d %u\n", sizeof(void*)*8, gvmt_untag(object));
     } else {
-        gvmt_readable_name(object, buf);
+        gvmt_user_readable_name(object, buf);
         fprintf(out, "address %s\n", buf);
     }
 }
@@ -27,12 +27,12 @@ void gvmt_marshal(GVMT_Object object, GSC_Stream m) {
     gvmt_write_func func;
     if (object == NULL_R)
         return;
-    id = get_unique_id_for_object(object);
+    id = gvmt_user_unique_id_for_object(object);
     if (integer_hash_set_contains(m->marked_set, id))
         return;
     integer_hash_set_add(m->marked_set, id);
-    func = gvmt_marshaller_for_object(object);
-    gvmt_readable_name(object, buf);
+    func = gvmt_user_marshaller_for_object(object);
+    gvmt_user_readable_name(object, buf);
     fprintf(m->out, ".public %s\n", buf);
     fprintf(m->out, ".object %s\n", buf);
     func(m->out, object);

@@ -138,9 +138,9 @@ void __gvmt_expect_v(char* file, int line, char* func, int expected, int actual)
 /** Shape function returns the shape of the specified object.
  * If desired the shape may be written into the buffer, 
  * which will be of at least size GVMT_MAX_SHAPE_SIZE */
-GVMT_CALL int *gvmt_shape(GVMT_Object object, int *buffer);
+GVMT_CALL int *gvmt_user_shape(GVMT_Object object, int *buffer);
 
-GVMT_CALL unsigned int gvmt_length(GVMT_Object object);
+GVMT_CALL unsigned int gvmt_user_length(GVMT_Object object);
 
 int gvmt_get_shape_at_offset(GVMT_Object object, uintptr_t offset);
 

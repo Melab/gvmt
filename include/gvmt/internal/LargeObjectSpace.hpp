@@ -80,7 +80,7 @@ class LargeObjectSpace: Space {
             } else {
                 prev->next = obj->next;
                 char* c = &obj->object;
-                int len = align(gvmt_length(reinterpret_cast<GVMT_Object>(c)));
+                int len = align(gvmt_user_length(reinterpret_cast<GVMT_Object>(c)));
                 size_t blocks = blocks_for_big_object(len);
                 assert(Block::containing((char*)obj) == (Block*)obj);
                 Heap::free_blocks((Block*)obj, blocks);

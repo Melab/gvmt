@@ -287,7 +287,7 @@ int gvmt_object_is_initialised(GVMT_Object object, uintptr_t offset) {
 
 int gvmt_get_shape_at_offset(GVMT_Object object, uintptr_t offset) {
     int buffer[GVMT_MAX_SHAPE_SIZE];
-    int* shape = gvmt_shape(object, buffer);
+    int* shape = gvmt_user_shape(object, buffer);
     uintptr_t search = 0;
     int index = 0;
     int val = shape[index];
@@ -352,7 +352,7 @@ void GVMT_CALL gvmt_store_limit(void* limit) {
 
 void gvmt_fully_initialized_check(GVMT_Object object) {
     int i, buffer[GVMT_MAX_SHAPE_SIZE];
-    int* shape = gvmt_shape(object, buffer);
+    int* shape = gvmt_user_shape(object, buffer);
     intptr_t* field = (intptr_t*)object;
     while (*shape) {
         if (*shape > 0) {   

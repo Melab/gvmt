@@ -653,14 +653,14 @@ void user_finalise_object(GVMT_Object o) {
 
 // Marshalling support. Do not require marshalling, 
 // but need these to get code to link.
-void* gvmt_marshaller_for_object(GVMT_Object object) {
+void* gvmt_user_marshaller_for_object(GVMT_Object object) {
     return 0;   
 }
 
-void gvmt_readable_name(GVMT_Object obj, char* bufffer) {   
+void gvmt_user_readable_name(GVMT_Object obj, char* bufffer) {   
 }
 
-int get_unique_id_for_object(GVMT_Object object) {
+int gvmt_user_unique_id_for_object(GVMT_Object object) {
     return 0;
 }
 // End marshalling (lack-of) support.

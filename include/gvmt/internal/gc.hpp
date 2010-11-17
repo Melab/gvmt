@@ -157,7 +157,7 @@ namespace object {
         iterator(Address object, int* shape_buffer) {
             index = 0;
             item = reinterpret_cast<GVMT_Object*>(object.bits());
-            shape = gvmt_shape(object.as_object(), shape_buffer);
+            shape = gvmt_user_shape(object.as_object(), shape_buffer);
             while (*shape < 0) {
                 item -= *shape;
                 ++shape;
@@ -459,8 +459,8 @@ namespace GC {
     inline void push_mark_stack(Address addr) {
 #ifndef NDEBUG
         int shape_buffer[GVMT_MAX_SHAPE_SIZE];
-        assert(size_from_shape(gvmt_shape(addr.as_object(), shape_buffer)) == 
-               gvmt_length(addr.as_object())); 
+        assert(size_from_shape(gvmt_user_shape(addr.as_object(), shape_buffer)) == 
+               gvmt_user_length(addr.as_object())); 
 #endif
         mark_stack.push_back(addr);
     }

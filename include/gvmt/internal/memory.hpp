@@ -362,7 +362,7 @@ public:
         if (forwarded(a)) {
             return forwarding_address(a);
         }
-        size_t size = align(gvmt_length(a.as_object()));
+        size_t size = align(gvmt_user_length(a.as_object()));
         Address result = Policy::allocate(size);
         move(a, result, size);
         set_forwarding_address(a, result);
