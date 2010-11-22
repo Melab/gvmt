@@ -120,6 +120,7 @@ public:
     static const uintptr_t size = 8*Word::size;   
 };
 
+// Why is this called Line not Card?
 class Line : public MemoryUnit<Line, LOG_CARD_SIZE> {
     char pad[size];
 };
@@ -192,7 +193,7 @@ public:
    
 };
 
-class Zone : public MemoryUnit<Zone, 19> {
+class Zone : public MemoryUnit<Zone, LOG_ZONE_ALIGNMENT> {
         
     void verify_header();
     void verify_layout();
