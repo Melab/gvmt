@@ -93,8 +93,8 @@ GVMT_LINKAGE_2(gvmt_gc_write_tls_root, void* root, void* obj)
     GVMT_RETURN_V;
 }
 
-GVMT_LINKAGE_1 (gvmt_gc_pin, void* obj)
-    GVMT_RETURN_P(obj);
+GVMT_CALL void* gvmt_gc_pin(GVMT_Object obj) {
+    return obj;
 }
 
 

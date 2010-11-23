@@ -177,6 +177,9 @@ class DeltaMode(object):
     def laddr(self, name):
         pass
         
+    def pin(self, val):
+        pass
+        
     def rstack(self):
         pass
         

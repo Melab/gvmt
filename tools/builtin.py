@@ -785,6 +785,18 @@ class Return(Instruction):
         
     def process(self, mode):
         mode.return_(self.tipe)
+        
+class Pin(Instruction):
+    "Pins the object on TOS"
+    
+    def __init__(self):
+        self.name = 'PIN'
+        self.inputs = ['object']
+        self.outputs = ['pinned']
+    
+    def process(self, mode):
+        pinned = mode.pin(mode.stack_pop(gtypes.r))
+        mode.stack_push(pinned)
    
 class Jump(Instruction):
       
@@ -1164,12 +1176,12 @@ def _init():
     int_types = [ gtypes.i4, gtypes.i8, gtypes.u4, gtypes.u8 ]
     float_types = [ gtypes.f4, gtypes.f8 ]
     
-    for cls in [ Jump, Sign, GC_Malloc, GC_Malloc_Call, Push_current_state, Raise, Drop, 
+    for cls in [ Jump, Sign, GC_Malloc, GC_Malloc_Call, Push_current_state,
                GC_Safe, GC_Safe_Call, Flush, Stack, Insert, Unlock_Internal,
-               push_state, pop_state, Opcode, Lock_Internal, Transfer,
+               push_state, pop_state, Opcode, Lock_Internal, Transfer, Raise,
                discard_state, IP, Zero, DropN, Symbol, FarJump, ZeroMemory, 
-               GC_FreePointerStore, GC_FreePointerLoad, GC_Malloc_Fast,
-               GC_LimitPointerStore, GC_LimitPointerLoad, Next_IP, 
+               GC_FreePointerStore, GC_FreePointerLoad, GC_Malloc_Fast, Drop,
+               GC_LimitPointerStore, GC_LimitPointerLoad, Next_IP, Pin,
                GC_Allocate_Only, FullyInitialized, Lock, Unlock ]:
         i = cls()
         instructions[i.name] = i

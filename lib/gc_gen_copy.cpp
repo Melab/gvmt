@@ -126,10 +126,10 @@ extern "C" {
         return (GVMT_Object)allocator::malloc(sp, fp, size);
     }
     
-    GVMT_LINKAGE_1 (gvmt_gc_pin, void* obj)
+    GVMT_CALL void* gvmt_gc_pin(GVMT_Object obj) {
         fprintf(stderr, "Pinning not supported\n");
         abort();
-        GVMT_RETURN_P(obj);
+        return static_cast<void*>(obj);
     }
     
     GVMT_LINKAGE_1 (gvmt_gc_unpin, void* obj)

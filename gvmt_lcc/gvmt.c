@@ -2245,6 +2245,10 @@ static void emit_subtree(Node p) {
                 intrinsic("UNLOCK_INTERNAL "); 
                 return;
             }
+            if (strcmp(name, "pin") == 0) {
+                intrinsic("PIN "); 
+                return;
+            }
         }
         if (is_native(p->syms[0]->type)) {
             narg_count = n_args - N_ARGS;

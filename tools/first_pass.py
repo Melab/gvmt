@@ -59,13 +59,16 @@ class FirstPassMode(object):
 
     def convert(self, from_tipe, to_type, value):
         pass
-        
+
     def unary(self, tipe, op, arg):
         pass
-        
+
+    def pin(self, val):
+        pass
+
     def sign(self, val):
         pass
-                              
+
     def n_call(self, func, tipe, args):
         self.n_args.append(tipe.suffix)
         self.f_types.add(tuple(self.n_args))

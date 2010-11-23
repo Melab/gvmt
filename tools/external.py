@@ -66,6 +66,9 @@ class ExternalMode(object):
     def ip(self):
         pass
         
+    def pin(self, val):
+        pass
+        
     def opcode(self):
         pass
         
