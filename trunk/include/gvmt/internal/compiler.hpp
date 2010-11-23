@@ -65,10 +65,12 @@ class Architecture {
     static llvm::Function *raise_exception(llvm::Module *mod);
     static llvm::Function *transfer(llvm::Module *mod);
     static llvm::Function *set_jump(llvm::Module *mod);
+    static llvm::Function *pin(llvm::Module *mod);
   public:
     static void init(llvm::Module *mod);
     static llvm::Value *WORD_SIZE;
     static llvm::Value *CURRENT_FRAME;
+    static llvm::Function *PIN;
     static llvm::Function *ENTER_NATIVE;
     static llvm::Function *EXIT_NATIVE;
     static llvm::Function *GC_SAFE_POINT;

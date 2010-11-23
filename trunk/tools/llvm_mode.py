@@ -551,6 +551,18 @@ class LlvmPassMode(object):
         self.out << s_ext % (_uid, val, gtypes.i8.size*8)
         return Simple(gtypes.i8, 't%d' % _uid)
         
+    def pin(self, val):
+        global _uid
+        _uid += 1        
+        self.stack.flush_to_memory(self.out)
+        pinned = ' Value *pinned_%d;\n' % _uid
+        args_fmt = ' Value *args_%d[] = { %s, 0 };\n'
+        self.out << args_fmt % (_uid, value.cast(gtypes.r))
+        call_fmt = (' pinned_%d = CallInst::Create(Architecture::PIN, '
+                     ' &args_%d[0], &args_%d[1], "", current_block);\n')
+        self.out << call_fmt % (_uid, _uid, _uid)
+        return Simple(gtypes.p, 'pinned_%d'  % _uid)
+        
     def zero(self, val):
         global _uid
         _uid += 1

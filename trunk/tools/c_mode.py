@@ -819,6 +819,9 @@ class CMode(object):
     def sign(self, val):
         return Simple(gtypes.i8, '((int64_t)%s)' % val.cast(gtypes.i4))
         
+    def pin(self, val):
+        return Simple(gtypes.p, 'gvmt_gc_pin(%s)'  % val.cast(gtypes.p))
+        
     def zero(self, val):
         return Simple(gtypes.u8, '((uint64_t)%s)' % val.cast(gtypes.u4))
         

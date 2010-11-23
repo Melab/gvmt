@@ -169,6 +169,8 @@ mmap(NULL, l, PROT_READ|PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0)
 GVMT_CALL void gvmt_fast_lock(intptr_t *lock);
 GVMT_CALL void gvmt_fast_unlock(intptr_t *lock);
 
+GVMT_CALL void* gvmt_gc_pin(GVMT_Object object);
+
 #define GVMT_LOCKING_UNLOCKED 1
 #define GVMT_LOCKING_LOCKED 2
 

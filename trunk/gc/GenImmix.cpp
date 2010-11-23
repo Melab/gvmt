@@ -31,10 +31,9 @@ extern "C" {
         GenImmix::full_collect();
     }
         
-    GVMT_LINKAGE_1 (gvmt_gc_pin, void* obj)
+    GVMT_CALL void* gvmt_gc_pin(GVMT_Object obj) {
         assert(obj);
-        GenImmix::pin(reinterpret_cast<GVMT_Object>(obj));
-        GVMT_RETURN_P(obj);
+        return GenImmix::pin(obj);
     }
     
 }

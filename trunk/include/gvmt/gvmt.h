@@ -196,7 +196,7 @@ void* gvmt_gc_add_root(void);
 /* Pins the object and returns a pointer to it. The pointer remains valid 
  * until the object is collected, after which the pointer must not be used.
  */
-void* gvmt_gc_pin(GVMT_Object obj);
+void* gvmt_pin(GVMT_Object obj);
 
 /* Treat an address as an object. Must only be applied to objects which
  * have been pinned AND have a root preventin them from being collected.

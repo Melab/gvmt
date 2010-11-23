@@ -27,9 +27,8 @@ extern "C" {
         Zone::verify_heap();
     }
         
-    GVMT_LINKAGE_1 (gvmt_gc_pin, void* obj)
-        GenCopy::pin(reinterpret_cast<GVMT_Object>(obj));
-        GVMT_RETURN_P(obj);
+    GVMT_CALL void* gvmt_gc_pin(GVMT_Object obj) {
+        return GenCopy::pin(obj);
     }
     
 }

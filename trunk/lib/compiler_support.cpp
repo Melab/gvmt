@@ -66,6 +66,7 @@ Function *Architecture::ENTER_NATIVE;
 Function *Architecture::EXIT_NATIVE;
 Function *Architecture::SET_JUMP;
 Function *Architecture::GC_SAFE_POINT;
+Function *Architecture::PIN;
 FunctionType *Architecture::FUNCTION_TYPE;
 PointerType *Architecture::POINTER_FUNCTION_TYPE;
 
@@ -311,6 +312,7 @@ void Architecture::init(Module *module) {
     POP_AND_FREE_HANDLER = Architecture::void_no_args_func("gvmt_pop_and_free_handler", module);
     CREATE_AND_PUSH_HANDLER = Architecture::create_and_push_handler(module);
     SET_JUMP = Architecture::set_jump(module);
+    PIN = Architecture::pin(module);
     RAISE_EXCEPTION = Architecture::raise_exception(module);
     TRANSFER = Architecture::transfer(module);
     WORD_SIZE = ConstantInt::get(APInt(32, 4, true));
@@ -338,6 +340,15 @@ Function* Architecture::raise_exception(Module *mod) {
     Function* f = Function::Create(ftype, GlobalValue::ExternalLinkage, "gvmt_raise_exception", mod);
     f->setCallingConv(llvm::CallingConv::X86_FastCall);
     f->setDoesNotReturn(true); 
+    return f;
+}
+
+Function* Architecture::pin(Module *mod) {
+    std::vector< const Type * >args;
+    args.push_back(BaseCompiler::TYPE_R);
+    FunctionType * ftype = FunctionType::get(BaseCompiler::TYPE_P, args, false);
+    Function* f = Function::Create(ftype, GlobalValue::ExternalLinkage, "gvmt_gc_pin", mod);
+    f->setCallingConv(llvm::CallingConv::X86_FastCall);
     return f;
 }
 
