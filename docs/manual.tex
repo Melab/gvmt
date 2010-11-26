@@ -1,4 +1,4 @@
-\documentclass[a4paper,10pt]{report}
+\documentclass[a4paper,12pt]{report}
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{multicol}
@@ -49,7 +49,7 @@ Convertion of source-code to bytecodes is not handled by the GVMT, that is up to
 \chapter{Building a VM using the Toolkit}
 
 \section{Before you start}
-Before starting a virtual machine, you will need to generate some bytecode programs to execute. If you are targetting a pre-existing VM format, this is straightforward. If you are creating a new language you will need a parser. \gvmtic{} can produce a C header file containing definitions for all the opcodes: the C macro for the opcode for instruction `xxx' is \verb|GVMT_OPCODE(xxx)|.
+Before starting a virtual machine, you will need to generate some bytecode programs to execute. If you are targetting a pre-existing VM format, this is straightforward. If you are creating a new language you will need a parser. \gvmtic{} can produce a C header file containing definitions for all the opcodes: the C macro for the opcode for instruction `xxx' of interprter 'int' is \verb|GVMT_OPCODE(int, xxx)|.
 
 \section{Defining the components}
 For GVMT to build a VM, you will need to define:

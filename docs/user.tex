@@ -11,14 +11,13 @@ Examining the files in the /example subdirectory may help to make things clearer
 The file /include/gvmt/user.h lists all the functions which the developer needs to supply, with the exception of the \verb|gvmt_shape| function which must be compiled natively, not by \gvmtc.
 
 \subsection{Garbage collection\label{sect:user-shape}}
-In order for the tooolkit to provide precise garbage collection, the layout of all heap objects must be known. The developer must provide two functions and one integer value to allow GVMT to perform \emph{precise} garbage collection.
+In order for the tooolkit to provide precise garbage collection, the layout of all heap objects must be known. The developer must provide three functions and one integer value to allow GVMT to perform \emph{precise} garbage collection.
 \begin{description}
 \item [int GVMT\_MAX\_SHAPE\_SIZE] The maximum number of entries required to represent any shape (including terminating zero).
-\item [long* gvmt\_shape(GVMT\_Object object, int* buf)] This function returns a vector of integers, representing the shape of the object, as defined in section \ref{sect:shape}. The int array buf can be used to store the shape if required. The buffer, \verb|buf| is guaranteed to include at least GVMT\_MAX\_SHAPE\_SIZE entries.
+\item [long* gvmt\_shape(GVMT\_Object object, int* buf)] This function returns a vector of integers, representing the shape of the object, as defined in section \ref{sect:shape}. The int array buf can be used as temporary storage for the shape vector if required. The buffer, \verb|buf| is guaranteed to include at least GVMT\_MAX\_SHAPE\_SIZE entries.
 \item [long gvmt\_length(GVMT\_Object obj)] This function returns the length of the object in bytes.
-\item [void user\_finalize\_object(GVMT\_Object o)] This function may be called by the garbage collector for any object that is declared as requiring finalization and is unreachable. Exceptions raised in this function, or any callee, terminate finalisation, but do not propogate. The function is called by the finalizer thread and will be called asynchronously. This function may be called on any or all object declared as finalizable, in any order. 
+\item [void user\_finalize\_object(GVMT\_Object o)] This function may be called by the garbage collector for any object that is declared as requiring finalization and is unreachable. Exceptions raised in this function, or any callee, terminate finalisation of the object, but do not propogate. The function is called by the finalizer thread and will be called asynchronously. This function may be called on any or all object declared as finalizable, in any order. 
 \end{description}
-
 
 \subsection{The Marshalling Interface}
 In order to support marshalling the user must provide a function \\
@@ -26,10 +25,12 @@ In order to support marshalling the user must provide a function \\
 
 To assist marshalling to GSC code, the user should also provide the \\
 \verb|void gvmt_readable_name(GVMT_Object object, char *buffer)| function to provide meaningful names for objects.
-This function should store an ASCII string into the provided buffer. The buffer is guaranteed to be of at least GVMT\_MAX\_OBJECT\_NAME\_LENGTH bytes in length 
+This function should store an ASCII string into the provided buffer. The buffer is guaranteed to be of at least GVMT\_MAX\_OBJECT\_NAME\_LENGTH bytes in length. 
+
+\verb|int GVMT_MAX_OBJECT_NAME_LENGTH| should also be defined.
 
 \subsection{Debugging}
-The GVMT can insert calls to a trace function at the start of each bytecode. Since GVMT knows nothing about the semantics of the VM, the developer must provide the actual trace function. A very simple version is provided in the example.
+The GVMT can insert arbitrary code at the start and end of each bytecode. Since GVMT knows nothing about the semantics of the VM, the developer must provide the actual code. A very simple tracing function is provided in the example.
 
 \section{GVMT provided functions}
 GVMT provides a wide range of functions to interact with the underlying abstract machine, as well as a number of intrinsic functions for code written in C.
@@ -51,21 +52,20 @@ The following intrinsic allocates object (the GSC code is GC\_MALLOC).
 \item \verb|GVMT_Object gvmt_malloc(size_t s)| Allocates a new object. This object should be initialised immediately, and \emph{must} be initialised before the next GC-SAFE point.
 \end{itemize}
 
-The garbage collector can automatically find all objects from both stacks and all global variables. Sometimes it is necessary to have some control over the garbage collector.
+The garbage collector can automatically find all objects from the stacks and all global variables. Sometimes it is necessary to have some control over the garbage collector.
 GVMT provides the following functions to interact with the garbage collector.
 \begin{itemize}
 \item \verb|gvmt_gc_finalizable(GVMT_Object obj)| Declares that obj will need finalization.
 \item \verb|void* gvmt_gc_weak_reference(void)| Returns a weak reference to obj.
 \item \verb|GVMT_Object gvmt_gc_read_weak_reference(void* w)| Reads a weak reference, the reference returned will either be the last value written to this weak-reference or NULL.
-\item \verb|gvmt_gc_read_weak_reference(void* w, GVMT_Object o)| Writes to a weak reference
+\item \verb|gvmt_gc_write_weak_reference(void* w, GVMT_Object o)| Writes to a weak reference
 \item \verb|void gvmt_gc_free_weak_reference(void* w)| Frees a weak reference if no longer required.
 \item \verb|void* gvmt_gc_add_root(void)| Returns a new root to the heap, initialised to obj.
 \item \verb|GVMT_Object gvmt_gc_read_root(void* root)| Returns the value referred to by the root.
 \item \verb|void gvmt_gc_write_root(void* root, GVMT_Object obj)| Writes a new object to a root.
 \item \verb|void gvmt_gc_free_root(void* root)| Deletes this root, the object referred to may now be garbage collected.
 
-\item \verb|void* gvmt_gc_pin(GVMT_Object obj)| Pins the object referred to by \verb|obj|. The garbage collector will not move it. Be aware that collection and pinning are independent. The grabge collector may collect pinned objects. To pass an object to native code, or to use an internal pointer will require both pinning the object \emph{and} retaining a refeerence to it.
-\item \verb|gvmt_gc_unpin(GVMT_Object obj)| Unpins the object, which may now by moved by the garbage collector. It is not necessary to unpin objects in order for them to be garbage collected.
+\item \verb|void* gvmt_pin(GVMT_Object obj)| Pins the object referred to by \verb|obj|. The garbage collector will not move it. Be aware that collection and pinning are independent. The garbage collector may collect pinned objects. To pass an object to native code, or to use an internal pointer will require both pinning the object \emph{and} retaining a reference to it. Once pinned, objects remained pinned until they are collected.
 
 \end{itemize}
 
