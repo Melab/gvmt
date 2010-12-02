@@ -49,7 +49,7 @@ class LargeObjectSpace: Space {
         assert(size >= Zone::size/2);
         assert (size < (1 << 29));
         size += Block::size*2;
-        VeryLargeObject* vlo = (VeryLargeObject*)Zone::allocate(size);
+        VeryLargeObject* vlo = (VeryLargeObject*)OS::allocate_virtual_memory(size);
         vlo->size = size;
         vlo->next = very_large_objects;
         very_large_objects = vlo;
@@ -104,15 +104,13 @@ class LargeObjectSpace: Space {
                     very_large_objects = obj->next;
                 else
                     prev->next = obj->next;
-                size_t size = obj->size;
-                size = (size + (Zone::size - 1)) & -Zone::size;
                 next = obj->next;
-                munmap(obj, size);
+                OS::free_virtual_memory(reinterpret_cast<Zone*>(obj), obj->size);
             }
             obj = next;
         }
     }
-    
+
 public:
            
     static inline bool in(Address a) {

@@ -145,7 +145,14 @@ class Zone;
 
 class Block : public MemoryUnit<Block, LOG_BLOCK_SIZE> {
     
-    char pad[size];
+    union {
+        char pad[size];
+        struct {
+            Block* linkedlist_next;
+            Block* linkedlist_previous;
+        };
+    };
+        
 
 public:   
     
@@ -174,22 +181,18 @@ public:
 };
 
 
-/** This object is a Zone* but unitialised, so that it will not require
- * any real memory until it is activated */
-class ReservedMemoryHandle {
+/** Handles virtual memory allocation */
+class OS {
     
-    uintptr_t data;
-    
+    static uintptr_t virtual_memory_size;
     static char* get_new_mmap_region(uintptr_t size);
     
 public:
-    static ReservedMemoryHandle allocate(size_t size);
     
-    Zone* activate();
+    static Zone* allocate_virtual_memory(size_t size);
+    static void free_virtual_memory(Zone* zone, size_t size);
     
-    inline bool valid() {
-        return data != 0;   
-    }
+    static uintptr_t virtual_memory_allocated();
    
 };
 
@@ -226,13 +229,6 @@ public:
         };
         Block blocks[1]; // Actual usable memory
     };
-    
-    static Zone* allocate(size_t size) {
-        ReservedMemoryHandle handle = ReservedMemoryHandle::allocate(size);
-        if (!handle.valid())
-            return NULL;
-        return handle.activate();
-    }
 
     static inline uint8_t* mark_byte(Address mem) {
         // Each mark byte corresponds to 8 words = 32 bytes.
@@ -406,7 +402,7 @@ class Heap {
 
     static inline Block* allocate_from_new_zone(size_t count, int space, bool force) {
         if (force || virtual_zones > 0) {
-            Zone* z = Zone::allocate(Zone::size);
+            Zone* z = OS::allocate_virtual_memory(Zone::size);
             z->index = zones.size();
             zones.push_back(z);   
             free_bits.push_back(-4);
