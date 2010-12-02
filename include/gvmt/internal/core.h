@@ -164,8 +164,6 @@ extern GVMT_THREAD_LOCAL int gvmt_last_return_type;
 #define get_virtual_memory(l) \
 mmap(NULL, l, PROT_READ|PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0)
 
-#define free_virtual_memory(p, l) munmap(p, l)
-
 GVMT_CALL void gvmt_fast_lock(intptr_t *lock);
 GVMT_CALL void gvmt_fast_unlock(intptr_t *lock);
 

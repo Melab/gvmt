@@ -21,8 +21,8 @@ void Block::clear_mark_map() {
     }
 }
 
-char* ReservedMemoryHandle::get_new_mmap_region(uintptr_t size) {
-    // Try to request exact size. Will generally work as previous requests have been aligned
+char* OS::get_new_mmap_region(uintptr_t size) {
+    // Try to request exact size. Will usually work as previous requests have been aligned
     char* ptr = (char*)mmap(NULL, size, PROT_READ|PROT_WRITE, 
                             MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
     if (ptr != NULL && Zone::starts_at(ptr)) return ptr;
@@ -47,41 +47,27 @@ char* ReservedMemoryHandle::get_new_mmap_region(uintptr_t size) {
         /* This should not fail */ 
         if (munmap(start + size, end - (start + size))) abort(); 
     }
+    gvmt_heap_size += alloc_size;
     return start;
 }
 
-ReservedMemoryHandle ReservedMemoryHandle::allocate(size_t size = Zone::size) {
-    size_t actual_size = Zone::size;
-    ReservedMemoryHandle result;
-    union {
-        uintptr_t data;
-        void* ptr;
-    };
-    while (actual_size < size) {
-        actual_size += Zone::size;
-    }
-    // Attempt to get memory.
-    ptr = get_new_mmap_region(actual_size);
-    if (ptr == NULL) {
-        result.data = 0; 
-    } else {
-        assert((data & (Zone::size - 1)) == 0);
-        assert((actual_size >> Zone::log_size) < Zone::size);
-        result.data = data | (actual_size >> Zone::log_size);  
-    }
-    return result;
+void OS::free_virtual_memory(Zone* zone, size_t size) {
+    size_t actual_size = (size + (Zone::size - 1)) & -Zone::size;
+    /* This should not fail */ 
+    if (munmap(reinterpret_cast<char*>(zone), actual_size) == 0)
+        virtual_memory_size -= actual_size;
 }
 
-Zone* ReservedMemoryHandle::activate() {
-    union {
-        Zone* z;
-        uintptr_t bits;
-    };
-    bits = data & (-Zone::size);
-    size_t size = (data & (Zone::size-1));
-    assert((bits | size) == data);
-    gvmt_heap_size += Zone::size * size;
-    return z;
+Zone* OS::allocate_virtual_memory(size_t size = Zone::size) {
+    size_t actual_size = (size + (Zone::size - 1)) & -Zone::size;
+    // Attempt to get memory.
+    char* ptr = get_new_mmap_region(actual_size);
+    virtual_memory_size += actual_size;
+    return reinterpret_cast<Zone*>(ptr);
+}
+
+uintptr_t OS::virtual_memory_allocated() {
+    return virtual_memory_size;
 }
 
 void Zone::verify() {
@@ -170,5 +156,6 @@ int Heap::virtual_zones;
 size_t Heap::free_block_count;
 size_t Heap::single_block_cursor;
 size_t Heap::multi_block_cursor;
+uintptr_t OS::virtual_memory_size;
 
 
