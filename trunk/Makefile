@@ -14,7 +14,8 @@ CC= gcc -std=c99 $(OPT) -fPIC -Wall -iquote include -c
 CPP= g++ -fno-exceptions $(OPT) -D__STDC_LIMIT_MACROS -Wall -iquote include -c
 I=include/gvmt/internal
 HEADERS = $I/compiler.hpp $I/compiler_shared.h $I/core.h
-GC_HEADERS =  $I/gc.hpp $I/gc_threads.hpp $I/gc_templates.hpp $I/memory.hpp $I/LargeObjectSpace.hpp $I/MarkSweep.hpp 
+GC_HEADERS =  $I/gc.hpp $I/gc_threads.hpp $I/gc_templates.hpp $I/memory.hpp \
+		      $I/LargeObjectSpace.hpp $I/HugeObjectSpace.hpp $I/MarkSweep.hpp 
 
 LIBRARY = build/gvmt.o build/gvmt_compiler.o build/gvmt_debug.o \
 	   build/gvmt_gc_copy.a build/gvmt_gc_copy_threads.a \

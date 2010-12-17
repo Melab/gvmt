@@ -22,13 +22,18 @@ extern "C" {
         return GenCopy::fast_allocate(size);
     }
 
-    void gvmt_malloc_init(size_t heap_size_hint, float residency) {
-        GenCopy::init(heap_size_hint, residency);
+    void gvmt_malloc_init(size_t heap_size_hint) {
+        GenCopy::init(heap_size_hint);
         Zone::verify_heap();
+        LargeObjectSpace::verify_heap();
     }
         
     GVMT_CALL void* gvmt_gc_pin(GVMT_Object obj) {
         return GenCopy::pin(obj);
+    }
+    
+    int gvmt_is_pinned(void* ptr) {
+        return GenCopy::is_pinned(ptr);
     }
     
 }

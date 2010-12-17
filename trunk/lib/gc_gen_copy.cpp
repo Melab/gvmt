@@ -105,7 +105,7 @@ extern "C" {
 
     char* gvmt_gc_name = &gen_copy::name[0];
     
-    void gvmt_malloc_init(uint32_t s, float residency) {
+    void gvmt_malloc_init(uint32_t s) {
         int64_t t0, t1;
         t0 = high_res_time();
         generational::init(s);

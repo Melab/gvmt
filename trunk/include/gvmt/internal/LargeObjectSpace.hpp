@@ -3,17 +3,12 @@
 
 #include "gvmt/internal/memory.hpp"
 #include "gvmt/internal/MarkSweep.hpp"
+#include "gvmt/internal/HugeObjectSpace.hpp"
 
-/** The Large Object Space is divided into 7 subspaces.
- * There are 6 Medium sized object lists from 2-3k to 11-14k.
- * One list for larger objects from 14k to 256k and 
- * a VeryLargeObject area for objects > 256k.
- * The medium sized objects are of sub-block size and the lists 
- * track and free blocks.
- * The larger objects require at least one block each and grab blocks directly.
- * Very large objects require at least one zone each and get their memory
- * directly from the OS.
- *
+/** The Large Object Space handles objects from 12k to 256k.
+ * (The HugeObject space handles objects > 256k)
+ * Large objects are allocated whole block(s), which are requested directly from
+ * the Heap object.
  */
 
 struct BigObject {
@@ -21,41 +16,24 @@ struct BigObject {
     char object;
 };
 
-struct VeryLargeObject {
-    union {
-        struct {
-            char pad1[Block::size];
-            VeryLargeObject* next;
-            size_t size;
-        };
-        char pad[Block::size*2];
-    };
-    char object;
-};
-
 
 class LargeObjectSpace: Space {
     
-    static MarkSweepList lists[6];
     static BigObject big_objects;
-    static VeryLargeObject* very_large_objects;
+    static BigObject young_objects;
     static bool initialised;
+    
+    static void append_young_objects() {
+        BigObject *obj = &big_objects;
+        while (obj->next) {
+            obj = obj->next;
+        }
+        obj->next = young_objects.next;
+        young_objects.next = NULL;
+    }
     
     static inline size_t blocks_for_big_object(size_t size) {
         return (size+sizeof(void*)+(Block::size-1))>>Block::log_size; 
-    }
-    
-    static GVMT_Object allocate_very_large_object(size_t size) {
-        assert(size >= Zone::size/2);
-        assert (size < (1 << 29));
-        size += Block::size*2;
-        VeryLargeObject* vlo = (VeryLargeObject*)OS::allocate_virtual_memory(size);
-        vlo->size = size;
-        vlo->next = very_large_objects;
-        very_large_objects = vlo;
-        char* start = &vlo->object;
-        Block::containing(start)->set_space(Space::LARGE);
-        return reinterpret_cast<GVMT_Object>(start);
     }
     
     static GVMT_Object allocate_big_object(size_t size) {
@@ -63,49 +41,30 @@ class LargeObjectSpace: Space {
         BigObject* ptr = (BigObject*)Heap::get_blocks(blocks, Space::LARGE, false);
         if (ptr == NULL)
             return NULL;
-        ptr->next = big_objects.next;
-        big_objects.next = ptr;
+        ptr->next = young_objects.next;
+        young_objects.next = ptr;
         char* c = &ptr->object;
         return reinterpret_cast<GVMT_Object>(c);
     }
     
     static void sweep_big_objects() {
+        assert(young_objects.next == NULL);
         BigObject* prev = &big_objects;
         BigObject* obj = prev->next;
+        BigObject* next;
         while (obj) {
+            next = obj->next;
             if (Zone::marked(&obj->object)) {
                 *Zone::mark_byte(&obj->object) = 0;
                 assert(!Zone::marked(&obj->object));
                 prev = obj;
             } else {
-                prev->next = obj->next;
+                prev->next = next;
                 char* c = &obj->object;
                 int len = align(gvmt_user_length(reinterpret_cast<GVMT_Object>(c)));
                 size_t blocks = blocks_for_big_object(len);
                 assert(Block::containing((char*)obj) == (Block*)obj);
                 Heap::free_blocks((Block*)obj, blocks);
-            }
-            obj = obj->next;
-        }
-    }
-    
-    static void sweep_very_large_objects() {
-        VeryLargeObject* prev = NULL;
-        VeryLargeObject* obj = very_large_objects;
-        VeryLargeObject* next;
-        while (obj) {
-            if (Zone::marked(&obj->object)) {
-                *Zone::mark_byte(&obj->object) = 0;
-                assert(!Zone::marked(&obj->object));
-                prev = obj;
-                next = obj->next;
-            } else {
-                if (prev == NULL) 
-                    very_large_objects = obj->next;
-                else
-                    prev->next = obj->next;
-                next = obj->next;
-                OS::free_virtual_memory(reinterpret_cast<Zone*>(obj), obj->size);
             }
             obj = next;
         }
@@ -117,41 +76,62 @@ public:
         return Block::space_of(a) == Space::LARGE;
     }
     
+    static void verify_heap() {
+        // Not much we can do for multi-block objects.
+    }
+    
     static void init() {
-        lists[0].init(2048);
-        lists[1].init(2720);
-        lists[2].init(4096);
-        lists[3].init(5456);
-        lists[4].init(8192);
-        lists[5].init(10912);
-        Block* b = &gvmt_large_object_area_start;
-        assert(b == Block::containing((char*)b));
-        // Skip zone headers
-        while (Zone::index_of<Block>((char*)b) < 2)
-            b++;
-        int8_t area;
-        while ((area = b->space()) >= 0) {
-            if (area != 0) {
-                assert(area >= 22);
-                assert(area <= 27);
-                lists[area-22].init_block(b);
-            }
-            b++;
-            // Skip zone headers
-            if (Zone::index_of<Block>((char*)b) == 0)
-                b += 2;
-        }
-        if (area == -128) {
-            big_objects.next = reinterpret_cast<BigObject*>(b);
-        } else {
-            assert(area == -127);
-            big_objects.next = NULL;
-        }
-        while (b < (Block*)&gvmt_end_heap) {
-            b->set_space(Space::LARGE);
-            b++;
-        }
-        very_large_objects = NULL;
+        assert(Block::containing(&gvmt_large_object_area_start) == 
+               (Block*)&gvmt_large_object_area_start);
+        assert(Block::containing(&gvmt_large_object_area_end) == 
+               (Block*)&gvmt_large_object_area_end);
+        assert(Zone::containing(&gvmt_end_heap) == (Zone*)&gvmt_end_heap);
+        // TO DO - Handle multi-block objects at start up.
+        // Will need an external list of objects.
+        assert(&gvmt_large_object_area_start == &gvmt_large_object_area_end);
+        Block* b = (Block*)&gvmt_large_object_area_end;
+        Block* end = Block::containing(&gvmt_end_heap);
+        Heap::init_free_blocks(b, end - b);
+//        lists[0].init(2048);
+//        lists[1].init(2720);
+//        lists[2].init(4096);
+//        lists[3].init(5456);
+//        lists[4].init(8192);
+//        lists[5].init(10912);
+//        Block* b = (Block*)&gvmt_large_object_area_start;
+//        assert(b == Block::containing((char*)b));
+//        // Skip zone headers
+//        if (b < Zone::containing(b)->first())
+//            b = Zone::containing(b)->first();
+//        
+//        // TO DO - Improve passing of free blocks to heap,
+//        // by passing in blocks not one at a time.
+//        Block* end = Block::containing(&gvmt_multiblock_object_start);
+//        assert(end == (Block*)&gvmt_multiblock_object_start);
+//        while(b < end) {
+//            int8_t area = b->space();
+//            if (area == 0) {
+//                break;
+//            } else {
+//                assert(area >= 22);
+//                assert(area <= 27);
+//                lists[area-22].init_block(b);
+//            }
+//            b = b->next();
+//            // Skip zone headers
+//            if (Zone::index_of<Block>((char*)b) == 0)
+//                b = Zone::containing(b)->first();
+//        }
+//        Heap::init_free_blocks(b, end - b);
+//        b = end;
+//        end = Block::containing(&gvmt_end_heap);
+//        assert(end == (Block*)&gvmt_end_heap);
+//        if (b < end) {
+//            assert(b->space() == -128);
+//            big_objects.next = reinterpret_cast<BigObject*>(b);
+//        }
+//        b = (Block*)&gvmt_large_object_area_end;
+//        Heap::init_free_blocks(b, end - b);
         initialised = true;
     }
     
@@ -159,22 +139,7 @@ public:
         assert(initialised);
         // Space for mark word.
         if (size >= ZONE_ALIGNMENT/2)
-            return allocate_very_large_object(size);
-        size_t index;
-        for (index = 0; index < 6; index++) {
-            if (lists[index].can_allocate(size)) {
-                MarkSweepList* list = &lists[index];
-                GVMT_Object result = list->allocate();
-                if (result == NULL) { // List full
-                    Block *b = Heap::get_block(Space::LARGE, force);
-                    if (b == NULL)
-                        return NULL;
-                    list->add_block(b);
-                    result = list->allocate();
-                }
-                return result;
-            }  
-        }
+            return HugeObjectSpace::allocate(size);
         return allocate_big_object(size);
     }
     
@@ -193,22 +158,31 @@ public:
     }
     
     static void pre_collection() {
-        for (int i = 0; i < 6; i++)
-            lists[i].pre_collection();
+        append_young_objects();
+        BigObject* obj = big_objects.next;
+        while (obj) {
+            *Zone::mark_byte(&obj->object) = 0;
+            assert(!Zone::marked(&obj->object));
+            obj = obj->next;
+        }
     }
     
     static void sweep() {
         assert(initialised);
-        for (int i = 0; i < 6; i++)
-            lists[i].sweep();
         sweep_big_objects();
-        sweep_very_large_objects();
     }
 
     template <class Collection> static void process_old_young() {
-        for (int i = 0; i < 6; i++)
-            lists[i].process_old_young<Collection>();
-        BigObject* obj = big_objects.next;
+        BigObject* obj = young_objects.next;
+        while (obj) {
+            char* object = &obj->object;
+            Zone* z = Zone::containing(object);
+            Line* line = Line::containing(object);
+            gc::scan_object<Collection>(object);
+            z->clear_modified(line);
+            obj = obj->next;
+        }
+        obj = big_objects.next;
         while (obj) {
             char* object = &obj->object;
             Zone* z = Zone::containing(object);
@@ -219,24 +193,13 @@ public:
             }
             obj = obj->next;
         }
-        VeryLargeObject* vl_obj = very_large_objects;
-        while (vl_obj) {
-            char* object = &vl_obj->object;
-            Zone* z = Zone::containing(object);
-            Line* line = Line::containing(object);
-            if (z->modified(line)) {
-                gc::scan_object<Collection>(object);
-                z->clear_modified(line);
-            }
-            vl_obj = vl_obj->next;
-        }
+        append_young_objects();
     }
 
 };
 
-MarkSweepList LargeObjectSpace::lists[6];
+BigObject LargeObjectSpace::young_objects;
 BigObject LargeObjectSpace::big_objects;
-VeryLargeObject* LargeObjectSpace::very_large_objects;
 bool LargeObjectSpace::initialised = false;
 
 

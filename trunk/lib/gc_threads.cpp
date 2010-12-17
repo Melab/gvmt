@@ -422,7 +422,7 @@ namespace TLS {
 extern "C" {
     
     // Specific implementations need to implement:
-    // void gvmt_malloc_init(uint32_t s, float residency);
+    // void gvmt_malloc_init(uint32_t s);
     // char* gvmt_gc_name;
     
     GVMT_Object gvmt_threads_malloc(GVMT_StackItem* sp, GVMT_Frame fp, uintptr_t size) {

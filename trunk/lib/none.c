@@ -14,7 +14,7 @@ static int initialised = 0;
 
 char* gvmt_gc_name = "none";
 
-void gvmt_malloc_init(uint32_t s, float residency) {
+void gvmt_malloc_init(uint32_t s) {
     initialised = 1;
     next = calloc(MEM_SPACE, 1);
     if (next == 0)
@@ -95,6 +95,10 @@ GVMT_LINKAGE_2(gvmt_gc_write_tls_root, void* root, void* obj)
 
 GVMT_CALL void* gvmt_gc_pin(GVMT_Object obj) {
     return obj;
+}
+
+int gvmt_is_pinned(void* ptr) {
+    return 1;
 }
 
 

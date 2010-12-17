@@ -61,7 +61,22 @@ class MarkSweepList {
         
 public:
     
+    void verify() {
+        for (std::deque<Block*>::iterator it = blocks.begin(); it != blocks.end(); it++) {
+            Block* b = *it;
+            assert(b->space() == Space::LARGE);
+            Address ptr = b->start();
+            do {
+                if (ptr.read_word() == 0)
+                    break;
+                assert(gvmt_user_length(ptr.as_object()) <= size);
+                ptr = ptr.plus_bytes(size);
+            } while (b->contains(ptr, size));
+        }
+    }
+    
     inline void add_block(Block* b) {
+        assert(Block::containing(b) == b);
         Address ptr = b->start();
         do {
             ptr.write_word(reinterpret_cast<uintptr_t>(free_list));
@@ -105,6 +120,7 @@ public:
     }
     
     void init_block(Block* b) {
+        assert(b->is_valid());
         blocks.push_back(b);
         Address ptr = b->start();
         assert(ptr.read_word() != 0);
@@ -112,16 +128,13 @@ public:
             assert(Zone::marked(ptr));
             ptr = ptr.plus_bytes(size);
         } while (ptr.read_word() != 0 && !Block::crosses(ptr, size));
-//        do {
-//            assert(!Zone::marked(ptr));
-//            ptr.write_word(reinterpret_cast<uintptr_t>(free_list));
-//            free_list = ptr.as_object();
-//            ptr = ptr.plus_bytes(size);
-//        } while (!Block::crosses(ptr, size));
         b->set_space(Space::LARGE);
     }
     
     template <class Action> void process_old_young() {
+#ifndef NDEBUG
+        verify();
+#endif
         for (std::deque<Block*>::iterator it = blocks.begin(); it != blocks.end(); it++) {
             process_old_young<Action>(*it);
         }

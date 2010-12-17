@@ -51,7 +51,7 @@ extern "C" {
 
     char* gvmt_gc_name = &copy_threads_name[0];
     
-    void gvmt_malloc_init(uint32_t s, float residency) {
+    void gvmt_malloc_init(uint32_t s) {
         cheney::init(s);
         allocator::free = cheney::free;
         allocator::limit = cheney::top_of_space;

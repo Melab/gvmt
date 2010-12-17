@@ -22,9 +22,10 @@ extern "C" {
         return GenImmix::fast_allocate(size);
     }
 
-    void gvmt_malloc_init(size_t heap_size_hint, float residency) {
-        GenImmix::init(heap_size_hint, residency);
+    void gvmt_malloc_init(size_t heap_size_hint) {
+        GenImmix::init(heap_size_hint);
         Zone::verify_heap();
+        LargeObjectSpace::verify_heap();
     }
     
     void gvmt_gc_collect(void) {
@@ -34,6 +35,14 @@ extern "C" {
     GVMT_CALL void* gvmt_gc_pin(GVMT_Object obj) {
         assert(obj);
         return GenImmix::pin(obj);
+    }
+    
+    int gvmt_is_pinned(void* ptr) {
+        return GenImmix::is_pinned(ptr);
+    }
+    
+    size_t gvmt_mature_space_residency() {
+        return Immix::total_residency();
     }
     
 }

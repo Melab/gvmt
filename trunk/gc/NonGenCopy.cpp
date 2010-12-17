@@ -22,8 +22,8 @@ extern "C" {
         return NonGenCopy::fast_allocate(size);
     }
 
-    void gvmt_malloc_init(size_t heap_size_hint, float residency) {
-        NonGenCopy::init(heap_size_hint, residency);
+    void gvmt_malloc_init(size_t heap_size_hint) {
+        NonGenCopy::init(heap_size_hint);
         Zone::verify_heap();
     }
   
