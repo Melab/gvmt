@@ -22,8 +22,7 @@ extern double gvmt_heap_residency;
  * Changing these values will have no effect on the run-time */
 extern int gvmt_minor_collections;
 extern int gvmt_major_collections;
-/** Heap size in bytes */
-extern int64_t gvmt_heap_size;
+
 /** Times are in nanoseconds */
 extern int64_t gvmt_minor_collection_time;
 extern int64_t gvmt_major_collection_time;
@@ -31,6 +30,16 @@ extern int64_t gvmt_total_collection_time;
 extern int64_t gvmt_total_compilation_time;
 extern int64_t gvmt_total_optimisation_time;
 extern int64_t gvmt_total_codegen_time;
+/** Heap sizes are in bytes */
+extern size_t gvmt_virtual_heap_size;
+extern size_t gvmt_real_heap_size;
+extern size_t gvmt_nursery_size;
+extern size_t gvmt_bytes_passed_to_allocators;
+/** This a count of the number of times that 
+ *  gvmt_bytes_passed_to_allocators has wrapped */
+extern size_t gvmt_passed_to_allocators_wrapped;
+
+size_t gvmt_mature_space_residency(void);
 
 typedef union gvmt_reference_types *GVMT_Object;
 

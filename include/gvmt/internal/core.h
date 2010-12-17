@@ -129,7 +129,7 @@ void inform_gc_new_stack(void);
 
 GVMT_NO_RETURN GVMT_CALL void gvmt_raise_exception(GVMT_Object ex);
 
-void __gvmt_fatal(char*fmt, ...);
+void __gvmt_fatal(const char*fmt, ...);
 
 void __gvmt_expect(char* file, int line, char* func, int expected, int actual);
 
@@ -147,6 +147,8 @@ int gvmt_get_shape_at_offset(GVMT_Object object, uintptr_t offset);
 int gvmt_object_is_initialised(GVMT_Object object, uintptr_t offset);
 
 void gvmt_fully_initialized_check(GVMT_Object object);
+
+int gvmt_is_pinned(void* ptr);
 
 GVMT_CALL void gvmt_save_pointers(GVMT_StackItem* sp, GVMT_Frame fp);
 

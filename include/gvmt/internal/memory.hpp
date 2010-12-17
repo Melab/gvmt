@@ -148,8 +148,8 @@ class Block : public MemoryUnit<Block, LOG_BLOCK_SIZE> {
     union {
         char pad[size];
         struct {
-            Block* linkedlist_next;
-            Block* linkedlist_previous;
+            Block* ring_next;
+            Block* ring_previous;
         };
     };
         
@@ -170,13 +170,21 @@ public:
     static inline bool can_allocate(Address ptr, size_t obj_size) {
         uintptr_t space = (-((intptr_t)ptr.bits())) & (size-1);
         return obj_size <= space;
-    }    
+    }
 
     inline int8_t space();
     
     static inline int8_t space_of(Address a);
     
     inline void set_space(char s);
+    
+    inline bool is_pinned();
+    
+    inline void set_pinned(bool p);
+    
+    bool is_valid();
+    
+    bool unmarked();
   
 };
 
@@ -184,15 +192,12 @@ public:
 /** Handles virtual memory allocation */
 class OS {
     
-    static uintptr_t virtual_memory_size;
     static char* get_new_mmap_region(uintptr_t size);
     
 public:
     
     static Zone* allocate_virtual_memory(size_t size);
     static void free_virtual_memory(Zone* zone, size_t size);
-    
-    static uintptr_t virtual_memory_allocated();
    
 };
 
@@ -211,7 +216,7 @@ public:
                 bool permanent;
                 struct {
                     char spaces[Zone::size/Block::size]; // 1 byte per block
-                    uint32_t index;
+                    uint32_t real_blocks;
                 };
                 struct {
                     uint8_t modified_map[Zone::size/Line::size];  
@@ -219,7 +224,10 @@ public:
                         uint8_t collector_line_data[Zone::size/Line::size]; 
                         uint32_t collector_block_data[Zone::size/Block::size];
                     };
-                    uint8_t pinned[Zone::size/Line::size]; 
+                    union {
+                        uint8_t pinned[Zone::size/Line::size]; 
+                        uint8_t block_pinned[Zone::size/Block::size];
+                    };
                 };
                 char pad[Block::size];   // align to block;
             };
@@ -251,11 +259,18 @@ public:
         *byte |= 1<<index;
     }
     
-    /** Returns the first usual Block, ie. Block index 2 */
+    /** Returns the first usable Block, ie. Block index 2 */
     inline Block* first() {
         return reinterpret_cast<Block*>(this)->next()->next();
     }
     
+    /** Returns the last real Block + 1, ie.
+     * The first block not to have been fetched into real memory*/
+    inline Block* first_virtual() {
+        assert(this->real_blocks <= Zone::size/Block::size);
+        return reinterpret_cast<Block*>(this) + this->real_blocks;
+    }
+
     inline Block* end() {
         return reinterpret_cast<Block*>(reinterpret_cast<char*>(this)+size);
     }
@@ -265,6 +280,8 @@ public:
     static void verify_heap();
     
     static void print_flags(Address addr);
+    
+    void print_blocks();
     
     /** Return true iff addr is a valid address in an allocated zone*/
     static bool valid_address(Address addr);
@@ -299,6 +316,19 @@ inline void Block::set_space(char s) {
     size_t index = Zone::index_of<Block>(this);
     z->spaces[index] = s;
 } 
+
+    
+inline bool Block::is_pinned() {
+    Zone* z = Zone::containing(this);
+    size_t index = Zone::index_of<Block>(this);
+    return z->block_pinned[index];    
+}
+    
+inline void Block::set_pinned(bool p) {
+    Zone* z = Zone::containing(this);
+    size_t index = Zone::index_of<Block>(this);
+    z->block_pinned[index] = p;    
+}
 
 class Space {
     
@@ -344,6 +374,9 @@ public:
         assert(from.is_aligned());
         assert(to.is_aligned());
         assert(is_aligned(size));
+        assert(!Block::containing(from)->is_pinned());
+        assert(Block::containing(from)->is_valid());
+        assert(Block::containing(to)->is_valid());
         Address to_ptr, from_ptr, end;
         to_ptr = to;
         from_ptr = from;
@@ -374,49 +407,78 @@ public:
 class Heap {
  
     static std::vector<Zone*> zones;
-    static std::vector<uint32_t>free_bits;
-    static int first_free;
-    static int virtual_zones;
     static size_t free_block_count;
-    static size_t single_block_cursor;
-    static size_t multi_block_cursor;
+    static std::vector<Block*> first_free_blocks;
+    static Block* free_block_rings[ZONE_ALIGNMENT/BLOCK_SIZE];
     
-    static Block* allocate_from_zone(size_t index, size_t count, int space) {
-        if (free_bits[index] == 0)
-            return NULL;
-        size_t i, mask = (1<<count) - 1;
-        for(i = 2; i <= Zone::size/Block::size-count; i++) {
-            if ((free_bits[index] & (mask<<i)) == (mask<<i)) {
-                free_bits[index] &= (~(mask<< i));
-                Block* result = &zones[index]->blocks[i];
-                assert(Zone::index_of<Block>(result) == i);
+    static void pop_out_of_ring(Block* b, size_t size) {
+        assert(free_block_rings[size] != NULL);
+        if (b == b->ring_next) {
+            assert(free_block_rings[size] == b);
+            free_block_rings[size] = NULL;
+        } else {
+            free_block_rings[size] = b->ring_next;
+            Block *next, *previous;
+            next = b->ring_next;
+            previous = b->ring_previous;
+            next->ring_previous = previous;
+            previous->ring_next = next;
+        }
+    }
+    
+    static Block* allocate_from_zone(size_t count, int space) {
+        for (size_t i = 0; i < first_free_blocks.size(); i++) {
+            size_t end = Zone::index_of<Block>(first_free_blocks[i]) + count;
+            if (end <= Zone::size/Block::size) {
+                Block* result = first_free_blocks[i];
+                first_free_blocks[i] += count;
+                if (end == Zone::size/Block::size) {
+                    first_free_blocks[i] = first_free_blocks[first_free_blocks.size()-1];
+                    first_free_blocks.pop_back();
+                }
                 for (unsigned i = 0; i < count; i++) {
                     result[i].set_space(space);
-                }
+                }                
+                gvmt_real_heap_size += count * Block::size;
                 free_block_count -= count;
+                Zone::containing(result)->real_blocks += count;
                 return result;
             }
         }
         return NULL;
     }
 
-    static inline Block* allocate_from_new_zone(size_t count, int space, bool force) {
-        if (force || virtual_zones > 0) {
-            Zone* z = OS::allocate_virtual_memory(Zone::size);
-            z->index = zones.size();
-            zones.push_back(z);   
-            free_bits.push_back(-4);
-            free_block_count += Zone::size/Block::size-2;
-            virtual_zones--;
-            multi_block_cursor = z->index;
-            Block* result = allocate_from_zone(z->index, count, space);
-            assert (result != NULL);
-            return result;
-        } else {
-            return NULL;
-        }
+    static void add_new_zone() {
+        Zone* z = OS::allocate_virtual_memory(Zone::size);
+        zones.push_back(z);
+        Block* first = z->first();
+        first_free_blocks.push_back(first);
+        // Account for header stuff - Will be real memory
+        int wasted = Zone::index_of<Block>(first);
+        z->real_blocks = wasted;
+        gvmt_real_heap_size += wasted * Block::size;
+        free_block_count += Zone::size/Block::size - wasted;
     }
     
+    static void insert_in_ring(Block* b, size_t size) {
+        assert(b >= Zone::containing(b)->first());
+        Block* next = free_block_rings[size];
+        if (next == NULL) {
+            b->ring_previous = b;
+            b->ring_next = b;
+            free_block_rings[size] = b;
+        } else {
+            assert(next->space() == Space::FREE);
+            Block *previous = next->ring_previous;
+            assert(previous);
+            assert(previous->space() == Space::FREE);
+            b->ring_next = next;
+            b->ring_previous = previous;
+            previous->ring_next = b;
+            next->ring_previous = b;
+        }
+    }
+
 public:
 
     template <class Policy> static void init() {
@@ -425,94 +487,148 @@ public:
         assert(b == (Block*)z);
         assert(b == Block::containing((char*)b));
         assert(sizeof(Block) == Block::size);
+        while ((char*)z < &gvmt_end_heap) {
+            gvmt_real_heap_size += Zone::size;
+            gvmt_virtual_heap_size += Zone::size;
+            zones.push_back(z);   
+            z->real_blocks = Zone::size/Block::size;
+            z = z->next();
+        }
         // Skip zone headers
-        while (Zone::index_of<Block>((char*)b) < 2)
-            b = b->next();
-        uint8_t area;
-        while ((area = b->space()) == Space::MATURE) {
-            if (((intptr_t*)b)[0] != 0) {
-                Policy::data_block(b);
-            }
+        if (b < Zone::containing(b)->first())
+            b = Zone::containing(b)->first();
+        Block* end = Block::containing(&gvmt_small_object_area_end);
+        assert(end == (Block*)&gvmt_small_object_area_end);
+        while (b < end) {
+            Policy::data_block(b);
             b = b->next();
             // Skip zone headers
-            if (Zone::index_of<Block>((char*)b) == 0) {
-                b = b->next(); 
-                b = b->next();
+            if (b < Zone::containing(b)->first()) {
+                b = Zone::containing(b)->first();
             }
         }
-        while ((char*)z < &gvmt_end_heap) {
-            z->index = zones.size();
-            zones.push_back(z);   
-            free_bits.push_back(0);
-            z = z->next();
+        b = Block::containing(&gvmt_small_object_area_end);
+        end = Block::containing(&gvmt_large_object_area_start);
+        assert(end == (Block*)&gvmt_large_object_area_start);
+        init_free_blocks(b, end - b);
+    }
+    
+    static void init_free_blocks(Block* b, size_t count) {
+        if (count == 0)
+            return;
+        Block* end = b + count;
+        while (Zone::containing(b)->first_virtual() < end) {
+            insert_in_ring(b, Zone::containing(b)->first_virtual() - b);
+            free_block_count += Zone::containing(b)->first_virtual() - b;
+            Block* i;
+            for (i = b; i < Zone::containing(b)->first_virtual(); i++) {
+                assert(i->is_valid());
+                assert(i->unmarked());
+                i->set_space(Space::FREE);
+            }   
+            b = Zone::containing(b)->next()->first();
+        }
+        if (b < end) {
+            insert_in_ring(b, end - b);
+            free_block_count += end - b;
+            Block* i;
+            for (i = b; i < end; i++) {
+                assert(i->is_valid());
+                assert(i->unmarked());
+                i->set_space(Space::FREE);
+            }
         }
     }
     
     static inline void done_collection(void) {
-        // reset cursors to start
-        single_block_cursor = 0;
-        multi_block_cursor = 0;
+        // Nothing to do.
     }
+    
+    static bool contains(Zone* z);
     
     static void ensure_space(size_t space) {
-        int extra = space - available_space();
-        if (extra > 0)
-            virtual_zones += (extra+Zone::size-1)/Zone::size;
+        while (space > available_space()) {
+            add_new_zone();
+        }
     }
     
-    static int available_space() {
-        // Computed space may be negative from previous forced allocation.
-        int space = free_block_count * Block::size + 
-               virtual_zones * Zone::size;
-        return space < 0 ? 0 : space;
+    static size_t available_space() {
+        return free_block_count * Block::size;
+    }
+    
+    static inline Block* get_blocks_from_free_lists(int count, int space) {
+        int size;
+        assert(count < (int)(Zone::size/Block::size));
+        for (size = count; free_block_rings[size] == NULL; size++) {
+            if (size == Zone::size/Block::size-1)
+                return NULL;
+        }
+        Block* result = free_block_rings[size];
+        pop_out_of_ring(result, size);
+        if (size > count) {
+            Block* surplus = result + count;
+            insert_in_ring(surplus, size-count);
+        }
+        free_block_count -= count;
+        for (int i = 0; i < count; i++) {
+            result[i].set_space(space);
+        }                
+        return result;
     }
      
     static Block* get_blocks(size_t count, int space, bool force) {
         assert(0 < count);
         assert(count < Zone::size/Block::size);
         assert(space != Space::FREE);
-        if (count == 1)
-            return get_block(space, force);
-        Block* result;
-        while (multi_block_cursor < zones.size()) {
-            if (free_bits[multi_block_cursor]) {
-                result = allocate_from_zone(multi_block_cursor, count, space);
-                if (result) {
-                    assert(Zone::index_of<Block>(result) >= 2);
-                    assert(Zone::index_of<Block>(result)+count <= 
-                           Zone::size/Block::size);
-                    return result;
-                }
-            }
-            multi_block_cursor++;
+        Block* result = get_blocks_from_free_lists(count, space);
+        if (result == NULL) {
+            result = allocate_from_zone(count, space);
         }
-        return allocate_from_new_zone(count, space, force);
+        if (result == NULL && force) {
+            add_new_zone();
+            result = allocate_from_zone(count, space);
+            assert(result != NULL);
+        }
+        return result;
     }
         
     static inline Block* get_block(int space, bool force) {
-        while (single_block_cursor < zones.size()) {
-            if (free_bits[single_block_cursor]) {
-                Block* result = allocate_from_zone(single_block_cursor, 1, space);
-                assert(result);
-                return result;
-            }
-            single_block_cursor++;
+        Block* result = free_block_rings[1];
+        if (result) {
+            pop_out_of_ring(result, 1);
+            free_block_count -= 1;
+            assert(result->space() == Space::FREE);
+            result->set_space(space);
+            return result;
         }
-        return allocate_from_new_zone(1, space, force);
+        return get_blocks(1, space, force);
     }
 
     static void free_blocks(Block* blocks, size_t count) {
         Zone* z = Zone::containing(blocks);
         assert(z == Zone::containing((blocks + count-1)));
-        assert(z->index < zones.size());
         assert(count > 0);
-        uint32_t mask = (1<<count) - 1;
-        uint32_t to_free = (mask<<Zone::index_of<Block>(blocks));
-        assert ((free_bits[z->index] & to_free) == 0);
-        free_bits[z->index] |= to_free;
+        Block* start, *end;
+        start = blocks;
+        while (start > z->first() && start->previous()->space() == Space::FREE) {
+            start = start->previous(); 
+        }
+        end = blocks+count;
+        while (end < z->first_virtual() && end->space() == Space::FREE) {
+            end = end->next();
+        }
+        if (start != blocks) {
+            pop_out_of_ring(start, blocks-start);
+        }
+        if (end != blocks+count) {
+            pop_out_of_ring(blocks+count, end-blocks-count);
+        }
+        insert_in_ring(start, end-start);
         free_block_count += count;
         for (size_t i = 0; i < count; i++) {
+            assert(blocks[i].unmarked());
             blocks[i].set_space(Space::FREE);
+            blocks[i].set_pinned(false);
         }
     }
     
@@ -526,7 +642,7 @@ public:
         }
          
         inline iterator& operator++ () {
-            index++;
+            this->index++;
             return *this;
         }
         
@@ -552,12 +668,8 @@ public:
         return iterator(zones.size());
     }
     
-};
- 
-extern "C" {
+    static void print_blocks();
     
-    extern Block gvmt_large_object_area_start;
-
-}
+};
 
 #endif // GVMT_INTERNAL_MEMORY_H 

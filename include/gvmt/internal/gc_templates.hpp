@@ -71,12 +71,25 @@ namespace gc {
     
     template <class Collection> inline Address scan_object(Address addr) {
         int shape_buffer[GVMT_MAX_SHAPE_SIZE];
-        object::iterator it = object::begin(addr, shape_buffer);
-        for (; !it.at_end(); ++it) {
-            if (Collection::wants(*it))
-                *it = Collection::apply(*it);
+        GVMT_Object* start = reinterpret_cast<GVMT_Object*>(addr.bits());
+        GVMT_Object* item = start;
+        int* shape = gvmt_user_shape(addr.as_object(), shape_buffer);
+        while (*shape) {
+            if (*shape < 0) {
+                item -= *shape;
+            } else {
+                GVMT_Object* end_chunk = item + *shape;
+                for (; item < end_chunk; item++) {
+                    GVMT_Object field = *item;
+                    if (Collection::wants(field)) {
+                        *item = Collection::apply(field);
+                    }
+                }
+            }
+            ++shape;
         }
-        return it.end_address();
+        assert(item == start + gvmt_user_length(addr.as_object())/sizeof(void*));
+        return Address(item);
     }
     
     template <class Collection> void transitive_closure() {

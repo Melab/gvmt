@@ -41,7 +41,12 @@ int64_t gvmt_total_collection_time = 0;
 int64_t gvmt_total_compilation_time = 0;
 int64_t gvmt_total_optimisation_time = 0;
 int64_t gvmt_total_codegen_time = 0;
-int64_t gvmt_heap_size = 0;
+size_t gvmt_virtual_heap_size = 0;
+size_t gvmt_real_heap_size = 0;
+size_t gvmt_nursery_size = 0;
+size_t gvmt_bytes_passed_to_allocators = 0;
+size_t gvmt_passed_to_allocators_wrapped = 0;
+
 
 GVMT_THREAD_LOCAL int gvmt_last_return_type;
 #ifndef NDEBUG
@@ -244,7 +249,7 @@ int _assert(char *e, char *file, int line) {
 	return 0;
 }
 
-void __gvmt_fatal(char* fmt, ...) {
+void __gvmt_fatal(const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);

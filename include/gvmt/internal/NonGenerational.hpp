@@ -4,7 +4,6 @@
 #include "gvmt/internal/gc_threads.hpp"
 #include "gvmt/internal/memory.hpp"
 #include "gvmt/internal/LargeObjectSpace.hpp"
-#include "gvmt/internal/reclaim.hpp"
 
 #define MB ((unsigned)(1024*1024))
 
@@ -67,8 +66,8 @@ public:
         return (GVMT_Object)mem;
     }
     
-    static inline void init(size_t heap_size_hint, float residency) {
-        Policy::init(heap_size_hint, residency);
+    static inline void init(size_t heap_size_hint) {
+        Policy::init(heap_size_hint);
         Heap::init<Policy>();
         Heap::ensure_space(4 * MB);
         GC::weak_references.intialise();    
@@ -88,13 +87,15 @@ public:
         t0 = high_res_time();
         Policy::pre_collection();
         LargeObjectSpace::pre_collection();
+        HugeObjectSpace::pre_collection();
         gc::process_roots<NonGenCollection<Policy> >();
         gc::transitive_closure<NonGenCollection<Policy> >();
         gc::process_finalisers<NonGenCollection<Policy> >();
         gc::transitive_closure<NonGenCollection<Policy> >();
         gc::process_weak_refs<NonGenCollection<Policy> >();
         LargeObjectSpace::sweep();
-        GC::reclaim<Policy>();
+        HugeObjectSpace::sweep();
+        Policy::reclaim();
         Heap::done_collection();
         allocator::zero_limit_pointers();
         assert(GC::mark_stack.empty());

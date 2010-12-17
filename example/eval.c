@@ -967,7 +967,7 @@ GVMT_Object init_vm(void) {
     int print = print_expression;
     int trace = tracing_on;
     int dis = disassemble;
-    gvmt_malloc_init(HEAP_SPACE, 0.0);
+    gvmt_malloc_init(HEAP_SPACE);
     recursion_depth = 0;
     recursion_limit = 2000;
     init_parser();

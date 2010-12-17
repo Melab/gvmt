@@ -3,7 +3,6 @@
 #include "gvmt/internal/gc_threads.hpp"
 #include "gvmt/internal/memory.hpp"
 #include "gvmt/internal/LargeObjectSpace.hpp"
-#include "gvmt/internal/reclaim.hpp"
 
 #define MB ((unsigned)(1024*1024))
 
@@ -28,10 +27,14 @@ class Nursery {
             block_index = next_free_block_index;
         } while (!COMPARE_AND_SWAP(&next_free_block_index, block_index, block_index+1));
         assert(next_free_block_index > block_index);
-        if (block_index < blocks.size())
-            return blocks[block_index];
-        else
+        if (block_index < blocks.size()) {
+            gvmt_bytes_passed_to_allocators += Block::size;
+            Block* result = blocks[block_index];
+            assert(result->is_valid());
+            return result;
+        } else {
             return NULL;
+        }
     }
     
     
@@ -48,6 +51,7 @@ class Nursery {
         }
         for (it = pinned.begin(); it != pinned.end(); it++) {
             assert((*it)->space() == Space::PINNED);
+            assert((*it)->is_pinned());
         }
     }
 #else
@@ -55,8 +59,6 @@ class Nursery {
 #endif
 
 public:
-    
-    static size_t size;
     
     static bool any_pinned() {
         return pinned.size() != 0; 
@@ -67,20 +69,21 @@ public:
         Zone::containing(b)->collector_block_data[index] = blocks.size();
         b->set_space(Space::NURSERY);
         blocks.push_back(b);
-        size += Block::size;
+        gvmt_nursery_size += Block::size;
         sanity();
     }
 
-    static void init(size_t size_hint) {
+    static void resize(size_t size_hint) {
         if (size_hint < MB)
             size_hint = MB;
-        while (size < size_hint) {
+        while (gvmt_nursery_size < size_hint) {
             add_block(Heap::get_block(Space::NURSERY, true));
         }
     }
     
     static void pin(Block* b) {
         assert(b->space() == Space::PINNED);
+        b->set_pinned(true);
         assert(find(blocks.begin(), blocks.end(), b) != blocks.end());
         int index = Zone::index_of<Block>(b);
         int blocks_index = Zone::containing(b)->collector_block_data[index];
@@ -137,6 +140,7 @@ public:
         int size = pinned.size();
         while (!pinned.empty()) {
             Block *b = pinned.back();
+            assert(b->is_pinned());
             pinned.pop_back();
             assert(find(blocks.begin(), blocks.end(), b) == blocks.end());
             sanity();
@@ -146,13 +150,13 @@ public:
             sanity();
         }
         sanity();
+        gvmt_nursery_size -= Block::size * size;
         return size;
     }
     
 };
   
 size_t Nursery::next_free_block_index = 0;
-size_t Nursery::size = 0;
 std::vector<Block*> Nursery::blocks;
 std::vector<Block*> Nursery::pinned;
 
@@ -245,12 +249,7 @@ public:
     
     static inline void scanned(Address obj, Address end) {
         if (Block::containing(obj)->space() == Space::PINNED) {
-            Zone* z = Zone::containing(obj);
-            Line* l = Line::containing(obj);
-            do {
-                z->pinned[Zone::index_of<Line>(l)] = 1;
-                l = l->next();
-            } while (l->start() < end);
+            Policy::scanned(obj, end);
         }
     }
 
@@ -259,6 +258,16 @@ public:
 template <class Policy> class Generational {
     
     static uint32_t nursery_shortfall;
+    
+    static inline GVMT_Object try_to_allocate(size_t size) {
+        GVMT_Object mem;
+        if (size >= LARGE_OBJECT_SIZE) {
+            mem = LargeObjectSpace::allocate(size, false);  
+        } else {
+            mem = Nursery::allocate(size);
+        }
+        return mem;
+    }   
     
 public:
         
@@ -279,33 +288,24 @@ public:
     /** Do allocation, doing GC if necessary */
     static inline GVMT_Object allocate(GVMT_StackItem* sp, GVMT_Frame fp,
                                        size_t size) {
-        GVMT_Object mem;
-        if (size >= LARGE_OBJECT_SIZE) {
-            mem = LargeObjectSpace::allocate(size, false);      
-        } else {
-            mem = Nursery::allocate(size);
-        }
+        GVMT_Object mem = try_to_allocate(size);
         if (mem == NULL) {
             mutator::request_gc();
             mutator::wait_for_collector(sp, fp);
-            if (size >= LARGE_OBJECT_SIZE) {
-                mem = LargeObjectSpace::allocate(size, true);      
-            } else {
-                mem = Nursery::allocate(size);
-            }
+            mem = try_to_allocate(size);
             // Cannot run out of memory?
             assert (mem != NULL);
         }
         return mem;
     }
     
-    static inline void init(size_t heap_size_hint, float residency) {
+    static inline void init(size_t heap_size_hint) {
         int64_t t0, t1;
         t0 = high_res_time();
-        Nursery::init(std::min(heap_size_hint / 8, 8*MB));
-        Policy::init(heap_size_hint - Nursery::size , residency);
+        Nursery::resize(0);
+        Policy::init(heap_size_hint);
         Heap::init<Policy>();
-        Heap::ensure_space(Nursery::size * 2);
+        Heap::ensure_space(gvmt_nursery_size);
         GC::weak_references.intialise();
         LargeObjectSpace::init();
         mutator::init();
@@ -318,23 +318,38 @@ public:
     /** Called by mutator code to pin an object */
     static inline void* pin(GVMT_Object obj) {
         int block_index = Zone::index_of<Block>(Address(obj));
-        char* addr = &Zone::containing(obj)->spaces[block_index];
+        Zone* z = Zone::containing(obj);
+        char* addr = &z->spaces[block_index];
         char space = *addr;
         if (space != Space::PINNED) {
             if (space == Space::NURSERY) {
                 if (COMPARE_AND_SWAP_BYTE(addr, Space::NURSERY, Space::PINNED)) {
                     Nursery::pin(Block::containing(obj));
                 }
+                z->pinned[Zone::index_of<Line>(Address(obj))] = 1;
                 assert(Block::containing(obj)->space() == Space::PINNED); 
             } else {
-                if (space == Space::MATURE)
+                if (space == Space::MATURE) {
                     Policy::pin(obj);
                 // Large objects are already pinned
-                else 
+                } else {
                     assert(space == Space::LARGE);
+                }
             }
+        } else {
+            z->pinned[Zone::index_of<Line>(Address(obj))] = 1;
         }
+        assert(is_pinned(obj));
         return reinterpret_cast<void*>(obj);
+    }
+    
+    static int is_pinned(void* ptr) {
+        if (LargeObjectSpace::in((char*)ptr))
+            return 1;
+        Zone* z = Zone::containing(ptr);
+        Block* b = Block::containing(ptr);
+        return b->is_pinned() &&
+            z->pinned[Zone::index_of<Line>((Line*)ptr)];
     }
         
     template <class C> static inline void process_old_young(Block* b) {
@@ -364,12 +379,13 @@ public:
     template <class C> static inline void process_old_young() {
         Heap::iterator end = Heap::end();
         for(Heap::iterator it = Heap::begin(); it != end; ++it) {
-            for (Block* b = (*it)->first(); b != (*it)->end(); b++) {
+            for (Block* b = (*it)->first(); b != (*it)->first_virtual(); b++) {
                 if (b->space() == Space::MATURE)
                     process_old_young<C>(b);
             }
         }
         LargeObjectSpace::process_old_young<C>();
+        HugeObjectSpace::process_old_young<C>();
     }
     
     static void minor_collect() {        
@@ -408,16 +424,20 @@ public:
         t0 = high_res_time();
         Policy::pre_collection();
         LargeObjectSpace::pre_collection();
+        HugeObjectSpace::pre_collection();
         gc::process_roots<MajorCollection<Policy> >();
         gc::transitive_closure<MajorCollection<Policy> >();
         gc::process_finalisers<MajorCollection<Policy> >();
         gc::transitive_closure<MajorCollection<Policy> >();
         gc::process_weak_refs<MajorCollection<Policy> >();
         LargeObjectSpace::sweep();
-        GC::reclaim<Policy>();
+        HugeObjectSpace::sweep();
+        Policy::reclaim();
         Heap::done_collection();
         assert(GC::mark_stack.empty());
-        Heap::ensure_space(Nursery::size * 2 - Policy::available_space());
+        size_t nursery = std::min(gvmt_real_heap_size / 4, gvmt_nursery_size *2);
+        Nursery::resize(std::min(nursery, 8*MB));
+        Heap::ensure_space(gvmt_nursery_size - Policy::available_space());
         t1 = high_res_time();            
         gvmt_major_collections++;
         gvmt_major_collection_time += (t1 - t0);
@@ -425,15 +445,23 @@ public:
     }
 
     static inline void collect() {
+        Policy::sanity();
         minor_collect();
-        if (Heap::available_space() + Policy::available_space() < Nursery::size) {
+        Policy::sanity();
+        if (Heap::available_space() + Policy::available_space() < gvmt_nursery_size ||
+            HugeObjectSpace::allocated_space_since_collection() > gvmt_nursery_size) {
+            Policy::sanity();
             major_collect();
+            Policy::sanity();
         }
     }
 
     static inline void full_collect() {
+        Policy::sanity();
         minor_collect();
+        Policy::sanity();
         major_collect();
+        Policy::sanity();
     }
 
 };

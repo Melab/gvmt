@@ -212,8 +212,19 @@ namespace object {
 extern GVMT_Object gvmt_start_roots;
 /** One after the last root */
 extern GVMT_Object gvmt_end_roots;
+
 /** First byte in the initial heap */
 extern char gvmt_start_heap;
+
+/** First byte after the end of the small object area */
+extern char gvmt_small_object_area_end;
+
+/** First byte in very large object area */
+extern char gvmt_large_object_area_start;
+
+/** First byte after large object area */
+extern char gvmt_large_object_area_end;
+
 /** First byte after the end of the initial heap */
 extern char gvmt_end_heap;
 

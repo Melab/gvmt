@@ -70,7 +70,7 @@ extern "C" {
 
     char* gvmt_gc_name = &copy_name[0];
     
-    void gvmt_malloc_init(uint32_t s, float residency) {
+    void gvmt_malloc_init(uint32_t s) {
         cheney::init(s);
         gvmt_gc_free_pointer = (GVMT_StackItem*)cheney::free;
         gvmt_gc_limit_pointer = (GVMT_StackItem*)cheney::top_of_space;

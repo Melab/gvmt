@@ -44,7 +44,7 @@ extern "C" {
 
     char* gvmt_gc_name = &copy_non_gen_name[0];
     
-    void gvmt_malloc_init(uint32_t s, float residency) {
+    void gvmt_malloc_init(uint32_t s) {
         int64_t t0, t1;
         t0 = high_res_time();
         char* heap = (char*)get_virtual_memory(s);

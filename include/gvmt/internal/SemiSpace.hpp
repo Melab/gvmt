@@ -88,18 +88,15 @@ class SemiSpace {
 #define MEGA_MINUS_ONE ((1 << 20) - 1)
 
     static void data_block(Block* b) {
+        assert(b->is_valid());
+        b->set_space(Space::MATURE);
         to_space->push_back(b);
         next_free_block_index = to_space->size();
     }
  
     /** Called once during VM initialisation */
-    static void init(size_t heap_size_hint, float residency) {
-        if (residency == 0.0)
-            heap_residency = 0.3;
-        else if (residency > 0.4)
-            heap_residency = 0.4;
-        else
-            heap_residency = residency;
+    static void init(size_t heap_size_hint) {
+        heap_residency = 0.3;
         copy_ptr = 0;
         scan_ptr = 0;
         // Roundup to nearest megabyte
@@ -142,6 +139,7 @@ class SemiSpace {
             assert(copy_block->contains(copy_ptr.plus_bytes(size)));
         }
         assert(Zone::valid_address(copy_ptr));
+        assert(Block::containing(copy_ptr)->is_valid());
         assert(Block::containing(copy_ptr)->space() == Space::MATURE);
         Address result = copy_ptr;
         copy_ptr = copy_ptr.plus_bytes(size);
@@ -236,11 +234,7 @@ class SemiSpace {
         assert(*it == (*to_space)[next_free_block_index]);
         return it;
     }
-    
-    static inline bool is_scannable(Address obj) {
-        return true;
-    }
-    
+   
     // Stuff for pinning - Just abort.
     static void promote_pinned_block(Block* b) {
         abort();   
