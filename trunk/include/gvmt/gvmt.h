@@ -17,10 +17,8 @@ GVMT_Object gvmt_malloc(size_t s);
 
 /* Initialise the heap and GC.
  * Size is a (soft) limit on the maximum heap size.
- * Residency is a hint for heap residency. 
- * A zero value for residency will use the default.
  * Must be called before gvmt_malloc() or GC-related functions are called. */
-void gvmt_malloc_init(size_t s, float residency);
+void gvmt_malloc_init(size_t s);
 
 /** Intrinsics */
 
