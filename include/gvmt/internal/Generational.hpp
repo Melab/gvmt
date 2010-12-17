@@ -348,6 +348,8 @@ public:
             return 1;
         Zone* z = Zone::containing(ptr);
         Block* b = Block::containing(ptr);
+        if (b->space() == Space::MATURE && !Zone::marked((char*)ptr))
+            return 0;
         return b->is_pinned() &&
             z->pinned[Zone::index_of<Line>((Line*)ptr)];
     }
