@@ -199,9 +199,9 @@ void* gvmt_gc_add_root(void);
 void* gvmt_pin(GVMT_Object obj);
 
 /* Treat an address as an object. Must only be applied to objects which
- * have been pinned AND have a root preventin them from being collected.
+ * have been pinned AND have a root preventing them from being collected.
  */ 
-#define gvmt_pinned_object gvmt___tag__
+GVMT_Object gvmt_pinned_object(void* pointer);
 
 void gvmt_gc_free_root(void* root);
 

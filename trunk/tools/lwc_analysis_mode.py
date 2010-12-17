@@ -61,6 +61,9 @@ class LwcAnalysisMode(object):
     def rload(self, tipe, obj, offset):
         pass
         
+    def field_is_null(self, is_null, array, offset):
+        pass
+    
     def rstore(self, tipe, obj, offset, value):
         if value == _COMPARE:
             self.dont_compile = True      

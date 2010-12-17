@@ -449,6 +449,16 @@ class CMode(object):
         self._check_ref_access(obj, offset, tipe)
         return PointerAdd(tipe, obj, operators.add, offset).indir(tipe)
         
+    def field_is_null(self, is_null, obj, offset):
+        obj = obj.cast(gtypes.r)
+        self._null_check(obj)
+        l = PointerAdd(gtypes.iptr, obj, operators.add, offset).indir(gtypes.iptr)
+        r = Constant(gtypes.iptr, 0)
+        if is_null: 
+            return Binary(gtypes.iptr, l, operators.eq, r)
+        else:
+            return Binary(gtypes.iptr, l, operators.ne, r)
+        
     def rstore(self, tipe, obj, offset, value):
         obj = obj.cast(gtypes.r)
         self._null_check(obj)
@@ -485,12 +495,13 @@ class CMode(object):
         self._call(func, tipe)
         new_top = self.stack.top(self.out)
         if common.global_debug:
-            fmt = ' if(gvmt_last_return_type && gvmt_last_return_type != %s)'
-            self.out << fmt % _return_type_codes[tipe]
-            fmt = (' __gvmt_fatal("%%s:%%d:Incorrect return type, '
-                   'expected %s got %%s\\n", __FILE__, __LINE__,'
-                   'gvmt_return_type_names[gvmt_last_return_type]);')
-            self.out << fmt % tipe.suffix
+            #Turn off return type checking, need to implement in CC as well.
+            #fmt = ' if(gvmt_last_return_type && gvmt_last_return_type != %s)'
+            #self.out << fmt % _return_type_codes[tipe]
+            #fmt = (' __gvmt_fatal("%%s:%%d:Incorrect return type, '
+            #       'expected %s got %%s\\n", __FILE__, __LINE__,'
+            #       'gvmt_return_type_names[gvmt_last_return_type]);')
+            #self.out << fmt % tipe.suffix
             self.out << ' if(%s-%s > %s)' % (new_top, top, pcount)
             fmt = ' __gvmt_expect_v(__FILE__, __LINE__, "%s", %s, %s-%s);'
             self.out << fmt % (_no_amp(func), pcount, new_top, top)
@@ -513,13 +524,14 @@ class CMode(object):
             twords = 1
         else:
             twords = 2
-        if common.global_debug:
-            fmt = ' if(gvmt_last_return_type && gvmt_last_return_type != %s)'
-            self.out << fmt % _return_type_codes[tipe]
-            fmt = (' __gvmt_fatal("%%s:%%d:Incorrect return type, '
-                   'expected %s got %%s\\n", __FILE__, __LINE__,'
-                   'gvmt_return_type_names[gvmt_last_return_type]);')
-            self.out << fmt % tipe.suffix
+        #if common.global_debug:
+            #Turn off return type checking, need to implement in CC as well.
+            #fmt = ' if(gvmt_last_return_type && gvmt_last_return_type != %s)'
+            #self.out << fmt % _return_type_codes[tipe]
+            #fmt = (' __gvmt_fatal("%%s:%%d:Incorrect return type, '
+            #       'expected %s got %%s\\n", __FILE__, __LINE__,'
+            #       'gvmt_return_type_names[gvmt_last_return_type]);')
+            #self.out << fmt % tipe.suffix
             
     def _call(self, func, tipe):
         global _uid
@@ -821,6 +833,14 @@ class CMode(object):
         
     def pin(self, val):
         return Simple(gtypes.p, 'gvmt_gc_pin(%s)'  % val.cast(gtypes.p))
+        
+    def pinned_object(self, val):
+        if common.global_debug:
+            fatal_fmt = ('__gvmt_fatal("%%s:%%d: Object at 0x%%x is not pinned\\n"'
+                         ', __FILE__, __LINE__, (size_t)%s);')
+            self.out << 'if(!gvmt_is_pinned(%s)) ' % val.cast(gtypes.p)
+            self.out << fatal_fmt % val.cast(gtypes.p)
+        return val.cast(gtypes.r)
         
     def zero(self, val):
         return Simple(gtypes.u8, '((uint64_t)%s)' % val.cast(gtypes.u4))

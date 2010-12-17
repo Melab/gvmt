@@ -474,7 +474,7 @@ def to_object(src_file, base_name, library, optimise, sys_headers, gc_name):
     out << 'extern void* malloc(uintptr_t size);\n'
     out << 'extern int strcmp(void* s1, void* s2);\n'
     out << 'extern GVMT_Object gvmt_%s_malloc(GVMT_StackItem* sp, GVMT_Frame fp, uintptr_t size);\n' % gc_name
-    out << 'extern void __gvmt_fatal(char* fmt, ...);\n'
+    out << 'extern void __gvmt_fatal(const char* fmt, ...);\n'
     out << '#define GVMT_COMPILED\n'
     out << '\n'
     out << '\n'

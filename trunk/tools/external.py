@@ -50,6 +50,9 @@ class ExternalMode(object):
         
     def rload(self, tipe, array, offset):
         pass
+
+    def field_is_null(self, is_null, array, offset):
+        pass    
     
     def rstore(self, tipe, array, offset, value):
         pass
@@ -67,6 +70,9 @@ class ExternalMode(object):
         pass
         
     def pin(self, val):
+        pass
+    
+    def pinned_object(self, val):
         pass
         
     def opcode(self):

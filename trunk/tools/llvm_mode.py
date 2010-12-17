@@ -503,6 +503,15 @@ class LlvmPassMode(object):
         else:
             return PointerAdd(obj, operators.add, offset).load(tipe)
     
+    def field_is_null(self, is_null, obj, offset):
+        l = self.rload(gtypes.p, obj, offset)
+        r = self.constant(0)
+        if is_null:
+            op = operators.eq
+        else:
+            op = operators.ne
+        return self.comparison(gtypes.p, l, op, r)
+        
     def rstore(self, tipe, obj, offset, value):
         self.stack.store(self.out)
         if tipe == gtypes.r:
@@ -562,6 +571,9 @@ class LlvmPassMode(object):
                      ' &args_%d[0], &args_%d[1], "", current_block);\n')
         self.out << call_fmt % (_uid, _uid, _uid)
         return Simple(gtypes.p, 'pinned_%d'  % _uid)
+        
+    def pinned_object(self, val):
+        return val.cast(gtypes.r)
         
     def zero(self, val):
         global _uid

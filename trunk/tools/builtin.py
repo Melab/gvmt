@@ -115,6 +115,28 @@ class ComparisonOp(Instruction):
     def invert(self):
         return ComparisonOp(self.op._invert, self.tipe)
         
+class FieldIsNull(Instruction):
+    
+    def __init__(self, is_null):
+        self.is_null = is_null
+        if is_null:
+            self.name = 'FIELD_IS_NULL'
+            not_ = ''
+        else:
+            self.name = 'FIELD_IS_NOT_NULL'
+            not_ = 'not '
+        self.inputs = [ 'object', 'offset' ]
+        self.outputs = [ 'value' ]
+        self.__doc__ = '''Tests whether an object field is %snull.
+Equivalent to RLOAD_X 0 EQ_X where X is a R, P or a pointer sized integer.
+'''
+    
+    def process(self, mode):
+        offset = mode.stack_pop(gtypes.iptr)
+        obj = mode.stack_pop(gtypes.r)
+        val = mode.field_is_null(self.is_null, obj, offset)
+        mode.stack_push(val)
+      
 class UnaryOp(Instruction):
     
     def __init__(self, op, tipe):
@@ -797,6 +819,18 @@ class Pin(Instruction):
     def process(self, mode):
         pinned = mode.pin(mode.stack_pop(gtypes.r))
         mode.stack_push(pinned)
+        
+class PinnedObject(Instruction):
+    '''Declares that pointer is in fact a reference to a pinned object.'''
+
+    def __init__(self):
+        self.name = 'PINNED_OBJECT'
+        self.inputs = ['pointer']
+        self.outputs = ['object']
+    
+    def process(self, mode):
+        pinned = mode.pinned_object(mode.stack_pop(gtypes.p))
+        mode.stack_push(pinned)
    
 class Jump(Instruction):
       
@@ -1181,8 +1215,8 @@ def _init():
                push_state, pop_state, Opcode, Lock_Internal, Transfer, Raise,
                discard_state, IP, Zero, DropN, Symbol, FarJump, ZeroMemory, 
                GC_FreePointerStore, GC_FreePointerLoad, GC_Malloc_Fast, Drop,
-               GC_LimitPointerStore, GC_LimitPointerLoad, Next_IP, Pin,
-               GC_Allocate_Only, FullyInitialized, Lock, Unlock ]:
+               GC_LimitPointerStore, GC_LimitPointerLoad, Next_IP, PinnedObject,
+               GC_Allocate_Only, FullyInitialized, Lock, Unlock, Pin ]:
         i = cls()
         instructions[i.name] = i
     for x in (1,2,4):
@@ -1260,7 +1294,10 @@ def _init():
     instructions[bin.name] =  bin
     bin = ComparisonOp(operators.ne, gtypes.r)
     instructions[bin.name] =  bin
-    
+    i = FieldIsNull(True)
+    instructions[i.name] = i
+    i = FieldIsNull(False)
+    instructions[i.name] = i
               
     for op in [ operators.add, operators.sub, operators.mul, operators.div ]:
         for tipe in int_types + float_types:

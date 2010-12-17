@@ -247,10 +247,10 @@ static int is_null(Node p) {
     if (gen != CNST)
         return 0;
     switch(optype(p->op)) {
-    case I: case U:
+    case I: case U: case P:
         if (p->syms[0]->u.c.v.i == 0) {
             return 1;
-        } 
+        }
     }
     return 0;
 } 
@@ -1913,7 +1913,7 @@ static void print_conversion(Node p) {
     #define set1248 ((1 << 1) | (1 << 2) | (1 << 4) | (1 << 8))
     assert(((1 << to) & set1248) && ((1 << from) & set1248));
     switch(specific(p->op)) {
-    case CVI+U: case CVU+U: case CVP+U: case CVU+P: 
+    case CVI+U: case CVU+U: case CVP+U: case CVU+P:
     case CVU+I: case CVI+I:
         if (from == 4) {
             if (to < 4) {
@@ -2028,6 +2028,58 @@ static void intrinsic(char* txt) {
     print(txt);
     n_args = N_ARGS;
     arg_count = 0;
+}
+
+static int is_nullable_field_access(Node p) {
+    Node n;
+    switch(generic(p->op)) {
+    case INDIR:
+        break;
+    case CVU: case CVI: case CVP: 
+        if (opsize(p->op) != p->syms[0]->u.c.v.i)
+            return 0;
+        return is_nullable_field_access(p->kids[0]);
+    default:
+        return 0;
+    }
+    switch(optype(p->op)) {
+    case I: case U:
+        if (opsize(p->op) != sizeof(void*))
+            return 0;
+        break;
+    case P:
+        break;
+    default:
+        return 0;
+    }
+    n = p->kids[0];
+    return n->x.exact_type == MEMBER || n->x.exact_type == REFERENCE_TYPE;
+}
+
+static void emit_is_null(Node p, int eq) {
+    Node n;
+    switch(generic(p->op)) {
+    case CVU: case CVI: case CVP:
+        assert(opsize(p->op) == p->syms[0]->u.c.v.i);
+        emit_is_null(p->kids[0], eq);
+        return;
+    case INDIR:
+        break;
+    default:
+        assert(generic(p->op) == INDIR);
+    }
+    n = p->kids[0];
+    if (n->x.error) {
+        gvmt_warning("%s", n->x.error);
+    }
+    if (n->x.exact_type == MEMBER) {
+        emit_r_recursive(n);
+        print("FIELD_IS_%sNULL ", eq ? "" : "NOT_");
+    } else {
+        assert(n->x.exact_type == REFERENCE_TYPE);
+        emit_subtree(n);
+        print("0 FIELD_IS_%sNULL ", eq ? "" : "NOT_");
+    }
 }
 
 static void emit_subtree(Node p) {
@@ -2249,6 +2301,10 @@ static void emit_subtree(Node p) {
                 intrinsic("PIN "); 
                 return;
             }
+            if (strcmp(name, "pinned_object") == 0) {
+                intrinsic("PINNED_OBJECT "); 
+                return;
+            }
         }
         if (is_native(p->syms[0]->type)) {
             narg_count = n_args - N_ARGS;
@@ -2329,7 +2385,20 @@ static void emit_tree(Node p) {
         emit_subtree(p->kids[1]);
         emit_lhs(p->kids[0], type_char(p));
 		return;
-    case EQ: case NE: case GT: case GE: case LE: case LT:
+    case EQ: case NE: 
+		//Special case for comparison to 0/NULL.
+		if (is_null(p->kids[0]) && is_nullable_field_access(p->kids[1])) {
+            emit_is_null(p->kids[1], gen == EQ);
+            print("BRANCH_T(%s)\n", p->syms[0]->x.name);
+            return;
+        }
+		if (is_null(p->kids[1]) && is_nullable_field_access(p->kids[0])) {
+		    emit_is_null(p->kids[0], gen == EQ);
+            print("BRANCH_T(%s)\n", p->syms[0]->x.name);
+            return;
+        }
+        // Intentional fall-through
+    case GT: case GE: case LE: case LT:
         emit_subtree(p->kids[0]);
         emit_subtree(p->kids[1]);
         emit_comp(p);
