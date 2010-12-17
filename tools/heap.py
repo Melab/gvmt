@@ -24,16 +24,10 @@ class Block(object):
     def __init__(self, area):
         self.area = area
         self.text = common.Buffer()
-        self.mark_map = [ 0 ] * (BLOCK_SIZE /LINE_SIZE)
         self.text << align(BLOCK_SIZE)
 
     def __lshift__(self, s):
         return self.text << s
-
-    def mark(self, offset):
-        assert offset <= BLOCK_SIZE
-        self.mark_map[offset//LINE_SIZE] |= 1 << ((offset & 127)//4);
-
 
 class Object(object):
     
@@ -95,8 +89,6 @@ class MainHeap(object):
             self.block = Block(MATURE_SPACE_ID)
             self.blocks.append(self.block)
             self.offset = 0
-        #Set mark bit for this object.
-        self.block.mark(self.offset)
         obj.write(self.block)
         self.offset += size
         assert self.offset <= BLOCK_SIZE
@@ -114,7 +106,7 @@ class Zone(object):
         self.block_list += [ EMPTY_BLOCK ] * (BLOCKS_PER_SUPER_BLOCK - 
                                               len(self.block_list))
         assert len(self.block_list) == BLOCKS_PER_SUPER_BLOCK
-        assert (SUPER_BLOCK_ALIGN == BLOCK_SIZE*32)
+        assert (SUPER_BLOCK_ALIGN == BLOCK_SIZE*BLOCKS_PER_SUPER_BLOCK)
         self.spaces = [ b.area for b in self.block_list ]
         
     def space(self):
@@ -128,9 +120,8 @@ class Zone(object):
         for a in self.spaces[1:]:
             out << '.byte %d\n' % a
         out << align(BLOCK_SIZE)
-        for b in self.block_list:
-            for i in b.mark_map:
-                out << '.long %d\n' % i
+        # Second header block
+        out << '.long 0\n'
         out << align(BLOCK_SIZE)
         for b in self.block_list[2:]:
             out << b.text
@@ -146,65 +137,24 @@ def large_object_size(x):
 class LargeObjectArea(object):
     
     def __init__(self):
-        assert large_object_size(20) == 1024
-        self.sizes = [large_object_size(x) for x in range(22, 28)]
-        self.per_block = [ BLOCK_SIZE // s for s in self.sizes]
-        self.objects = [[] for x in range(0, 7)]
+        self.objects = []
     
     def add_object(self, obj):
-        size = obj.size() + gtypes.p.size
-        for i in range(0, 6):
-            if size <= self.sizes[i]:
-                self.objects[i].append(obj)
-                break
-        else:
-            self.objects[-1].append(obj)
-            
-    def _write_label(self, out, label, has_list):
-            out << '.globl %s_first_block\n' % label
-            
+        self.objects.append(obj)
+ 
     def block_list(self):
         blist = []
-        for i in range(0, 6):           
-            object_list = self.objects[i]
-            objects = len(self.objects[i])
-            per_block = self.per_block[i]
-            block_count = (objects + per_block - 1) // per_block
-            for e, obj in enumerate(self.objects[i]):
-                if e % per_block == 0:
-                    block = Block(i+22)
-                    if not blist:
-                        block << '.globl gvmt_large_object_area_start\n'
-                        block << 'gvmt_large_object_area_start:\n'
-                    #Debugging label:
-                    block << 'gvmt_large_object_block_%d_%d:\n' % (i+22, e)
-                    blist.append(block)
-                    offset = 0
-                block.mark(offset)
-                obj.write(block)
-                assert obj.size() <= self.sizes[i]
-                for x in range(obj.size(), self.sizes[i]):
-                    block << '.byte 0\n'
-                offset += self.sizes[i]
+        for obj in self.objects:
+            block = Block(1)
+            obj.write(block)
+            blist.append(block)
+            size = obj.size()
+            while (size > BLOCK_SIZE):
+                size -= BLOCK_SIZE
+                b = Block(1)
+                b.text = common.Buffer()
+                blist.append(b)
         return blist
-
-    def very_large_object_block(self):
-        if self.objects[-1]:
-            b = Block(128)
-            for i, obj in enumerate(self.objects[-1][:-1]):
-                b << 'gvmt_large_objects_big_%d:\n' % i
-                b << '.long  gvmt_large_objects_big_%d\n' % (i+1) #Link word
-                obj.write(b)
-                b << align(BLOCK_SIZE)
-            b << 'gvmt_large_objects_big_%d:\n' % (len(self.objects[-1])-1)
-            b << '.long 0\n' #Link word
-            self.objects[-1][-1].write(b)
-            b << align(BLOCK_SIZE)
-        else:
-            b = Block(129)
-            b << '.long 0\n'
-            b << align(BLOCK_SIZE)
-        return b
            
 def write_blocks(blocks, out):
     while len(blocks) > USABLE_BLOCKS_PER_SUPER_BLOCK:
@@ -225,7 +175,7 @@ def to_asm(section, base_name):
             if t == '.object':
                 current_object = Object(n)
             elif t == '.end':
-                if current_object.size() >= 2048:
+                if current_object.size() >= BLOCK_SIZE // 4 * 3:
                     loa.add_object(current_object)
                 else:
                     main_heap.add_object(current_object)
@@ -241,16 +191,29 @@ def to_asm(section, base_name):
                 offset += len(seq)
             else:
                 current_object.add_member(t, n)
+    out << align(SUPER_BLOCK_ALIGN)
     out << '.globl gvmt_start_heap\n'
     out << 'gvmt_start_heap:\n'
-    write_blocks(main_heap.block_list(), out)
-    write_blocks(loa.block_list(), out)
-    Zone([loa.very_large_object_block()]).write(out)
+    small_object_blocks = main_heap.block_list();
+    if small_object_blocks:
+        b = small_object_blocks[-1]
+        b << align(BLOCK_SIZE)
+        b << '.globl gvmt_small_object_area_end\n'
+        b << 'gvmt_small_object_area_end:\n'
+        write_blocks(small_object_blocks, out)
+    else:
+        out << '.globl gvmt_small_object_area_end\n'
+        out << 'gvmt_small_object_area_end:\n'
+    out << align(SUPER_BLOCK_ALIGN)
+    out << '.globl gvmt_large_object_area_start\n'
+    out << 'gvmt_large_object_area_start:\n'
+    large_objects = loa.block_list()
+    if large_objects:
+        write_blocks(large_objects, out)
+    out << align(BLOCK_SIZE)
+    out << '.globl gvmt_large_object_area_end\n'
+    out << 'gvmt_large_object_area_end:\n'
+    out << align(SUPER_BLOCK_ALIGN)
     out << '.globl gvmt_end_heap\n'
     out << 'gvmt_end_heap:\n'
-    
-    
-    
-    
-    
-    
+
