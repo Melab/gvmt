@@ -21,8 +21,9 @@ enum {
 #define DEREF(t) ((t)-4)
 #define POINTER(t) ((t)+4)
 #define REFERENCE_TYPE POINTER(STRUCT_TYPE)
+#define MAX_N_ARGS 80;
 
-static char *N_ARGS[100];
+static char *N_ARGS[MAX_N_ARGS];
 static char **n_args = N_ARGS;
 
 static int insert_gc_safe_point = 0;
@@ -802,44 +803,6 @@ void gvmt_function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
 char * pointer_type(int t);
 static int label_id = 0;
 
-static char* c_declaration(Type t, char *name) {
-    int i, count;
-    if (isptr(t)) {
-        t = deref(t);
-        if (isfunc(t)) {
-            count = 0;
-            for (i = 0; t->u.f.proto[i]; i++)
-                if (opaque_type(t->u.f.proto[i]))
-                    count++;
-            return stringf("gvmt_funcptr_%d %s", count, name);
-        } else {
-            return c_declaration(t, stringf("*%s", name));
-        }
-    } else {
-        if (isunion(t)) {
-            return stringf("union %s %s", t->u.sym->name, name);
-        } else if (isstruct(t)) { 
-            return stringf("struct %s %s", t->u.sym->name, name);
-        } else if (isarray(t)) { 
-            return stringf("%s[]", c_declaration(t->type, name));
-        } else {
-            char * tname;
-            if (t->op == INT)
-                tname = stringf("int%d_t", t->size * 8);
-            else if (t->op == UNSIGNED)
-                tname = stringf("int%d_t", t->size * 8);
-            else if (t->op == FLOAT)
-                tname = t->u.sym->name;
-            else {
-                fprint(stderr, "%t %s\n", t, name);   
-                assert(0);
-                
-            }
-            return stringf("%s %s", tname, name);
-        }
-    }
-}
-
 static int is_native(Type t) {
     if (!opaque_type(freturn(t)))
         return 0;
@@ -1131,8 +1094,6 @@ static small_set typeset_from_symbol(Symbol s, char** msg) {
         }
         assert(valid_type(s->x.type) || s->x.type == ERROR);
         result.bits = 1 << s->x.type;
-//        if (is_opaque(s->x.type) && s->x.type > REFERENCE_TYPE)
-//            result.bits |= 1 << OPAQUE_TYPE;
         return result;
     }
 }
@@ -1161,8 +1122,8 @@ void gvmt_stabline(Coordinate *cp) {
     if (emit_dot_file)
         print("//");
     if (cp->file && cp->file != currentfile) {
-            print("FILE(\"%s\") ", cp->file);
-            currentfile = cp->file;
+        print("FILE(\"%s\") ", cp->file);
+        currentfile = cp->file;
     }
     currentline = cp->y;
     print("LINE(%d) \n", cp->y);
@@ -2419,8 +2380,10 @@ static void emit_tree(Node p) {
             if (p->x.exact_type == REFERENCE_TYPE) {
                 gvmt_error("Reference parameter for a native function\n");                
             } else {
-                *n_args =  type_char(p);
+                *n_args = type_char(p);
                 n_args++;
+                if (n_args > MAX_N_ARGS)
+                    gvmt_error("Too many parameters to native function\n");
             }
         }
         if (p->syms[0]->u.c.v.i > IR->ptrmetric.size)
