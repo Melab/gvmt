@@ -114,26 +114,26 @@ class CStack(object):
         #Is offset a build-time constant?
         self.flush_to_memory(out)
         if offset == 0:
-            out << ' gvmt_sp -= %s;' % size.cast(gtypes.i4)
-            loop_fmt = ' for (int i = 0; i < %s; i++) gvmt_sp[i].i = 0;'
-            out << loop_fmt % size.cast(gtypes.i4)
+            out << ' gvmt_sp -= %s;' % size.cast(gtypes.iptr)
+            loop_fmt = ' for (intptr_t i = 0; i < %s; i++) gvmt_sp[i].i = 0;'
+            out << loop_fmt % size.cast(gtypes.iptr)
             return '%s' % self.top(out) 
         else:
-            out << ' gvmt_sp -= %s;' % size.cast(gtypes.i4)
-            loop_fmt = ' for (int i=0; i<%s; i++) gvmt_sp[i]=gvmt_sp[%s+i];'
-            out << loop_fmt % (offset.cast(gtypes.i4), size.cast(gtypes.i4))
-            loop_fmt = ' for (int i = 0; i < %s; i++) gvmt_sp[%s+i].i = 0;'
-            out << loop_fmt % (size.cast(gtypes.i4), offset.cast(gtypes.i4))
+            out << ' gvmt_sp -= %s;' % size.cast(gtypes.iptr)
+            loop_fmt = ' for (intptr_t i=0; i<%s; i++) gvmt_sp[i]=gvmt_sp[%s+i];'
+            out << loop_fmt % (offset.cast(gtypes.iptr), size.cast(gtypes.iptr))
+            loop_fmt = ' for (intptr_t i = 0; i < %s; i++) gvmt_sp[%s+i].i = 0;'
+            out << loop_fmt % (size.cast(gtypes.iptr), offset.cast(gtypes.iptr))
             return '(%s+%s)' % (self.top(out) ,'%s' % offset)
               
     def drop(self, offset, size, out):
         self.flush_to_memory(out)
         if offset == 0:
-            out << ' gvmt_sp += %s;' % size.cast(gtypes.i4)
+            out << ' gvmt_sp += %s;' % size.cast(gtypes.iptr)
         else:
-            loop_fmt = ' for (int i=0; i<%s; i++) gvmt_sp[%s+i]=gvmt_sp[i];'
-            out << loop_fmt % (offset.cast(gtypes.i4), size.cast(gtypes.i4))
-            out << ' gvmt_sp += %s;' % size.cast(gtypes.i4)
+            loop_fmt = ' for (intptr_t i=0; i<%s; i++) gvmt_sp[%s+i]=gvmt_sp[i];'
+            out << loop_fmt % (offset.cast(gtypes.iptr), size.cast(gtypes.iptr))
+            out << ' gvmt_sp += %s;' % size.cast(gtypes.iptr)
                 
     def comment(self, out):
         out << 'Offset: %d\n' % self.offset
@@ -228,7 +228,7 @@ class Simple(Expr):
         return self.txt
         
     def __int__(self):
-        if self.tipe != gtypes.i4 and self.tipe != gtypes.u4:
+        if not self.tipe.is_int or self.tipe.size > gtypes.p.size:
             raise ValueError
         return int(self.txt)
         
@@ -325,15 +325,15 @@ class PointerAdd(Binary):
     def __str__(self):
         if self.left.tipe == gtypes.p or self.left.tipe == gtypes.r:
             return '(((char*)%s)%s%s)' % (self.left, self.op.c_name, 
-                                          self.right.cast(gtypes.i4))
+                                          self.right.cast(gtypes.iptr))
         else:
             if self.right.tipe == gtypes.p:
                 assert self.op.c_name == '+'
                 return '(((char*)%s)+%s)' % (self.right, 
-                                             self.left.cast(gtypes.i4))
+                                             self.left.cast(gtypes.iptr))
             else:
-                return '((char*)(%s%s%s))' % (self.left.cast(gtypes.i4), 
-                             self.op.c_name, self.right.cast(gtypes.i4))
+                return '((char*)(%s%s%s))' % (self.left.cast(gtypes.iptr), 
+                             self.op.c_name, self.right.cast(gtypes.iptr))
             
 class Indirection(Expr):
   
@@ -481,7 +481,7 @@ class CMode(object):
             return Binary(tipe, left.cast(tipe), op, right.cast(tipe))
         
     def comparison(self, tipe, left, op, right):
-        return Binary(gtypes.i4, left.cast(tipe), op, right.cast(tipe))
+        return Binary(gtypes.iptr, left.cast(tipe), op, right.cast(tipe))
 
     def unary(self, tipe, op, arg):
         return Simple(tipe, '(%s%s)' % (op.c_name, arg.cast(tipe)))
@@ -592,13 +592,13 @@ class CMode(object):
         if tipe is gtypes.r:
             raise _exception('Illegal use of ALLOCA_R.')
         else:
-            bytes = '%s*%s' % (size.cast(gtypes.i4), tipe.size)
+            bytes = '%s*%s' % (size.cast(gtypes.iptr), tipe.size)
             return Simple(gtypes.p, 'alloca(%s)' % bytes)
         
     def gc_malloc(self, size):
         self.stack.flush_to_memory(self.out)
         malloc = 'gvmt_%s_malloc(gvmt_sp, (GVMT_Frame)FRAME_POINTER, %s)'
-        obj = Simple(gtypes.p, malloc % (self.gc_name, size.cast(gtypes.i4)))
+        obj = Simple(gtypes.p, malloc % (self.gc_name, size.cast(gtypes.iptr)))
         self.in_regs = set()
         return obj
         
@@ -638,7 +638,7 @@ class CMode(object):
      
     def extend(self, tipe, value):
         # Is this right?
-        return value.cast(tipe).cast(gtypes.i4)
+        return value.cast(tipe).cast(gtypes.iptr)
                
     def gc_safe(self):
         # Uncache all references.
@@ -892,7 +892,7 @@ class CMode(object):
         if t_or_f:
             self.out << ' if(%s) ' % condition
         else:
-            self.out << ' if(!(%s)) ' % condition.cast(gtypes.i4)
+            self.out << ' if(!(%s)) ' % condition
         self.out << 'goto target_%s_%d;' % (self.label, index)
         
     def target(self, index):

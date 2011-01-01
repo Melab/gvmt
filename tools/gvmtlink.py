@@ -77,7 +77,7 @@ def to_asm(section, base_name, title_symbol):
     for t, n in section.items:
         if t[0] == '.':
             if t == '.object':
-                offset = align(offset, 4, out)
+                offset = align(offset, heap.ALIGNMENT, out)
                 out << '.globl %s\n' % n
                 out << '.type %s, @object\n' % n
                 out << '%s:\n' % n

@@ -14,6 +14,9 @@ BLOCKS_PER_SUPER_BLOCK = 32
 USABLE_BLOCKS_PER_SUPER_BLOCK = 30
 MATURE_SPACE_ID = 2
 
+#Increase this to 8?
+ALIGNMENT = 4
+
 #x86 specific - Should be in own module
 
 def align(a):
@@ -52,7 +55,7 @@ class Object(object):
         self._size += s
         
     def size(self):
-        return (self._size + 3) & -4
+        return (self._size + (ALIGNMENT-1)) & (-ALIGNMENT)
 #    
 #    def add_string(self, char_list):
 #        for c in char_list:
@@ -64,7 +67,7 @@ class Object(object):
         out << '%s:\n' % self.label
         for m in self.members:
             out << m
-        out << align(4)
+        out << align(ALIGNMENT)
         
 def crosses(base, size, power2):
     return (base & (power2-1)) + size > power2
