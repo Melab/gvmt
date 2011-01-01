@@ -17,6 +17,7 @@ typedef union gvmt_stack_item {
     int64_t l;
     uint64_t w;
     double d;
+    int (*q)(int);
 } GVMT_StackItem;
 
 #ifdef __cplusplus

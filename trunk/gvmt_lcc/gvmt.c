@@ -1174,6 +1174,8 @@ void gvmt_stabsym(Symbol p) {
  
 static void gvmt_progbeg(int argc, char *argv[]) {
     int i;
+    int one = 1;
+    IR->little_endian = *((char*)&one);
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-xbytecodes") == 0) {
             RETURN_SET = ARGS_SET;
@@ -2531,16 +2533,16 @@ Node gvmt_label(Node forest) {
 }
 
 Interface gvmtIR = {
-        { 1, 1, 0 },  /*  char_metrics */
-        { 2, 2, 0 },  /*  short_metrics */
-        { 4, 4, 0 },  /*  int_metrics */
-        { 4, 4, 0 },  /*  long_metrics */
-        { 8, 8, 0 },  /*  long_long_metrics */
+        { sizeof(char), sizeof(char), 0 },  /*  char_metrics */
+        { sizeof(short), sizeof(short), 0 },  /*  short_metrics */
+        { sizeof(int), sizeof(int), 0 },  /*  int_metrics */
+        { sizeof(long), sizeof(long), sizeof(long) > sizeof(void*) },  /*  long_metrics */
+        { 8, 8, 8 > sizeof(void*) },  /*  long_long_metrics */
         { 4, 4, 1 },  /*  float_metrics */
         { 8, 8, 1 },  /*  double_metrics */
         { 8, 8, 1 },  /*  long_double_metrics */
-        { 4, 4, 0 },  /*  word_metrics */
-        { 0, 4, 0 },  /*  struct_metrics */
+        { sizeof(void*), sizeof(void*), 0 },  /*  word_metrics */
+        { 0, 1, 0 },  /*  struct_metrics */
         0,  /* little_endian */
         0,  /* mulops_calls */
         0,  /* wants_callb */

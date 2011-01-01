@@ -481,7 +481,7 @@ class LlvmPassMode(object):
         
     def constant(self, value):
         assert isinstance(value, int) or isinstance(value, long)
-        return Constant(gtypes.i4, value)
+        return Constant(gtypes.iptr, value)
     
     def address(self, name):
         return Simple(gtypes.p, 'globals->%s' % name)
@@ -841,12 +841,12 @@ class LlvmPassMode(object):
         for i in range(1, size):
             value = self.__get()
             s = '((%s << 8) | %s)' % (s, value)
-        assert size <= 4
-        return Constant(gtypes.i4, s)
+        assert size <= gtypes.iptr.size
+        return Constant(gtypes.iptr, s)
             
     def stream_peek(self, index):
         index += self.stream_offset
-        return Constant(gtypes.i4, self.__stream_val(index))
+        return Constant(gtypes.iptr, self.__stream_val(index))
             
     def stream_push(self, value):
         self.stream_offset -= 1
@@ -856,7 +856,7 @@ class LlvmPassMode(object):
         self.out << '%s = %s;\n' % (self.__stream_name(self.stream_offset), value.const())
         
     def immediate_add(self, l, op, r):
-        return Constant(gtypes.i4, '(%s%s%s)' % (l.const() ,op, r.const()))
+        return Constant(gtypes.iptr, '(%s%s%s)' % (l.const() ,op, r.const()))
     
     def stack_drop(self, offset, size):
         self.stack.drop(offset, size, self.out)
@@ -1022,7 +1022,7 @@ class LlvmPassMode(object):
           
     def zero_memory(self, obj, size):
         zero_fmt = ' zero_memory(%s, %s, current_block);'
-        self.out << zero_fmt % (obj.cast(gtypes.p), size.cast(gtypes.i4))
+        self.out << zero_fmt % (obj.cast(gtypes.p), size.cast(gtypes.iptr))
           
     def close(self):
         self.stack.flush_cache(self.out)
@@ -1043,10 +1043,10 @@ class LlvmPassMode(object):
        
     def lock_internal(self, obj, offset):
         self.out << ' lock_internal(%s, %s, current_block);' % (
-            obj.cast(gtypes.r), offset. cast(gtypes.i4))
+            obj.cast(gtypes.r), offset.cast(gtypes.i4))
     
     def unlock_internal(self, obj, offset):
         self.out << ' unlock_internal(%s, %s, current_block);' % (
-            obj.cast(gtypes.r), offset. cast(gtypes.i4))
+            obj.cast(gtypes.r), offset.cast(gtypes.i4))
 
 

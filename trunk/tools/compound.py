@@ -5,7 +5,7 @@ import flow_graph
 
 def _redundant(l, targetted):
     """Should match:
-BRANCH_T(a) 1 TSTORE_4(c) HOP(b) TARGET(a) 0 TSTORE_4(c) TARGET(b)
+BRANCH_T(a) 1 TSTORE_?(c) HOP(b) TARGET(a) 0 TSTORE_?(c) TARGET(b)
 Also no other BRANCH or HOP may target (a) or (b),
 and their should be no other uses of (c)."""
     classes = ( builtin.Branch, builtin.Number, builtin.TStore, 

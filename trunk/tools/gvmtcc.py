@@ -129,7 +129,7 @@ def constructor(bytecodes, out, gc_name):
     std::vector<const Type*>args;
     args.push_back(POINTER_TYPE_X);
     args.push_back(TYPE_P);
-    args.push_back(TYPE_I4);
+    args.push_back(TYPE_IPTR);
     FunctionType* ftype = FunctionType::get(TYPE_R, args, false);
     GC_MALLOC_FUNC = Function::Create(ftype, GlobalValue::ExternalLinkage, "gvmt_%s_malloc", module);
 }  
