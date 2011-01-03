@@ -1267,15 +1267,15 @@ def _init():
                 operators.lsh, operators.rsh, operators.mod]:
         for tipe in int_types:
             bin = BinaryOp(op, tipe)
-            instructions[bin.name] =  bin
+            instructions[bin.name] = bin
             
     for tipe in int_types:
         unary = UnaryOp(operators.inv, tipe)
-        instructions[unary.name] =  unary
+        instructions[unary.name] = unary
             
     for tipe in float_types + [ gtypes.i4, gtypes.i8]:
         unary = UnaryOp(operators.neg, tipe)
-        instructions[unary.name] =  unary
+        instructions[unary.name] = unary
         
     for tipe in float_types + int_types + [ gtypes.p]:
         i = NativeArg(tipe)
@@ -1291,9 +1291,9 @@ def _init():
             bin = ComparisonOp(op, tipe)
             instructions[bin.name] =  bin
     bin = ComparisonOp(operators.eq, gtypes.r)
-    instructions[bin.name] =  bin
+    instructions[bin.name] = bin
     bin = ComparisonOp(operators.ne, gtypes.r)
-    instructions[bin.name] =  bin
+    instructions[bin.name] = bin
     i = FieldIsNull(True)
     instructions[i.name] = i
     i = FieldIsNull(False)
@@ -1308,6 +1308,14 @@ def _init():
         if not hasattr(i, 'annotations'):
             i.annotations = []
         i.annotations.append('private')
+    #Alias pointer sized int ops with PTR suffix
+    size_char = str(gtypes.p.size)
+    for name, inst in instructions.items():
+        if (name[-2] == 'I' or name[-2] == 'U') and name[-1] == size_char:
+            instructions[name[:-1] + 'PTR'] = inst
+    for name, cls in instruction_factories.items():
+        if (name[-2] == 'I' or name[-2] == 'U') and name[-1] == size_char:
+            instruction_factories[name[:-1] + 'PTR'] = cls
 
 _NUMBER = re.compile(r'-?[0-9]+$')
 

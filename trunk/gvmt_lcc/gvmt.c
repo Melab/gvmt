@@ -21,7 +21,7 @@ enum {
 #define DEREF(t) ((t)-4)
 #define POINTER(t) ((t)+4)
 #define REFERENCE_TYPE POINTER(STRUCT_TYPE)
-#define MAX_N_ARGS 80;
+#define MAX_N_ARGS 80
 
 static char *N_ARGS[MAX_N_ARGS];
 static char **n_args = N_ARGS;
@@ -2382,7 +2382,7 @@ static void emit_tree(Node p) {
             } else {
                 *n_args = type_char(p);
                 n_args++;
-                if (n_args > MAX_N_ARGS)
+                if (n_args - N_ARGS > MAX_N_ARGS)
                     gvmt_error("Too many parameters to native function\n");
             }
         }
