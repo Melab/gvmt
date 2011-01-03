@@ -114,7 +114,7 @@ void gvmt_pop_and_free_handler(void);
 #define GVMT_RETURN_R(x) gvmt_sp[-1].o = (GVMT_Object)(x); return gvmt_sp-1;
 #define GVMT_RETURN_V return gvmt_sp;
 
-extern int gvmt_gc_waiting;
+extern char gvmt_gc_waiting;
 void gvmt_gc_safe_point(GVMT_StackItem* sp, GVMT_Frame fp);
 
 extern void* _gvmt_global_symbols;

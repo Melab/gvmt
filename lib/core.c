@@ -28,7 +28,7 @@ GVMT_THREAD_LOCAL GVMT_StackItem* gvmt_stack_pointer;
 
 GVMT_THREAD_LOCAL int gvmt_thread_non_native;
 
-int gvmt_gc_waiting = 0;
+char gvmt_gc_waiting = 0;
 intptr_t gvmt_uninitialised_field = 4;
 
 int gvmt_abort_on_unexpected_parameter_usage = 0;

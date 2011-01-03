@@ -12,7 +12,7 @@ TLOAD_R(2) TLOAD_I4(0) __ZERO_MEMORY
 TLOAD_R(2);
 
 GC_SAFE_INLINE[private]:
-    ADDR(gvmt_gc_waiting) PLOAD_I4 IF GC_SAFE_CALL ENDIF 
+    ADDR(gvmt_gc_waiting) PLOAD_I1 IF GC_SAFE_CALL ENDIF 
 ;
 
 GC_WRITE_BARRIER[private]:
