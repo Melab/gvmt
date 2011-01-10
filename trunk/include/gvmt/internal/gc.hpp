@@ -122,7 +122,7 @@ namespace gc {
         ((reinterpret_cast<intptr_t>(p) & 3) == 0); 
     }
     
-    inline bool is_tagged(GVMT_Object p) { 
+    inline bool is_tagged(void* p) { 
         return (reinterpret_cast<intptr_t>(p) & 3) != 0; 
     }
     
@@ -132,7 +132,7 @@ namespace gc {
         return p != NULL;
     }
     
-    inline bool is_tagged(GVMT_Object p) { 
+    inline bool is_tagged(void* p) { 
         return false;
     }
 
@@ -456,7 +456,7 @@ class Stack {
 
 }; 
 
-extern "C" uint32_t size_from_shape(int* shape);
+extern "C" size_t size_from_shape(int* shape);
 
 namespace GC {
     

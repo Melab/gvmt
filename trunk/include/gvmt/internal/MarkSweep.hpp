@@ -54,7 +54,7 @@ class MarkSweepList {
     void clear_marks(Block* b) {
         Address ptr = b->start();
         do {
-            *Zone::mark_byte(ptr) = 0;
+            Zone::unmark(ptr);
             ptr = ptr.plus_bytes(size);
         } while (b->contains(ptr, size));
     }

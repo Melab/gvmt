@@ -19,12 +19,12 @@ struct BigObject {
 
 class LargeObjectSpace: Space {
     
-    static BigObject big_objects;
+    static BigObject old_objects;
     static BigObject young_objects;
     static bool initialised;
     
-    static void append_young_objects() {
-        BigObject *obj = &big_objects;
+    static void promote_young_objects() {
+        BigObject *obj = &old_objects;
         while (obj->next) {
             obj = obj->next;
         }
@@ -36,9 +36,9 @@ class LargeObjectSpace: Space {
         return (size+sizeof(void*)+(Block::size-1))>>Block::log_size; 
     }
     
-    static GVMT_Object allocate_big_object(size_t size) {
+    static GVMT_Object allocate_big_object(size_t size, bool force) {
         size_t blocks = blocks_for_big_object(size);
-        BigObject* ptr = (BigObject*)Heap::get_blocks(blocks, Space::LARGE, false);
+        BigObject* ptr = (BigObject*)Heap::get_blocks(blocks, Space::LARGE, force);
         if (ptr == NULL)
             return NULL;
         ptr->next = young_objects.next;
@@ -47,21 +47,21 @@ class LargeObjectSpace: Space {
         return reinterpret_cast<GVMT_Object>(c);
     }
     
-    static void sweep_big_objects() {
+    static void sweep_old_objects() {
         assert(young_objects.next == NULL);
-        BigObject* prev = &big_objects;
+        BigObject* prev = &old_objects;
         BigObject* obj = prev->next;
         BigObject* next;
         while (obj) {
             next = obj->next;
             if (Zone::marked(&obj->object)) {
-                *Zone::mark_byte(&obj->object) = 0;
+                Zone::unmark(&obj->object);
                 assert(!Zone::marked(&obj->object));
                 prev = obj;
             } else {
                 prev->next = next;
                 char* c = &obj->object;
-                int len = align(gvmt_user_length(reinterpret_cast<GVMT_Object>(c)));
+                size_t len = align(gvmt_user_length(reinterpret_cast<GVMT_Object>(c)));
                 size_t blocks = blocks_for_big_object(len);
                 assert(Block::containing((char*)obj) == (Block*)obj);
                 Heap::free_blocks((Block*)obj, blocks);
@@ -128,7 +128,7 @@ public:
 //        assert(end == (Block*)&gvmt_end_heap);
 //        if (b < end) {
 //            assert(b->space() == -128);
-//            big_objects.next = reinterpret_cast<BigObject*>(b);
+//            old_objects.next = reinterpret_cast<BigObject*>(b);
 //        }
 //        b = (Block*)&gvmt_large_object_area_end;
 //        Heap::init_free_blocks(b, end - b);
@@ -140,7 +140,7 @@ public:
         // Space for mark word.
         if (size >= ZONE_ALIGNMENT/2)
             return HugeObjectSpace::allocate(size);
-        return allocate_big_object(size);
+        return allocate_big_object(size, force);
     }
     
     static inline GVMT_Object grey(Address addr) {
@@ -158,10 +158,10 @@ public:
     }
     
     static void pre_collection() {
-        append_young_objects();
-        BigObject* obj = big_objects.next;
+        promote_young_objects();
+        BigObject* obj = old_objects.next;
         while (obj) {
-            *Zone::mark_byte(&obj->object) = 0;
+            Zone::unmark(&obj->object);
             assert(!Zone::marked(&obj->object));
             obj = obj->next;
         }
@@ -169,7 +169,7 @@ public:
     
     static void sweep() {
         assert(initialised);
-        sweep_big_objects();
+        sweep_old_objects();
     }
 
     template <class Collection> static void process_old_young() {
@@ -182,7 +182,7 @@ public:
             z->clear_modified(line);
             obj = obj->next;
         }
-        obj = big_objects.next;
+        obj = old_objects.next;
         while (obj) {
             char* object = &obj->object;
             Zone* z = Zone::containing(object);
@@ -193,13 +193,13 @@ public:
             }
             obj = obj->next;
         }
-        append_young_objects();
+        promote_young_objects();
     }
 
 };
 
 BigObject LargeObjectSpace::young_objects;
-BigObject LargeObjectSpace::big_objects;
+BigObject LargeObjectSpace::old_objects;
 bool LargeObjectSpace::initialised = false;
 
 

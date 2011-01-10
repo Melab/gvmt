@@ -30,31 +30,39 @@ struct BlockData {
     uint8_t pad2;
 };
 
+#define SENTINEL_VALUE 12345678
+
 class Immix {
 
+    static size_t sentinel1;
     static int available_space_estimate;
+    static size_t sentinel2;
     static std::vector<Block*> recycle_blocks;
+    static size_t sentinel3;
     static std::vector<Block*> evacuate_blocks;
+    static size_t sentinel4;
     static size_t next_block_index;
+    static size_t sentinel5;
     static Address free_ptr;
+    static size_t sentinel6;
     static Address limit_ptr;
+    static size_t sentinel7;
     static Address reserve_ptr;
-    
-    static inline uint8_t* mark_byte(Address addr) {
-        Zone *z = Zone::containing(addr);
-        uintptr_t index = Zone::index_of<Line>(addr);
-        return &z->collector_line_data[index]; 
-    }
+    static size_t sentinel8;
     
     static inline bool line_marked(Address addr) {
-        return *mark_byte(addr) != 0;
+        Zone *z = Zone::containing(addr);
+        uintptr_t index = Zone::index_of<Line>(addr);
+        return z->collector_line_data[index] != 0;
     }
     
     static void clear_mark_lines(Block* b) {
+        Zone *z = Zone::containing(b);
         Address a = b->start();
         Address end = b->end();
         for(; a < end; a = a.plus_bytes(Line::size)) {
-            *mark_byte(a) = 0; 
+            uintptr_t index = Zone::index_of<Line>(a);
+            z->collector_line_data[index] = 0; 
         }
     }
     
@@ -122,9 +130,12 @@ class Immix {
             while (!Block::starts_at(limit_ptr) && !line_marked(limit_ptr)) {
                 limit_ptr = limit_ptr.plus_bytes(Line::size);
             }
+            assert(Block::containing(free_ptr) == b);
         }  
+        assert(free_ptr <= limit_ptr);
         assert(!line_marked(free_ptr));
         assert(Block::starts_at(limit_ptr) || line_marked(limit_ptr));
+        assert(get_block_use(free_ptr) != RECYCLE);
     }
     
     static inline void find_new_hole() {
@@ -147,8 +158,10 @@ class Immix {
         while (!Block::starts_at(limit_ptr) && !line_marked(limit_ptr)) {
             limit_ptr = limit_ptr.plus_bytes(Line::size);
         }
+        assert(free_ptr <= limit_ptr);
         assert(!line_marked(free_ptr));
         assert(Block::starts_at(limit_ptr) || line_marked(limit_ptr));
+        assert(get_block_use(free_ptr) != RECYCLE);
     }
     
     static void reclaim(Block* b) {
@@ -185,18 +198,18 @@ class Immix {
         } else if (used_lines == 0) {
             Heap::free_blocks(b, 1);
             return;
-        } else if (frag >= 4 && !b->is_pinned()) {
-            // Don't count this block as available_space
-            set_block_use(b->start(), EVACUATE);
-            evacuate_blocks.push_back(b);
+        //} else if (frag >= 4 && !b->is_pinned()) {
+        //    // Don't count this block as available_space
+        //    set_block_use(b->start(), EVACUATE);
+        //    evacuate_blocks.push_back(b);
         } else {
             set_block_use(b->start(), RECYCLE);
+            assert(b != Block::containing(free_ptr));
             available_space_estimate += free_lines * Line::size;
             get_block_data(b->start())->free_lines = free_lines;
             assert(verify_recycle_block(b));
             recycle_blocks.push_back(b);
         }
-        b->clear_modified_map();
     }
     
     static void markup_block(Block* b) {
@@ -244,7 +257,8 @@ class Immix {
         Address addr = b->start();
         while (addr < b->next()->start()) {
             if (Zone::marked(addr)) {
-                Address end = addr.plus_bytes(gvmt_user_length(addr.as_object()));
+                size_t len = gvmt_user_length(addr.as_object());
+                Address end = addr.plus_bytes(len);
                 Address word = addr;
                 do {
                     assert(line_marked(word));
@@ -269,13 +283,15 @@ class Immix {
 public:
      
     static void reclaim() {
+        free_ptr = 0;
+        limit_ptr = 0;
         // Free evacuated blocks.
         for (std::vector<Block*>::iterator it = evacuate_blocks.begin();
             it != evacuate_blocks.end(); ++it) {
             Block* b = *it;
             assert(!b->is_pinned());
             assert(get_block_data(b->start())->use == EVACUATE);
-            b->clear_mark_map();
+            Zone::clear_mark_map(b);
             Heap::free_blocks(b, 1);
             assert(b->space() != Space::MATURE);
         }
@@ -315,6 +331,14 @@ public:
     static inline void sanity() { }
 #else
     static void sanity() {
+        assert(sentinel1 == SENTINEL_VALUE);
+        assert(sentinel2 == SENTINEL_VALUE);
+        assert(sentinel3 == SENTINEL_VALUE);
+        assert(sentinel4 == SENTINEL_VALUE);
+        assert(sentinel5 == SENTINEL_VALUE);
+        assert(sentinel6 == SENTINEL_VALUE);
+        assert(sentinel7 == SENTINEL_VALUE);
+        assert(sentinel8 == SENTINEL_VALUE);
         size_t recycles = 0;
         assert(available_space_estimate >= 0);  
         std::vector<Zone*>::iterator it, end;
@@ -349,6 +373,12 @@ public:
 
      /** Called once during VM initialisation */
     static void init(size_t heap_size_hint) {
+        assert(free_ptr == 0);
+        assert(limit_ptr == 0);
+        assert(reserve_ptr == 0);
+        assert(next_block_index == 0);
+        assert(recycle_blocks.size() == 0);
+        available_space_estimate = 0;
         sanity();
     }
     
@@ -361,6 +391,7 @@ public:
         limit_ptr = 0;
         reserve_ptr = 0;
         next_block_index = 0;
+        assert(recycle_blocks.size() == 0);
         available_space_estimate = 0;
         for (std::vector<Block*>::iterator it = evacuate_blocks.begin();
             it != evacuate_blocks.end(); it++) {
@@ -376,7 +407,7 @@ public:
         for(Heap::iterator it = Heap::begin(); it != Heap::end(); ++it) {
             for (Block* b = (*it)->first(); b != (*it)->first_virtual(); b++) {
                 if (b->space() == Space::MATURE) {
-                    b->clear_mark_map();
+                    Zone::clear_mark_map(b);
                     clear_mark_lines(b);
                 }
             }
@@ -385,8 +416,12 @@ public:
  
     static inline Address allocate(size_t size) {
         Address allocated;
+        assert(free_ptr <= limit_ptr);
+        assert(free_ptr == Block::containing(free_ptr)->start() ||
+               get_block_use(free_ptr) != RECYCLE);
         if (free_ptr.plus_bytes(size) > limit_ptr) {
             if (size > Line::size) {
+                assert(size <= Block::size);
                 if (!Block::can_allocate(reserve_ptr, size)) {
                     if (!Block::starts_at(reserve_ptr))
                         reserve_ptr.write_word(0);
@@ -399,12 +434,14 @@ public:
                 return allocated;
             } else {
                 find_new_hole();
+                assert(get_block_use(free_ptr) != RECYCLE);
             }
         }
-        assert(free_ptr.plus_bytes(size) <= limit_ptr);
         allocated = free_ptr;
         free_ptr = free_ptr.plus_bytes(size);
+        assert(free_ptr <= limit_ptr);
         assert(allocated != Address());
+        assert(get_block_use(allocated) != RECYCLE);
         return allocated;
     }
 
@@ -511,13 +548,21 @@ public:
 
 };
 
+size_t Immix::sentinel1 = SENTINEL_VALUE;
 int Immix::available_space_estimate;
+size_t Immix::sentinel2 = SENTINEL_VALUE;
 std::vector<Block*> Immix::recycle_blocks;
+size_t Immix::sentinel3 = SENTINEL_VALUE;
 std::vector<Block*> Immix::evacuate_blocks;
+size_t Immix::sentinel4 = SENTINEL_VALUE;
 size_t Immix::next_block_index;
+size_t Immix::sentinel5 = SENTINEL_VALUE;
 Address Immix::free_ptr;
+size_t Immix::sentinel6 = SENTINEL_VALUE;
 Address Immix::limit_ptr;
+size_t Immix::sentinel7 = SENTINEL_VALUE;
 Address Immix::reserve_ptr;
+size_t Immix::sentinel8 = SENTINEL_VALUE;
 
 
 #endif // GVMT_INTERNAL_IMMIX_H 
