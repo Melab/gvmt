@@ -114,7 +114,7 @@ void gvmt_pop_and_free_handler(void);
 #define GVMT_RETURN_R(x) gvmt_sp[-1].o = (GVMT_Object)(x); return gvmt_sp-1;
 #define GVMT_RETURN_V return gvmt_sp;
 
-extern char gvmt_gc_waiting;
+extern int8_t gvmt_gc_waiting;
 void gvmt_gc_safe_point(GVMT_StackItem* sp, GVMT_Frame fp);
 
 extern void* _gvmt_global_symbols;
@@ -141,7 +141,7 @@ void __gvmt_expect_v(char* file, int line, char* func, int expected, int actual)
  * which will be of at least size GVMT_MAX_SHAPE_SIZE */
 GVMT_CALL int *gvmt_user_shape(GVMT_Object object, int *buffer);
 
-GVMT_CALL unsigned int gvmt_user_length(GVMT_Object object);
+GVMT_CALL size_t gvmt_user_length(GVMT_Object object);
 
 int gvmt_get_shape_at_offset(GVMT_Object object, uintptr_t offset);
 

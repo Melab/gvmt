@@ -245,6 +245,7 @@ class SemiSpace {
     }
            
     static inline void sanity() { }
+    
 };
 
 size_t SemiSpace::unused_memory;

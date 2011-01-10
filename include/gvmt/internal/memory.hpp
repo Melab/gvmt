@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <malloc.h>
 #include "gvmt/internal/gc.hpp"
+#include "gvmt/internal/gc_templates.hpp"
 
 #define LOG_CARD_SIZE 7
 #define LOG_BLOCK_SIZE 14
@@ -157,9 +158,6 @@ class Block : public MemoryUnit<Block, LOG_BLOCK_SIZE> {
 public:   
     
     void clear_modified_map();
-
-    
-    void clear_mark_map();   
     
 #ifdef NDEBUG    
     inline void verify() {}
@@ -183,8 +181,6 @@ public:
     inline void set_pinned(bool p);
     
     bool is_valid();
-    
-    bool unmarked();
   
 };
 
@@ -205,6 +201,13 @@ class Zone : public MemoryUnit<Zone, LOG_ZONE_ALIGNMENT> {
         
     void verify_header();
     void verify_layout();
+
+    static inline uint8_t* mark_byte(Address mem) {
+        // Each mark byte corresponds to 8 words = 32 bytes.
+        Zone *z = containing(mem);
+        uintptr_t index = index_of<EightWords>(mem);
+        return &z->mark_map[index];
+    }
     
 public:
     
@@ -237,13 +240,6 @@ public:
         };
         Block blocks[1]; // Actual usable memory
     };
-
-    static inline uint8_t* mark_byte(Address mem) {
-        // Each mark byte corresponds to 8 words = 32 bytes.
-        Zone *z = containing(mem);
-        uintptr_t index = index_of<EightWords>(mem);
-        return &z->mark_map[index];
-    }
     
     static inline bool marked(Address mem) {
         assert(is_aligned(mem.bits()));
@@ -257,6 +253,32 @@ public:
         uint8_t* byte = mark_byte(mem);
         size_t index = (mem.bits() >> Word::log_size) & 7;
         *byte |= 1<<index;
+    }
+    
+    static inline void unmark(Address mem) {
+        assert(is_aligned(mem.bits()));
+        uint8_t* byte = mark_byte(mem);
+        size_t index = (mem.bits() >> Word::log_size) & 7;
+        *byte &= ~(1<<index);
+    }
+      
+    static bool unmarked(Block* b) {
+        int32_t* start = (int32_t*)mark_byte((char*)b);
+        size_t i;
+        for (i = 0; i < Block::size/Line::size; i++) {
+            if (start[i])
+                return false;
+        }
+        return true;
+    }
+
+    static void clear_mark_map(Block* b) {
+        int32_t* start = (int32_t*)Zone::mark_byte((char*)b);
+        size_t i;
+        for (i = 0; i < Block::size/Line::size; i+= 2) {
+            start[i] = 0;
+            start[i+1] = 0;
+        }
     }
     
     /** Returns the first usable Block, ie. Block index 2 */
@@ -297,6 +319,23 @@ public:
     
     inline void clear_modified(Line* line) {
         *modification_byte(line) = 0;
+    }
+    
+    /** To do -- Replace magic numbers */
+    template <class C> static inline void scan_marked_objects(Line* line) {
+        Address obj = line->start();
+        do {
+            uint8_t mark_byte = *Zone::mark_byte(obj); 
+            if (mark_byte) {
+                for (int j = 0; j < 8; j++) {
+                    if (mark_byte & (1 << j)) {
+                        assert(Zone::marked(obj.plus_bytes(j*4)));
+                        gc::scan_object<C>(obj.plus_bytes(j*4));
+                    }
+                }
+            }
+            obj = obj.plus_bytes(32);
+        } while (obj < line->next()->start());
     }
 
 };
@@ -523,7 +562,7 @@ public:
             Block* i;
             for (i = b; i < Zone::containing(b)->first_virtual(); i++) {
                 assert(i->is_valid());
-                assert(i->unmarked());
+                assert(Zone::unmarked(i));
                 i->set_space(Space::FREE);
             }   
             b = Zone::containing(b)->next()->first();
@@ -534,7 +573,7 @@ public:
             Block* i;
             for (i = b; i < end; i++) {
                 assert(i->is_valid());
-                assert(i->unmarked());
+                assert(Zone::unmarked(i));
                 i->set_space(Space::FREE);
             }
         }
@@ -626,7 +665,7 @@ public:
         insert_in_ring(start, end-start);
         free_block_count += count;
         for (size_t i = 0; i < count; i++) {
-            assert(blocks[i].unmarked());
+            assert(Zone::unmarked(&blocks[i]));
             blocks[i].set_space(Space::FREE);
             blocks[i].set_pinned(false);
         }

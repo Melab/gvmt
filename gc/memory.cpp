@@ -12,25 +12,6 @@ void Block::clear_modified_map() {
     }
 }
 
-void Block::clear_mark_map() {
-    int32_t* start = (int32_t*)Zone::mark_byte((char*)this);
-    size_t i;
-    for (i = 0; i < Block::size/Line::size; i+= 2) {
-        start[i] = 0;
-        start[i+1] = 0;
-    }
-}
-
-bool Block::unmarked() {
-    int32_t* start = (int32_t*)Zone::mark_byte((char*)this);
-    size_t i;
-    for (i = 0; i < Block::size/Line::size; i++) {
-        if (start[i])
-            return false;
-    }
-    return true;
-}
-
 /** These are posix specific, will need new version for MS Windows */ 
 
 char* OS::get_new_mmap_region(uintptr_t size) {
@@ -80,11 +61,23 @@ Zone* OS::allocate_virtual_memory(size_t size = Zone::size) {
     return reinterpret_cast<Zone*>(ptr);
 }
 
+#ifdef NDEBUG
+void Zone::verify() {}
+#else
 void Zone::verify() {
-    assert (containing(this) == this);   
+    assert (containing(this) == this); 
+    Zone* z = 0;
+    Address start = z->first()->start();
+    size_t start_line_index = Zone::index_of<Line>(start);
+    assert(((uint8_t*)(&z->real_blocks)) < &z->modified_map[start_line_index]);
+    assert(((uint8_t*)&z->collector_block_data[(Zone::size-1)/Block::size]) < &z->collector_line_data[start_line_index]);
+    assert(&z->block_pinned[(Zone::size-1)/Block::size] < &z->pinned[start_line_index]);
+    assert(&z->pinned[(Zone::size-1)/Block::size] < z->mark_map);
+    assert(((uintptr_t)&z->mark_map[(Zone::size-1)/(8*sizeof(void*))]) < start.bits());
     verify_header();
     verify_layout();
 }
+#endif
 
 void Zone::verify_heap() {
     Zone *z;
@@ -184,11 +177,6 @@ bool Heap::contains(Zone* z) {
             return true;
     }
     return false;
-}
-
-
-bool is_mark(char* mem) {
-    return Zone::marked(mem);   
 }
 
 const char* Space::area_names[] = { "Pinned", "Nursery", "Free", 
