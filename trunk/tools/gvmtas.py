@@ -268,6 +268,8 @@ uint32_t execution_count[256];
 //    gvmt_ip_start = _gvmt_ip;
     GVMT_StackItem return_value;
 ''' 
+    for t, n in bytecodes.locals:
+        out << '   %s %s;\n' % (c_types[t], n)
     if common.token_threading:
         emit_operand_table(bytecodes, out)
     if post_check:

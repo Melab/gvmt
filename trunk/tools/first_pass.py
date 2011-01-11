@@ -74,24 +74,28 @@ class FirstPassMode(object):
 
     def sign(self, val):
         pass
+    
+    def _gc(self):
+        pass
 
-    def n_call(self, func, tipe, args):
+    def n_call_no_gc(self, func, tipe, args):
         self.n_args.append(tipe.suffix)
         self.f_types.add(tuple(self.n_args))
         self.n_args = []
         
-    def n_call_no_gc(self, func, tipe, args):
-        self.n_call(func, tipe, args)
+    def n_call(self, func, tipe, args):
+        self.n_call_no_gc(func, tipe, args)
+        self._gc()
         
     def call(self, func, tipe):
-        pass
+        self._gc()
         
     def c_call(self, func, tipe, pcount):
-        pass
+        self._gc()
         
     def laddr(self, name):
         pass
-        
+    
     def rstack(self):
         pass
     
@@ -99,16 +103,16 @@ class FirstPassMode(object):
         pass
         
     def gc_malloc(self, size):
-        pass
+        self._gc()
         
     def gc_malloc_fast(self, size):
-        pass
+        self._gc()
         
     def extend(self, tipe, value):
         pass
           
     def gc_safe(self):
-        pass
+        self._gc()
         
     def compound(self, name, qualifiers, graph):
         offsets = {}
@@ -120,7 +124,8 @@ class FirstPassMode(object):
                 self.stream_offset = offsets[e]
             for i in bb:
                 i.process(self)
-
+        if graph.may_gc():
+            self._gc()
             
     def get(self):
         if self.stream_stack:
