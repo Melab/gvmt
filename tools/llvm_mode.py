@@ -8,6 +8,7 @@ import common
 import gtypes, operators
 import builtin, ssa
 from stacks import Stack, CachingStack
+import compound
 
 # Helper functions
 
@@ -41,7 +42,34 @@ def llvm_stack_restore(out):
             &params_stack_state[0], &params_stack_state[1], "", current_block);
 '''
 
-       
+def _used_locals(graph):
+    load_locals = set()
+    store_locals = set()
+    for bb in graph: 
+        prev_laddr = ''
+        for i in bb:
+            if i.__class__ is compound.CompoundInstruction:
+                l, s = _used_locals(i.flow_graph)
+                load_locals |= l
+                store_locals |= s
+                prev_laddr = ''
+            elif i.__class__ is builtin.LAddr:
+                if prev_laddr:
+                    store_locals.add(prev_laddr)
+                prev_laddr = i.tname
+            elif i.__class__ is builtin.PLoad:
+                if prev_laddr:
+                    load_locals.add(prev_laddr)
+                prev_laddr = ''
+            else:
+                #Address is used directly, so don't know what happens to it.
+                if prev_laddr:
+                    store_locals.add(prev_laddr)
+                prev_laddr = ''
+    load_locals -= store_locals
+    return load_locals, store_locals
+
+                
 # LLVM operator name
 def _op_name(op, tipe):
     if tipe.is_signed():
@@ -303,7 +331,24 @@ class Simple(Expr):
         
     def __int__(self):
         raise ValueError
- 
+        
+class LAddr(Expr):
+
+    def __init__(self, name):
+        Expr.__init__(self, gtypes.p)
+        self.name = name
+
+    def __str__(self):
+        return 'laddr_%s' % self.name
+        
+    def load(self, tipe):
+        load = 'new LoadInst(%s, "", current_block)' % self.pcast(tipe)
+        value = 'lvalue_%s' % self.name
+        return Simple(tipe, '(%s ? %s : %s)' % (value, value, load))
+        
+    def pstore(self, tipe, value):
+        return Expr.pstore(self, tipe, value)
+       
 class Constant(Simple):
     
     def __init__(self, tipe, val):
@@ -595,7 +640,8 @@ class LlvmPassMode(object):
     def n_call(self, func, tipe, args, gc = True):
         global _uid
         _uid += 1
-        self._save_all()
+        if gc:
+            self._save_all()
         self.out << ' Value* nargs_%d[] = {' % _uid
         for a in self.n_args:
             self.out << '%s, ' % a
@@ -603,8 +649,8 @@ class LlvmPassMode(object):
         a = func.n_call(tipe, self.n_types, 'nargs_%d' % _uid, args)
         self.n_types = []
         self.n_args = []
-        self.stack.flush_to_memory(self.out)
         if gc:
+            self.stack.flush_to_memory(self.out)
             self.out << ' CallInst::Create(Architecture::ENTER_NATIVE, &NO_ARGS[0], &NO_ARGS[0], "", current_block);\n'
         result = Simple(tipe, 'freturn_%d' % _uid)
         self.out << ' Value* freturn_%d = %s;' % (_uid, a)
@@ -641,7 +687,8 @@ class LlvmPassMode(object):
         return c 
         
     def laddr(self, name):
-        return Simple(gtypes.p, 'laddr_%s' % name)
+        #return Simple(gtypes.p, 'laddr_%s' % name)
+        return LAddr(name)
         
     def rstack(self):
         self.stack.flush_to_memory(self.out)
@@ -692,8 +739,7 @@ class LlvmPassMode(object):
         self.out << ' block_terminated = compile_%s(%s);\n' % (name, ', '.join(args))
         self.out << ' ref_temps_base -= %d;\n' % len(self.mem_temps)
         self.out << ' bb%s_%d = current_block;\n' % (self.label, self.block.index)
-                 
-                 
+                
     def top_level(self, name, qualifiers, graph):
         global _next_label
         self.i_length = graph.deltas[0] + 1
@@ -702,6 +748,16 @@ class LlvmPassMode(object):
         temps = set()
         temp_types = {}
         uses_alloca = False
+        if graph.may_gc():
+            self.out << ' clear_locals();'            
+        else:
+            loaded, stored = _used_locals(graph)
+            for l in stored:
+                self.out << 'lvalue_%s = 0;\n' % l
+            for l in loaded:
+                self.out << 'if (lvalue_%s == 0) ' % l
+                ptr = 'new BitCastInst(laddr_%s, PointerType::get(ltype_%s, 0), "x", current_block)' % (l, l)
+                self.out << 'lvalue_%s = new LoadInst(%s, "", current_block);\n' % (l, ptr)
         for bb in graph: 
             for i in bb:
                 if i.__class__ is builtin.TStore:
@@ -865,7 +921,7 @@ class LlvmPassMode(object):
         return self.stack.pop(tipe, self.out)
     
     def stack_push(self, value):
-        if value.__class__ is not Constant:
+        if value.__class__ is not Constant and value.__class__ is not LAddr:
             global _uid
             _uid += 1
             self.out << ' sv_%d = %s;\n' % (_uid, value)

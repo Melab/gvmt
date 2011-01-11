@@ -65,6 +65,22 @@ Function* Compiler::compile(uint8_t *begin, uint8_t *end, char* name, bool jit) 
 }
 '''
 
+llvm_types = { 
+    'object' : 'TYPE_R',
+    'pointer' : 'TYPE_P',
+    'int8' :  'TYPE_I1',
+    'int16' : 'TYPE_I2',
+    'int32' : 'TYPE_I4',
+    'int64' : 'TYPE_I8',
+    'uint8' :  'TYPE_I1',
+    'uint16' : 'TYPE_I2',
+    'uint32' : 'TYPE_I4',
+    'uint64' : 'TYPE_I8',
+    'float32' : 'TYPE_F4',
+    'float64' : 'TYPE_F8'
+}      
+    
+
 def preamble(bytecodes, out):
     gvmtas.write_header(bytecodes, out)
 #    out << '#include "gvmt/internal/core.h"\n'
@@ -78,10 +94,13 @@ def preamble(bytecodes, out):
         ops = i.flow_graph.deltas[0]
         formals = ', '.join(['int op%d' % j for j in range(ops)])
         out << '    bool compile_%s(%s);\n' % (i.name, formals)
+    out << '    void clear_locals();\n'
     out << '  void first_pass(int length, std::vector<int>& starts);\n'
     out << '  void second_pass(int length);\n'
     for t, n in bytecodes.locals:            
         out << '   Value *laddr_%s;\n' %  n
+        out << '   Value *lvalue_%s;\n' %  n
+        out << '   Type *ltype_%s;\n' %  n
     if bytecodes.func_name:
         name = bytecodes.func_name
     else:
@@ -118,6 +137,10 @@ def functions(bytecodes, out):
         out << 'bool Compiler::compile_%s(%s) {\n' % (i.name, formals)
         _compile_body(i, out, bytecodes.func_name)
         out << '}\n' 
+    out << 'void Compiler::clear_locals() {\n'
+    for t, n in bytecodes.locals:
+        out << '    lvalue_%s = 0;\n' %  n
+    out << '}\n'
         
 def constructor(bytecodes, out, gc_name):
     if bytecodes.func_name:
@@ -131,7 +154,10 @@ def constructor(bytecodes, out, gc_name):
     args.push_back(TYPE_P);
     args.push_back(TYPE_IPTR);
     FunctionType* ftype = FunctionType::get(TYPE_R, args, false);
-    GC_MALLOC_FUNC = Function::Create(ftype, GlobalValue::ExternalLinkage, "gvmt_%s_malloc", module);
+'''
+    for t, n in bytecodes.locals:      
+        out << '   ltype_%s = %s;\n' %  (n, llvm_types[t])   
+    out << '''GC_MALLOC_FUNC = Function::Create(ftype, GlobalValue::ExternalLinkage, "gvmt_%s_malloc", module);
 }  
 '''% gc_name
 
@@ -169,12 +195,14 @@ LOOP_START = '''
         switch(*IP) {
 '''
 
-LOOP_END = '''        default:
+BLOCK_END = '''        default:
             char buf[32];
             sprintf(buf, "Illegal opcode %d\\n", *IP);
             __gvmt_fatal(buf);
         }
-      }
+      }'''
+      
+LOOP_END = '''
       stack->join_depth = 0;
       stack->flush(current_block);
       if (!block_terminated) {
@@ -221,6 +249,7 @@ def second_pass(bytecodes, out):
             out << '    compile___preamble();\n'
     out << '    BranchInst::Create(it->second, current_block);\n'
     out << '    current_block = it->second;\n'
+    out << ' clear_locals();'
     out << LOOP_START
     for i in bytecodes.instructions:
         if 'private' in i.qualifiers or 'nocomp' in i.qualifiers:
@@ -239,6 +268,8 @@ def second_pass(bytecodes, out):
         produce = i.flow_graph.deltas[2]
         out << '        stack->join_depth += %d;\n' % produce
         out << '    break;\n'
+    out << BLOCK_END
+    out << ' clear_locals();'
     out << LOOP_END
     out << '}\n'
     

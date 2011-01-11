@@ -701,7 +701,7 @@ void* BaseCompiler::jit_compile(Function* func, char* name) {
     int64_t t0, t1, t2;
     t0 = high_res_time();
     // Uncomment line below to run verifier.
-    //verifyFunction(*func, PrintMessageAction);
+    // verifyFunction(*func, PrintMessageAction);
     if (execution_engine == 0) {
         // InitializeNativeTarget()
         module_provider = new ExistingModuleProvider(module);

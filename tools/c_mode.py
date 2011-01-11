@@ -191,6 +191,9 @@ class Expr(object):
         decl['gvmt_r%d' % _temp_index ] = self.tipe.c_name
         out << ' gvmt_r%d = %s;' % (_temp_index, self)
         return Simple(self.tipe, 'gvmt_r%d' % _temp_index)
+
+    def pstore(self, tipe, value, out):
+        out << (' %s = %s; ' % (self.indir(tipe), value))
         
 class StackItem(Expr):
     
@@ -237,6 +240,21 @@ class Simple(Expr):
             return self
         else:
             return Expr.store(self, decl, out)
+            
+class LAddr(Expr):
+    def __init__(self, name):
+        Expr.__init__(self, gtypes.p)
+        self.name = name
+        
+    def __str__(self):
+        return '(&FRAME_POINTER->%s)' % self.name
+        
+    def indir(self, tipe):
+        return Simple(tipe, "(%s = FRAME_POINTER->%s)" % (self.name, self.name))
+
+    def pstore(self, tipe, value, out):
+        out << (' %s = %s; ' % (self.name, value))
+        out << (' FRAME_POINTER->%s = %s; ' % (self.name, self.name))
 
 class Constant(Simple):
     
@@ -413,7 +431,7 @@ class CMode(object):
     def pstore(self, tipe, array, value):
         self._null_check(array)
         self.stack.store(self.out)
-        self.out << ' %s = %s;' % (array.indir(tipe), value.cast(tipe))
+        array.pstore(tipe, value.cast(tipe), self.out)
         
     #If debug is on, insert extra checking code.
     def _check_ref_access(self, obj, offset, tipe):
@@ -468,7 +486,7 @@ class CMode(object):
                                                                       offset)
             self._check_ref_access(obj, offset, tipe)
         internal_ptr = PointerAdd(tipe, obj, operators.add, offset)
-        self.out << ' %s = %s;'  % (internal_ptr.indir(tipe), value.cast(tipe))
+        internal_ptr.pstore(tipe, value.cast(tipe), self.out)
 
     def binary(self, tipe, left, op, right):
         if op == operators.lsh:
@@ -1119,8 +1137,8 @@ class IMode(CMode):
         return Simple(gtypes.p, '(_gvmt_ip+%d)' % self.i_length)
 
     def laddr(self, name):
-        return Simple(gtypes.p, '(&FRAME_POINTER->%s)' % name) 
-
+        return LAddr(name)
+        
     def far_jump(self, addr):
         self.out << ' _gvmt_ip = %s;' % addr.cast(gtypes.p)
         self.stack.flush_to_memory(self.out)
