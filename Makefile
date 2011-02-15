@@ -107,11 +107,18 @@ build/gvmt_gc_genimmix2_tagged.a: build/gc/GenImmix_tagged.o build/gc/gc_threads
 	ar rcs  build/gvmt_gc_genimmix2_tagged.a build/gc/GenImmix_tagged.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o
 	touch build/gvmt_gc_genimmix2_tagged.a
 	
+build/hotpy_collector.a: build/gc/HotPy_collector.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o  
+	ar rcs  build/hotpy_collector.a build/gc/HotPy_collector.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o
+	touch build/hotpy_collector.a
+	
 build/gc/GenImmix.o : gc/GenImmix.cpp $I/Immix.hpp $I/Generational.hpp $(HEADERS) $(GC_HEADERS)  
 	$(CPP) $(NDBG) -g -o $@ $<
 	
 build/gc/GenImmix_tagged.o : gc/GenImmix.cpp $I/Immix.hpp $I/Generational.hpp $(HEADERS) $(GC_HEADERS)  
 	$(CPP) $(NDBG) -g -DGVMT_TAGGING -o $@ $<
+	
+build/gc/HotPy_collector.o : gc/GenImmix.cpp $I/Immix.hpp $I/Generational.hpp $(HEADERS) $(GC_HEADERS)  
+	$(CPP) $(NDBG) -g -DGVMT_TAGGING -DHOTPY_SPECIFIC -o $@ $<
           
 build/gc/GenCopy.o : gc/GenCopy.cpp $I/SemiSpace.hpp $I/Generational.hpp $(HEADERS) $(GC_HEADERS)  
 	$(CPP) $(NDBG) -g -o $@ $<
