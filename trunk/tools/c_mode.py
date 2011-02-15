@@ -1011,17 +1011,6 @@ class CMode(object):
         self.out << 'gvmt_sp = val%d.regs.sp; ' % _uid
         return c 
         
-    def push_state(self, value):
-        self.out << '((GvmtExceptionHandler)%s)->link = gvmt_exception_stack; ' % value.cast(gtypes.p)
-        self.out << 'gvmt_exception_stack = ((GvmtExceptionHandler)%s); ' % value.cast(gtypes.p)
-        
-    def pop_state(self):
-        global _uid
-        _uid += 1
-        self.out << 'GvmtExceptionHandler h_%d = gvmt_exception_stack; ' % _uid
-        self.out << 'gvmt_exception_stack = h_%d->link; ' % _uid
-        return Simple(gtype.p, '((void*)h_%d' %_uid)
-        
     def push_current_state(self):
         global _uid
         _uid += 1

@@ -207,12 +207,6 @@ class FirstPassMode(object):
     def push_current_state(self):
         pass
     
-    def pop_state(self):
-        pass
-    
-    def push_state(self, value):
-        pass
-    
     def discard_state(self):
         pass
     

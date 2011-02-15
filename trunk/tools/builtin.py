@@ -1,11 +1,19 @@
-'Predefined GSC instructions.'
+'Predefined abstract machine instructions.'
 
 from common import GVMTException, UnlocatedException
 
 import gtypes, operators, re
 
+def _indefinite_article(s) :
+    if s == 'void':
+        return s    
+    elif s[0] in 'aeiou':
+        return 'an ' + s
+    else:
+        return 'a ' + s
+
 class Instruction(object):
-    'Base class for all GSC instructions.'
+    'Base class for all abstract machine instructions.'
     
     exits = False
     fallthru = True
@@ -23,14 +31,6 @@ class Instruction(object):
         
     def __hash__(self):
         return id(self)
-            
-def _push(mode, tipe, val):
-    'Pushes val of type tipe to stack'
-    mode.stack_push(val)
-
-def _pop(mode, tipe):
-    'Pops value fo type tipe from stack'
-    return mode.stack_pop(tipe)
 
 class Comment(Instruction):
     'For debugging purposes, may be discarded by tools.'
@@ -52,11 +52,11 @@ class NativeArg(Instruction):
         self.name = 'NARG_%s' % tipe.suffix
         self.inputs = [ 'val' ]
         self.outputs = [ ]
-        self.__doc__ = ( 'Native argument of type %s.'
+        self.__doc__ = ( 'Native argument of type %s. '
         'TOS is pushed to the native argument stack.' ) % tipe.doc
                 
     def process(self, mode):
-        val = _pop(mode, self.tipe)
+        val = mode.stack_pop(self.tipe)
         mode.n_arg(self.tipe, val)
         
 _letters = { gtypes.i4 : 'I',
@@ -72,43 +72,56 @@ class Convert(Instruction):
         self.to_type = to_type
         self.inputs = [ 'val' ]
         self.outputs = [ 'result' ]
-        self.__doc__ = 'Converts %s to %s.' % (from_type.doc, to_type.doc)
+        self.__doc__ = '''Converts %s to %s. This is a convertion, not a cast. 
+        It is the value that remains the same, not the bit-pattern.
+        ''' % (from_type.doc, to_type.doc)
         
     def process(self, mode):
-        val = _pop(mode, self.from_type)
+        val = mode.stack_pop(self.from_type)
         result = mode.convert(self.from_type, self.to_type, val)
-        _push(mode, self.to_type, result)
+        mode.stack_push(result)
             
 class BinaryOp(Instruction):
     
     def __init__(self, op, tipe):
         self.name = '%s_%s' % (op.name, tipe.suffix)
         self.inputs = [ 'op1', 'op2' ]
-        self.outputs = [ 'value' ]
+        self.outputs = [ 'result' ]
         self.op = op
         self.tipe = tipe
-        self.__doc__ = "Binary operation: %s %s." % (tipe.doc, op.description)
+        if op == operators.rsh:
+            if tipe.is_signed():
+                des = 'arithmetic'
+            else:
+                des = 'logical'
+            self.__doc__ = ("Binary operation: %s %s right shift.\n\n"
+                'result := op1 >> op2.') % (tipe.doc, des)
+        else:
+            self.__doc__ = ("Binary operation: %s %s.\n\n" 
+                'result := op1 %s op2.') % (tipe.doc, op.description, op.c_name)
+        if op == operators.div:
+            self.__doc__ += " Rounds towards zero."
         
     def process(self, mode):
         right = mode.stack_pop(self.tipe)
         left = mode.stack_pop(self.tipe)
         result = mode.binary(self.tipe, left, self.op, right)
-        _push(mode, self.tipe, result)
+        mode.stack_push(result)
             
 class ComparisonOp(Instruction):
     
     def __init__(self, op, tipe):
         self.name = '%s_%s' % (op.name, tipe.suffix)
         self.inputs = [ 'op1', 'op2' ]
-        self.outputs = [ 'value' ]
+        self.outputs = [ 'comp' ]
         self.op = op
         self.tipe = tipe
-        self.__doc__ = ("Comparison operation: %s %s." 
-                        % (tipe.doc, op.description))
+        self.__doc__ = ("Comparison operation: %s %s.\n\n"
+            'comp := op1 %s op2.' % (tipe.doc, op.description, op.c_name))
         
     def process(self, mode):
-        right = _pop(mode, self.tipe)
-        left = _pop(mode, self.tipe)
+        right = mode.stack_pop(self.tipe)
+        left = mode.stack_pop(self.tipe)
         result = mode.comparison(self.tipe, left, self.op, right)
         mode.stack_push(result)
         
@@ -116,6 +129,9 @@ class ComparisonOp(Instruction):
         return ComparisonOp(self.op._invert, self.tipe)
         
 class FieldIsNull(Instruction):
+    '''Tests whether an object field is null.
+Equivalent to RLOAD_X 0 EQ_X where X is a R, P or a pointer sized integer.
+'''
     
     def __init__(self, is_null):
         self.is_null = is_null
@@ -127,9 +143,6 @@ class FieldIsNull(Instruction):
             not_ = 'not '
         self.inputs = [ 'object', 'offset' ]
         self.outputs = [ 'value' ]
-        self.__doc__ = '''Tests whether an object field is %snull.
-Equivalent to RLOAD_X 0 EQ_X where X is a R, P or a pointer sized integer.
-'''
     
     def process(self, mode):
         offset = mode.stack_pop(gtypes.iptr)
@@ -148,9 +161,9 @@ class UnaryOp(Instruction):
         self.__doc__ = "Unary operation: %s %s." % (tipe.doc, op.description)
         
     def process(self, mode):
-        arg = _pop(mode, self.tipe)   
+        arg = mode.stack_pop(self.tipe)   
         result = mode.unary(self.tipe, self.op, arg)
-        _push(mode, self.tipe, result)
+        mode.stack_push(result)
  
             
 class TLoad(Instruction):
@@ -165,11 +178,12 @@ class TLoad(Instruction):
         self.outputs = [ 'value' ]
         self.tipe = tipe
         self.name = "TLOAD_%s(%d)" % (tipe.suffix, self.index)
-        self.__doc__ = r"Push the contents of the Nth temporary variable as a %s." % self.tipe.doc
+        self.__doc__ = r'''Push the contents of the nth 
+            temporary variable as %s''' % _indefinite_article(self.tipe.doc)
         
     def process(self, mode):
         val = mode.tload(self.tipe, self.index)
-        _push(mode, self.tipe, val)
+        mode.stack_push(val)
         
 class TStore(Instruction):
     
@@ -183,10 +197,11 @@ class TStore(Instruction):
         self.inputs = [ 'value' ]
         self.outputs = []
         self.tipe = tipe
-        self.__doc__ = r"Pop a %s from the stack and store in the Nth temporary variable." %  self.tipe.doc
+        self.__doc__ = r'''Pop %s from the stack and store in the nth 
+            temporary variable.''' % _indefinite_article(self.tipe.doc)
     
     def process(self, mode):
-        val = _pop(mode, self.tipe)
+        val = mode.stack_pop(self.tipe)
         mode.tstore(self.tipe, self.index, val)
         
 # Set of all legal chars, instersection of ASCII and C identifier characters.
@@ -203,6 +218,7 @@ def legal_name(name):
     return tname
      
 class Name(Instruction):
+    'Name the nth temporary variable, for debugging purposes.'
     
     def __init__(self, index, name):
         self.name = 'NAME(%s,%s)' % (index, name)
@@ -214,16 +230,13 @@ class Name(Instruction):
         self.tname = legal_name(name)
         self.inputs = [ ]
         self.outputs = []
-        self.__doc__ = ('Name the Nth temporary variable,'
-        ' for debugging purposes.')
 
     def process(self, mode):
         mode.name(self.index, self.tname)
     
 class TypeName(Instruction):
-    
-    __doc__ = ( 'Name the (reference) type of the Nth temporary variable,' 
-                ' for debugging purposes.')
+    '''Name the (reference) type of the nth temporary variable,
+    for debugging purposes.'''
     
     def __init__(self, index, name):
         self.name = 'TYPE_NAME(%s,%s)' % (index, name)
@@ -246,12 +259,13 @@ class PLoad(Instruction):
         self.inputs = [ 'addr' ]
         self.outputs = [ 'value' ]
         self.tipe = tipe
-        self.__doc__ = ('Load from memory. '
-                        'Push %s value loaded from address in TOS.') % tipe.doc
+        self.__doc__ = '''Load from memory. 
+                          Push %s value loaded from address in TOS 
+                          (which must be a pointer).''' % tipe.doc
   
     def process(self, mode):
         val = mode.pload(self.tipe, mode.stack_pop(gtypes.p))
-        _push(mode, self.tipe, val)
+        mode.stack_push(val)
         
 class PStore(Instruction):
     
@@ -260,12 +274,13 @@ class PStore(Instruction):
         self.inputs = [ 'value', 'array' ]
         self.outputs = []
         self.tipe = tipe
-        self.__doc__ = ('Store to memory. '
-                        'Store %s value in NOS to address in TOS.') % tipe.doc 
+        self.__doc__ = '''Store to memory. 
+                          Store %s value in NOS to address in TOS.
+                          (TOS must be a pointer)''' % tipe.doc 
         
     def process(self, mode):
         array = mode.stack_pop(gtypes.p)
-        val = _pop(mode, self.tipe)
+        val = mode.stack_pop(self.tipe)
         mode.pstore(self.tipe, array, val)
 
 class RLoad(Instruction):
@@ -275,8 +290,9 @@ class RLoad(Instruction):
         self.inputs = [ 'object', 'offset' ]
         self.outputs = [ 'value' ]
         self.tipe = tipe
-        self.__doc__ = ('Load from object. Load %s '
-                        'value from object NOS at offset TOS.') % tipe.doc
+        self.__doc__ = '''Load from object. 
+            Load %s value from object NOS at offset TOS.
+            (NOS must be a reference and TOS must be an integer)''' % tipe.doc
         if tipe == gtypes.r:
             self.__doc__ += ('Any read-barriers required by the garbage ' 
                              'collector are performed.')
@@ -286,7 +302,7 @@ class RLoad(Instruction):
         offset = mode.stack_pop(gtypes.iptr)
         obj = mode.stack_pop(gtypes.r)
         val = mode.rload(self.tipe, obj, offset)
-        _push(mode, self.tipe, val)
+        mode.stack_push(val)
         
 class RStore(Instruction):
     
@@ -295,8 +311,9 @@ class RStore(Instruction):
         self.inputs = [  'value', 'object', 'offset']
         self.outputs = []
         self.tipe = tipe
-        self.__doc__ = ('Store into object.Store %s ' 
-                        'value at 3OS into object NOS, offset TOS.') % tipe.doc 
+        self.__doc__ = '''Store into object.
+            Store %s value at 3OS into object NOS, offset TOS.
+            (NOS must be a reference and TOS must be an integer)''' % tipe.doc 
         if tipe == gtypes.r:
             self.__doc__ += ('Any write-barriers required by the garbage' 
                              ' collector are performed.')
@@ -304,7 +321,7 @@ class RStore(Instruction):
     def process(self, mode):
         offset = mode.stack_pop(gtypes.iptr)
         obj = mode.stack_pop(gtypes.r)
-        val = _pop(mode, self.tipe)
+        val = mode.stack_pop(self.tipe)
         mode.rstore(self.tipe, obj, offset, val)
         
 class RStoreSimple(Instruction):
@@ -320,7 +337,7 @@ class RStoreSimple(Instruction):
     def process(self, mode):
         offset = mode.stack_pop(gtypes.iptr)
         obj = mode.stack_pop(gtypes.r)
-        val = _pop(mode, self.tipe)
+        val = mode.stack_pop(self.tipe)
         mode.rstore(self.tipe, obj, offset, val)
 
 class FullyInitialized(Instruction):
@@ -329,10 +346,12 @@ class FullyInitialized(Instruction):
         self.name = 'FULLY_INITIALIZED'
         self.inputs = [ 'object' ]
         self.outputs = []
-        self.__doc__ = ('Declare TOS object to be fully-initialised. '
-                        'This allows optimisations to be made by the toolkit. '
-                        'Drops TOS as a side effect.')
-            
+        self.__doc__ = ('Declare TOS object to be fully-initialised.'
+                        'This allows optimisations to be made by the toolkit.'
+                        'Drops TOS as a side effect. TOS must be a reference,'
+                        'it is a (serious) error if TOS object'
+                        'has \emph{any} uninitialised reference fields')
+
     def process(self, mode):
         obj = mode.stack_pop(gtypes.r)
         mode.fully_initialised(obj)
@@ -348,8 +367,9 @@ class Branch(Instruction):
         self.outputs = []
         self.index = int(index)
         self.way = way
-        self.__doc__ = ("Branch if TOS is %s to Target(%s)." % 
-            (['False', 'True'][way == True], index))
+        self.__doc__ = (
+            'Branch if TOS is %s to Target(%s). TOS must be an integer.'
+            % (['zero', 'non-zero'][way == True], index))
         
     def process(self, mode):
         cond = mode.stack_pop(gtypes.b)
@@ -357,15 +377,13 @@ class Branch(Instruction):
         
 class Hop(Instruction):
       
-    name = "HOP(n)"
-    doc = "Jump (unconditionally) to TARGET(n)"
+    __doc__ = "Jump (unconditionally) to TARGET(n)"
     
     def __init__(self, index):
         self.name = "HOP(%s)" % index
         self.inputs = []
         self.outputs = []
         self.index = int(index)
-        self.__doc__ = "Jump (unconditionally) to TARGET(%s)." % index
         
     def process(self, mode):
         mode.hop(self.index)
@@ -383,13 +401,19 @@ class Target(Instruction):
         mode.target(self.index)
 
 class Extend(Instruction):
-      
+
     def __init__(self, tipe):
         self.name = "EXT_%s" % tipe.suffix
         self.inputs = [ 'value' ]
         self.outputs = [ 'extended' ]
         self.tipe = tipe
-        self.__doc__ = 'Extends %s value to full word.' % tipe.suffix
+        if tipe.is_signed():
+            ext = 'Sign'
+        else:
+            ext = 'Zero'        
+        self.__doc__ = '''
+            %s extends TOS from to a %s to a pointer-sized integer.
+            ''' % (ext, tipe.suffix)
             
     def process(self, mode):
         mode.stack_push(mode.extend(self.tipe, mode.stack_pop(self.tipe)))
@@ -415,8 +439,10 @@ class Call(Instruction):
         self.inputs = []
         self.outputs = [ 'value' ]
         self.annotations = [ 'private' ]
-        self.__doc__ = ('Calls the function whose address is TOS. Pushes the ' 
-                        'return value which must be of type %s.') % tipe
+        self.__doc__ = '''Calls the function whose address is TOS. 
+            TOS must be a pointer. 
+            Removal parameters from the stack is the callee's responsibility.
+            The function called must return %s.''' % _indefinite_article(tipe.doc)
         
     def process(self, mode):
         func = mode.stack_pop(gtypes.p)
@@ -435,10 +461,11 @@ class V_Call(Instruction):
         self.operands = 1
         self.annotations = [ 'private' ]
         self.__doc__ = ('Variadic call. '
-                'Calls the function whose address is TOS. Ensures '
-                'that N parameters are removed from the evaluation stack '
-                'and pushes the return value which must be of type %s. '
-                'N is fetched from the instruction stream.') % tipe
+            'The number of parameters, n, '
+            'is the next byte in the instruction stream (which is consumed). '
+            'Calls the function whose address is TOS. '
+            'Upon return removes the n parameters are from the data stack. '
+            'The function called must return %s.') % _indefinite_article(tipe.doc)
         
     def process(self, mode):
         func = mode.stack_pop(gtypes.p)
@@ -464,13 +491,13 @@ class N_Call(Instruction):
         self.__doc__ = ('Calls the function whose address is TOS. Uses '
         'the native calling convention for this platform with %s '
         'parameters which are popped from the native argument stack. '
-        'Pushes the return value which must be of type %s.') % (args, tipe)
+        'Pushes the return value which must be a %s.') % (args, tipe.doc)
         
     def process(self, mode):
         func = mode.stack_pop(gtypes.p)
         val = mode.n_call(func, self.tipe, self.args)
         if self.tipe is not gtypes.v:
-            _push(mode, self.tipe, val)
+            mode.stack_push(val)
         
     def may_gc(self):
         return True
@@ -496,7 +523,7 @@ class N_Call_No_GC(Instruction):
         func = mode.stack_pop(gtypes.p)
         val = mode.n_call_no_gc(func, self.tipe, self.args)
         if self.tipe is not gtypes.v:
-            _push(mode, self.tipe, val)
+            mode.stack_push(val)
         
     def may_gc(self):
         return False
@@ -505,14 +532,17 @@ class Alloca(Instruction):
     
     def __init__(self, tipe):
         self.name = 'ALLOCA_%s' % tipe.suffix
-        self.inputs = [ 'N' ]
+        self.inputs = [ 'n' ]
         self.outputs = [ 'ptr' ]
         self.tipe = tipe
-        self.__doc__ = ('Allocates space for N %ss in the current control '
+        self.__doc__ = ('Allocates space for n %ss in the current control '
         'stack frame, leaving pointer to allocated space in TOS. All memory '
         'allocated after a PUSH_CURRENT_STATE is invalidated immediately by a RAISE, '
         'but not necessarily immediately reclaimed. All memory allocated is '
         'invalidated and reclaimed by a RETURN instruction.') % tipe.doc
+        if tipe == gtypes.r:
+            self.__doc__ += ''' ALLOCA_R cannot be used after the first HOP,
+            BRANCH, TARGET, JUMP or FAR_JUMP instruction.'''
          
     def process(self, mode):
         mode.stack_push(mode.alloca(self.tipe, mode.stack_pop(gtypes.uptr)))
@@ -521,9 +551,9 @@ class GC_Malloc(Instruction):
     
     def __init__(self):
         self.name = 'GC_MALLOC'
-        self.inputs = [ 'N' ]
-        self.outputs = [ 'ptr' ]
-        self.__doc__ = ('Allocates N bytes in the heap leaving pointer to '
+        self.inputs = [ 'size' ]
+        self.outputs = [ 'ref' ]
+        self.__doc__ = ('Allocates size bytes in the heap leaving reference to '
                         'allocated space in TOS. GC pass may replace with a '
                         'faster inline version. Defaults to GC_MALLOC_CALL.')
          
@@ -537,9 +567,9 @@ class GC_Allocate_Only(Instruction):
     
     def __init__(self):
         self.name = '__GC_ALLOC_ONLY'
-        self.inputs = [ 'N' ]
-        self.outputs = [ 'ptr' ]
-        self.__doc__ = ('Allocates N bytes in the heap leaving pointer to '
+        self.inputs = [ 'size' ]
+        self.outputs = [ 'ref' ]
+        self.__doc__ = ('Allocates size bytes in the heap leaving reference to '
                         'allocated space in TOS. Does not initialise memory. '
                         'For internal toolkit use only.')
          
@@ -553,11 +583,12 @@ class GC_Malloc_Call(Instruction):
     
     def __init__(self):
         self.name = 'GC_MALLOC_CALL'
-        self.inputs = [ 'N' ]
-        self.outputs = [ 'ptr' ]
-        self.__doc__ = ('Allocates N bytes, via a call to the GC collector. '
-                        'Generally users should use GC_MALLOC and allow the '
-                        'toolkit to substitute appropriate inline code.')
+        self.inputs = [ 'size' ]
+        self.outputs = [ 'ref' ]
+        self.__doc__ = ('Allocates size bytes, via a call to the GC collector. '
+            'Generally users should use GC_MALLOC and allow the '
+            'toolkit to substitute appropriate inline code.'
+            'Safe to use, but front-ends should use GC_MALLOC instead.')
         
     def process(self, mode):
         mode.stack_push(mode.gc_malloc(mode.stack_pop(gtypes.uptr)))
@@ -569,11 +600,12 @@ class GC_Malloc_Fast(Instruction):
     
     def __init__(self):
         self.name = 'GC_MALLOC_FAST'
-        self.inputs = [ 'N' ]
-        self.outputs = [ 'ptr' ]
-        self.__doc__ = ('Fast allocates N bytes, ptr is 0 if cannot allocate '
+        self.inputs = [ 'size' ]
+        self.outputs = [ 'ref' ]
+        self.__doc__ = ('Fast allocates size bytes, ref is 0 if cannot allocate '
                         'fast. Generally users should use GC_MALLOC and allow '
-                        'the toolkit to substitute appropriate inline code.')
+                        'the toolkit to substitute appropriate inline code.'
+                        'For internal toolkit use only.')
          
     def process(self, mode):
         mode.stack_push(mode.gc_malloc_fast(mode.stack_pop(gtypes.uptr)))
@@ -592,7 +624,7 @@ class LAddr(Instruction):
                 raise UnlocatedException(
                     "'%s' is not a legal C identifier" % self.tname)
         self.inputs = []
-        self.outputs = [ '%s' % self.tname ]
+        self.outputs = [ 'addr' ]
         self.__doc__ = ("Pushes the address of the local variable " 
                         "'%s' to TOS.") % self.tname
 
@@ -603,11 +635,11 @@ class Pick(Instruction):
     def __init__(self, tipe):
         self.name = 'PICK_%s' % tipe.suffix
         self.inputs = []
-        self.outputs = [ r'N\textsuperscript{th}' ]
+        self.outputs = [ r'n\textsuperscript{th}' ]
         self.operands = 1
         self.tipe = tipe
-        self.__doc__ = ('Picks the Nth item from the stack(TOS is index 0)'
-                        'and pushes it onto the evaluation stack.')
+        self.__doc__ = ('Picks the nth item from the data stack(TOS is index 0)'
+                        'and pushes it to TOS.')
 
     def process(self, mode):
         mode.stack_push(mode.stack_pick(self.tipe, mode.stream_fetch()))      
@@ -615,11 +647,11 @@ class Pick(Instruction):
 class Poke(Instruction):
     def __init__(self):
         self.name = 'PICK'
-        self.inputs = [ 'N' ]
-        self.outputs = [ r'N\textsuperscript{th}' ]
+        self.inputs = [ 'value' ]
+        self.outputs = [ ]
         self.operands = 1
-        self.__doc__ = ('Pops TOS. Then overwrites the Nth item with TOS.'
-                        'PICK N POKE N has no net effect.')
+        self.__doc__ = ('Pops TOS. Then overwrites the nth item with TOS.'
+                        'PICK x POKE x has no net effect.')
 
     def process(self, mode):
         tos = mode.stack_pop(gtypes.uptr)
@@ -630,10 +662,11 @@ class Stack(Instruction):
         self.name = 'STACK'
         self.inputs = []
         self.outputs = [ 'sp' ]
-        self.__doc__ = ('Pushes the Evaluation-stack stack-pointer to TOS. '
-        'The evaluation stack grows downwards, so stack items will be at '
-        'non-negative offsets from sp. Values pushed on to the stack are not '
-        'visible, do \emph{not} access values at negative offsets. '
+        self.__doc__ = ('Pushes the data-stack stack-pointer to TOS. '
+        'The data stack grows downwards, so stack items will be at '
+        'non-negative offsets from sp. '
+        'Values subsequently pushed on to the stack are not '
+        'visible. Attempting to access values at negative offsets is an error. '
         'As soon as a net positive number of values are popped from the stack, '
         'sp becomes invalid and should \emph{not} be used.')
     def process(self, mode):
@@ -645,7 +678,7 @@ class IP(Instruction):
         self.name = 'IP'
         self.inputs = []
         self.outputs = [ 'instruction_pointer' ]
-        self.__doc__ = 'Pushes the (interpreter) instruction pointer to TOS.'
+        self.__doc__ = 'Pushes the current (interpreter) instruction pointer to TOS.'
         
     def process(self, mode):
         mode.stack_push(mode.ip())
@@ -668,7 +701,8 @@ class Next_IP(Instruction):
         self.inputs = []
         self.outputs = [ 'instruction_pointer' ]
         self.__doc__ = ('Pushes the (interpreter) instruction pointer '
-                        'for the \emph{next} instruction to TOS.')
+            'for the \emph{next} instruction to TOS.'
+            ' This is equal to IP plus the length of the current bytecode')
         
     def process(self, mode):
         mode.stack_push(mode.next_ip())
@@ -679,8 +713,13 @@ class IP_Fetch(Instruction):
         self.inputs = []
         self.outputs = [ 'operand' ]
         self.operands = operands
-        self.__doc__ = ('Fetches the next %d byte(s) from the instruction stream '
-                        'and pushes it onto the evaluation stack.' % operands)
+        bytes = 'byte' if operands == 1 else '%d bytes' % operands
+        self.__doc__ = ('Fetches the next %s from the instruction stream. ' 
+                        % bytes)
+        if operands > 1:
+            s = 'Combine into an integer, first byte is most significant.'
+            self.__doc__ += s
+        self.__doc__ += 'Push onto the data stack.'
 
     def process(self, mode):
         mode.stack_push(mode.stream_fetch(self.operands))
@@ -691,9 +730,9 @@ class Sign(Instruction):
         self.name = 'SIGN'
         self.inputs = [ 'val' ]
         self.outputs = [ 'extended' ]
-        self.__doc__ = ('Sign extend a single word to 64 bit. Leaves a '
-                        'double word in TOS and NOS for 32bit machines. '
-                        'This is a no-op for 64bit machines.')
+        self.__doc__ = ('On a 32 bit machine, sign extend TOS'
+            ' from a 32 bit value to a 64 bit value. '
+            'This is a no-op for 64bit machines.')
         
     def process(self, mode):
         if gtypes.p.size == 4:
@@ -706,88 +745,65 @@ class Zero(Instruction):
         self.name = 'ZERO'
         self.inputs = [ 'val' ]
         self.outputs = [ 'extended' ]
-        self.__doc__ = ('Zero extend a single word to 64 bit. Leaves a '
-                        'double word in TOS and NOS for 32bit machines. '
-                        'This is a no-op for 64bit machines.')
+        self.__doc__ = ('On a 32 bit machine, zero extend TOS'
+            ' from a 32 bit value to a 64 bit value. '
+            'This is a no-op for 64bit machines.')
         
     def process(self, mode):
         if gtypes.p.size == 4:
             tos = mode.stack_pop(gtypes.u4)
             mode.stack_push(mode.zero(tos))
          
-class Push_current_state(Instruction):
+class PushCurrentState(Instruction):
+    '''Pushes a new state-object to the state stack and pushes 0 to TOS, 
+    when initially executed. When execution resumes after a RAISE or TRANSFER, 
+    then the value in the transfer register is  pushed to TOS.'''
     
     def __init__(self):
         self.name = 'PUSH_CURRENT_STATE'
         self.inputs = [  ]
         self.outputs = [ 'value' ]
-        self.__doc__ = ('Pushes a new state-object to the state stack and '
-        'pushes 0 to TOS, when initially executed. '
-        'When execution resumes after a RAISE, the value that was TOS when the ' 
-        'RAISE instruction was exceuted is pushed to TOS.')
         
     def process(self, mode):
         mode.stack_push(mode.push_current_state())
-        
-class push_state(Instruction):
+
+class PopState(Instruction):
+    'Pops and discards the state-object on top of the state stack.'
     
     def __init__(self):
-        self.name = 'PUSH_STATE'
-        self.inputs = [ 'state' ]
-        self.outputs = [ ]
-        self.__doc__ = ('Pushes a pre-exisiting state-object '
-                         'to the state stack.')
-        
-    def process(self, mode):
-        mode.push_state(mode.stack_pop(gtypes.p))
-        
-class pop_state(Instruction):
-    
-    def __init__(self):
-        self.name = 'PUSH_STATE'
-        self.inputs = [ ]
-        self.outputs = [ 'state' ]
-        self.__doc__ = ('Pops the state-object '
-                         'from the state stack.')
-        
-    def process(self, mode):
-        mode.stack_push(mode.pop_state())
-         
-class discard_state(Instruction):
-    
-    def __init__(self):
-        self.name = 'DISCARD_STATE'
+        self.name = 'POP_STATE'
         self.inputs = [  ]
         self.outputs = [ 'value' ]
-        self.__doc__ = 'Pops and destroys the state-object on top of the exception stack.'
         
     def process(self, mode):
         mode.discard_state()
          
 class Raise(Instruction):
+    '''Pop TOS, which must be a reference, and place in the transfer register.
+    Examine the state object on top of state stack.
+    Pop values from the data-stack to the depth recorded.
+    Resume execution from the PUSH_CURRENT_STATE instruction that stored
+    the state object on the state stack.'''
     
     def __init__(self):
         self.name = 'RAISE'
         self.inputs = [ 'value' ]
         self.outputs = [ ]
-        self.__doc__ = ('Pops the value from the stack. Unwinds the stack, '
-        'if necessary, and resumes execution at the PUSH_CURRENT_STATE '
-        'instruction associated with the state-object on top of the '
-        'state stack, pushing the value back to the restored stack.')
         
     def process(self, mode):
         tos = mode.stack_pop(gtypes.r)
         mode._raise(tos)
          
 class Transfer(Instruction):
+    '''Pop TOS, which must be a reference, and place in the transfer register. 
+    Resume execution from the PUSH_CURRENT_STATE instruction that stored
+    the state object on the state stack.
+    Unlike RAISE, TRANSFER does not modify the data stack.'''
     
     def __init__(self):
         self.name = 'TRANSFER'
         self.inputs = [ ]
         self.outputs = [ ]
-        self.__doc__ = ('Resumes execution at the PUSH_CURRENT_STATE '
-        'instruction associated with the state-object on top of the '
-        'state stack. Unlike RAISE, TRANSFER does not modify the stack. ')
         
     def process(self, mode):
         tos = mode.stack_pop(gtypes.r)
@@ -799,17 +815,15 @@ class Return(Instruction):
         self.name = "RETURN_" + tipe.suffix
         self.inputs = ['value']
         self.outputs = []
-        if tipe is gtypes.v:
-            self.__doc__ = "Returns"
-        else:
-            self.__doc__ = "Returns the %s value (on TOS)." % tipe.doc
+        self.__doc__ = '''Returns from the current function.
+            Type must match that of CALL instruction.'''
         self.tipe = tipe
         
     def process(self, mode):
         mode.return_(self.tipe)
         
 class Pin(Instruction):
-    "Pins the object on TOS"
+    "Pins the object on TOS. Changes type of TOS from a reference to a pointer."
     
     def __init__(self):
         self.name = 'PIN'
@@ -821,7 +835,11 @@ class Pin(Instruction):
         mode.stack_push(pinned)
         
 class PinnedObject(Instruction):
-    '''Declares that pointer is in fact a reference to a pinned object.'''
+    '''Declares that pointer is in fact a reference to a pinned object.
+     Changes type of TOS from a pointer to a reference.
+     It is an error if the pointer is not a reference to a pinned object.
+     Incorrect use of this instruction can be difficult to detect. 
+     Use with care.'''
 
     def __init__(self):
         self.name = 'PINNED_OBJECT'
@@ -850,18 +868,6 @@ class Jump(Instruction):
     exits = True
     fallthru = False
 
-class Flush(Instruction):
-      
-    def __init__(self):
-        self.name = 'FLUSH'
-        self.inputs = []
-        self.outputs = []
-        self.annotations = [ 'stack' ]
-        self.__doc__ = 'Flushes evaluation stack to memory.'
-        
-    def process(self, mode):
-        mode.stack_flush()
-              
 class Address(Instruction):
       
     def __init__(self, val):
@@ -869,7 +875,8 @@ class Address(Instruction):
         self.symbol = val
         self.inputs = []
         self.outputs = [ 'address' ]
-        self.__doc__ = "Address of the global variable %s" % val
+        self.__doc__ = '''Pushes the address of the global variable %s
+            to the stack (as a pointer).'''% val
         
     def process(self, mode):
         mode.stack_push(mode.address(self.symbol))
@@ -901,9 +908,9 @@ class PreFetch(Instruction):
         assert txt[-1] == ']'
         self.value = int(txt[2:-1])
         self.to_stream = 1
-        self.__doc__ = ('Only valid in bytecode context. Peeks into the '
-                        'instruction stream and pushes the Nth byte in the '
-                        'stream to the front of the instruction stream.')
+        self.__doc__ = ('Only valid in an interpreter defintion. '
+            'Peeks into the instruction stream and pushes the %sth byte in '
+            'the stream to the front of the instruction stream.' % self.value)
     
     def process(self, mode):
         val = mode.stream_peek(self.value)
@@ -915,8 +922,8 @@ class GC_Safe(Instruction):
         self.name = 'GC_SAFE'
         self.inputs = []
         self.outputs = []
-        self.__doc__ = ('Declares this point to be a safe point for Garbage '
-                        'Collection to occur at. GC pass should replace with '
+        self.__doc__ = ('Declares this point to be a safe point for garbage '
+                        'collection to occur at. GC pass should replace with '
                         'a custom version. Defaults to GC_SAFE_CALL.')
         
     def process(self, mode):
@@ -932,7 +939,7 @@ class GC_Safe_Call(Instruction):
         self.inputs = []
         self.outputs = []
         self.__doc__ = ('Calls GC to inform it that calling thread is safe '
-                        'for Garbage Collection. Generally users should use '
+                        'for garbage collection. Generally users should use '
                         'GC_SAFE and allow the toolkit to substitute '
                         'appropriate inline code.')
         
@@ -946,14 +953,13 @@ class Insert(Instruction):
     
     def __init__(self):
         self.name = 'INSERT'
-        self.inputs = [ 'count' ]
+        self.inputs = [ 'n' ]
         self.outputs = [ 'address' ]
         self.operands = 1
-        self.__doc__ = ('Pops count off the stack. Inserts count NULLs into '
-                        'the stack at offset fetched from the instruction '
-                        'stream. Ensures that all inserted values are flushed '
-                        'to memory. Pushes the address of first inserted slot '
-                        'to the stack.')
+        self.__doc__ = ('Pops count off the stack. Inserts n NULLs into '
+            'the stack at offset fetched from the instruction stream.'
+            'Ensures that all inserted values are flushed to memory. '
+            'Pushes the address of first inserted slot to the stack.')
 
     def process(self, mode):
         size = mode.stack_pop(gtypes.iptr)
@@ -967,11 +973,12 @@ class FarJump(Instruction):
         self.inputs = [ 'ip' ]
         self.outputs = [ ]
         self.__doc__ = ('Continue interpretation, with the current abstract '
-                        'machine state, at the IP popped from the stack. '
-                        'This instruction is not supported in compiled code, '
-                        'In order to use jumps in compiled code use JUMP instead.'
-                        'FAR_JUMP is intended for unusual flow control in code '
-                        'processors and the like.')
+            'machine state, at the IP popped from the stack. '
+            'FAR_JUMP is intended for unusual flow control in code '
+            'processors and the like.'
+            'Warning: This instruction is not supported in compiled code, '
+            'in order to use jumps in compiled code use JUMP instead.'
+            )
         
     def process(self, mode):
         ip = mode.stack_pop(gtypes.p)
@@ -981,11 +988,13 @@ class DropN(Instruction):
     
     def __init__(self):
         self.name = 'DROP_N'
-        self.inputs = [ 'count' ]
+        self.inputs = [ 'n' ]
         self.outputs = [ ]
         self.operands = 1
-        self.__doc__ = ('Pops count off the stack. Drops count values '
-        'from the stack at offset fetched from stream.')
+        self.__doc__ = ('Drops n values '
+        'from the stack at offset fetched from stream.'
+        'E.g. for offset=1 and n=2, TOS would be untouched, but NOS and 3OS '
+        'would be discarded')
 
     def process(self, mode):
         size = mode.stack_pop(gtypes.iptr)
@@ -1052,7 +1061,7 @@ class Line(Instruction):
         self.inputs = []
         self.outputs = []
         self.__doc__ = ('Set the source code line number of the source code. '  
-                        'Like #LINE in C.')
+                        'Informational only, like #LINE in C.')
         
     def process(self, mode):
         mode.line(self.line)
@@ -1066,7 +1075,7 @@ class File(Instruction):
         self.inputs = []
         self.outputs = []
         self.__doc__ = ('Declares the source file for this code. '
-                        'Like #FILE in C.')
+                        'Informational only, like #FILE in C.')
         
     def process(self, mode):
         mode.file(self.filename)
@@ -1080,7 +1089,7 @@ class ZeroMemory(Instruction):
         self.inputs = [ 'object', 'size' ]
         self.outputs = [ ]
         self.__doc__ = ('Zero the memory for newly allocated object.' 
-                        'For GC use only')
+                        'For internal use only. Used by GC-inline pass')
         
     def process(self, mode):
         size = mode.stack_pop(gtypes.uptr)
@@ -1094,7 +1103,8 @@ class GC_FreePointerLoad(Instruction):
         self.name = '__GC_FREE_POINTER_LOAD'
         self.inputs = []
         self.outputs = [ 'free_pointer' ]
-        self.__doc__ = 'Load the free pointer. For GC use only'
+        self.__doc__ = ('Load the free pointer. ' 
+                        'For internal use only. Used by GC-inline pass')
         
     def process(self, mode):
         mode.stack_push(mode.gc_free_pointer_load())
@@ -1105,7 +1115,8 @@ class GC_FreePointerStore(Instruction):
         self.name = '__GC_FREE_POINTER_STORE'
         self.inputs = [ 'free_pointer' ]
         self.outputs = []
-        self.__doc__ = 'Store to the free pointer. For GC use only'
+        self.__doc__ = ('Store to the free pointer. ' 
+                        'For internal use only. Used by GC-inline pass')
         
     def process(self, mode):
         mode.gc_free_pointer_store(mode.stack_pop(gtypes.p))
@@ -1116,7 +1127,8 @@ class GC_LimitPointerLoad(Instruction):
         self.name = '__GC_LIMIT_POINTER_LOAD'
         self.inputs = []
         self.outputs = [ 'limit_pointer' ]
-        self.__doc__ = 'Load the limit pointer. For GC use only'
+        self.__doc__ = ('Load the limit pointer. ' 
+                        'For internal use only. Used by GC-inline pass')
         
     def process(self, mode):
         mode.stack_push(mode.gc_limit_pointer_load())
@@ -1127,7 +1139,8 @@ class GC_LimitPointerStore(Instruction):
         self.name = '__GC_LIMIT_POINTER_STORE'
         self.inputs = [ 'limit_pointer' ]
         self.outputs = []
-        self.__doc__ = 'Store to the limit pointer. For GC use only'
+        self.__doc__ = ('Store to the limit pointer. ' 
+                        'For internal use only. Used by GC-inline pass')
         
     def process(self, mode):
         mode.gc_limit_pointer_store(mode.stack_pop(gtypes.p))
@@ -1138,7 +1151,7 @@ class Lock(Instruction):
         self.name = 'LOCK'
         self.inputs = [ 'lock' ]
         self.outputs = []
-        self.__doc__ = 'Locks the fast-lock popped from TOS'
+        self.__doc__ = 'Lock the gvmt-lock pointed to by TOS. Pop TOS.'
         
     def process(self, mode):
         mode.lock(mode.stack_pop(gtypes.iptr))
@@ -1149,7 +1162,7 @@ class Unlock(Instruction):
         self.name = 'UNLOCK'
         self.inputs = [ 'lock' ]
         self.outputs = []
-        self.__doc__ = 'Unlocks the fast-lock popped from TOS'
+        self.__doc__ = 'Unlock the gvmt-lock pointed to by TOS. Pop TOS.'
         
     def process(self, mode):
         mode.unlock(mode.stack_pop(gtypes.iptr))
@@ -1160,8 +1173,8 @@ class Lock_Internal(Instruction):
         self.name = 'LOCK_INTERNAL'
         self.inputs = [  'offset', 'object' ]
         self.outputs = []
-        self.__doc__ = '''Locks the fast-lock in object at TOS
-        at offset NOS. Pops both object and offset from stack.'''
+        self.__doc__ = '''Lock the gvmt-lock in object referred to by TOS
+        at offset NOS. Pop both reference and offset from stack.'''
         
     def process(self, mode):
         obj = mode.stack_pop(gtypes.r)
@@ -1174,8 +1187,8 @@ class Unlock_Internal(Instruction):
         self.name = 'UNLOCK_INTERNAL'
         self.inputs = [  'offset', 'object' ]
         self.outputs = []
-        self.__doc__ = '''Unlocks the fast-lock in object at TOS
-        at offset NOS. Pops both object and offset from stack.'''
+        self.__doc__ = '''Unlock the fast-lock in object referred to by TOS
+        at offset NOS. Pop both reference and offset from stack.'''
         
     def process(self, mode):
         obj = mode.stack_pop(gtypes.r)
@@ -1210,10 +1223,10 @@ def _init():
     int_types = [ gtypes.i4, gtypes.i8, gtypes.u4, gtypes.u8 ]
     float_types = [ gtypes.f4, gtypes.f8 ]
     
-    for cls in [ Jump, Sign, GC_Malloc, GC_Malloc_Call, Push_current_state,
-               GC_Safe, GC_Safe_Call, Flush, Stack, Insert, Unlock_Internal,
-               push_state, pop_state, Opcode, Lock_Internal, Transfer, Raise,
-               discard_state, IP, Zero, DropN, Symbol, FarJump, ZeroMemory, 
+    for cls in [ Jump, Sign, GC_Malloc, GC_Malloc_Call, PushCurrentState,
+               GC_Safe, GC_Safe_Call, Stack, Insert, Unlock_Internal,
+               Opcode, Lock_Internal, Transfer, Raise,
+               PopState, IP, Zero, DropN, Symbol, FarJump, ZeroMemory, 
                GC_FreePointerStore, GC_FreePointerLoad, GC_Malloc_Fast, Drop,
                GC_LimitPointerStore, GC_LimitPointerLoad, Next_IP, PinnedObject,
                GC_Allocate_Only, FullyInitialized, Lock, Unlock, Pin ]:

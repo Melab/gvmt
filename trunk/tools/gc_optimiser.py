@@ -280,7 +280,7 @@ def print_node(node, bb):
         
 _COMPEX_INSTRUCTIONS = (builtin.NativeArg, builtin.Call,
     builtin.N_Call, builtin.V_Call, builtin.N_Call_No_GC, 
-    builtin.Alloca, builtin.Pick, builtin.Stack, builtin.Flush,
+    builtin.Alloca, builtin.Pick, builtin.Stack,
     builtin.Insert, builtin.GC_Safe, builtin.GC_Safe_Call, 
     builtin.Drop, builtin.DropN, compound.CompoundInstruction)
         

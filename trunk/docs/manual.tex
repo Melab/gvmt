@@ -42,9 +42,9 @@ Convertion of source-code to bytecodes is not handled by the GVMT, that is up to
 
 \input{./tools.tex}
 
-\chapter{GVMT Execution Model\label{chap:abstract}}
+\chapter{GVMT Abstract Machine\label{chap:abstract}}
 
-\input{./model.tex}
+\input{./abstract_machine.tex}
 
 \chapter{Building a VM using the Toolkit}
 
@@ -71,7 +71,7 @@ The signatures of functions may appear different in the debugging, although thei
 The execution stack can be accessed via the stack pointer, the name of which is \verb|gvmt_sp|.
 
 \section{Adding a compiler}
-It is probably best to have a working interpreter before adding the compiler. To generate the compiler simply run \gvmtcc{} on the output file from \gvmtic. The resulting C++ file should be compiled and linked using the system C++ compiler. See section \ref{sect:gvmtcc} for more details.
+It is probably best to have a fully working interpreter before adding the compiler. To generate the compiler simply run \gvmtcc{} on the output file from \gvmtic. The resulting C++ file should be compiled and linked using the system C++ compiler. See section \ref{sect:gvmtcc} for more details.
 
 \chapter{User interface}
 \input{./user.tex}
@@ -82,7 +82,7 @@ It is probably best to have a working interpreter before adding the compiler. To
 
 \input{./install.tex}
 
-\chapter{GSC Instruction set\label{app:inst}}
+\chapter{The Abstract Machine Instruction Set\label{app:inst}}
 \small
 
 \input{./instructions.tex}
