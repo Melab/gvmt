@@ -180,7 +180,7 @@ bool Heap::contains(Zone* z) {
 }
 
 const char* Space::area_names[] = { "Pinned", "Nursery", "Free", 
-                                    "Large-objects", "Mature" };   
+                                    "Large-objects", "Mature", "Internal" };   
 
 const char* Space::area_name(Address a) {
     return area_names[Block::space_of(a)+2];
@@ -228,4 +228,14 @@ extern "C" {
     }
     
 }
+
+
+namespace GC {
+    
+    std::vector<Block*> mark_stack_blocks;
+    Address* mark_stack_pointer = 0;
+    Block* mark_stack_reserve = 0;
+       
+}
+
 

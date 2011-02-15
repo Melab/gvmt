@@ -46,6 +46,10 @@ public:
         return (a.bits() & (C::size-1)) == 0; 
     }
     
+    template <class T> static inline bool starts_at(T* ptr) {
+        return (reinterpret_cast<uintptr_t>(ptr) & (C::size-1)) == 0; 
+    }
+    
     static inline bool crosses(Address a, uintptr_t size) {
         uintptr_t space = C::size - (a.bits() & (C::size-1));
         return space < size;  
@@ -261,6 +265,20 @@ public:
         size_t index = (mem.bits() >> Word::log_size) & 7;
         *byte &= ~(1<<index);
     }
+    
+    /** Ensure object at mem is marked, return true if previously unmarked */
+    static inline bool mark_if_unmarked(Address mem) {
+        assert(is_aligned(mem.bits()));
+        uint8_t* byte = mark_byte(mem);
+        uint8_t bit = 1<<((mem.bits() >> Word::log_size) & 7);
+        uint8_t read = *byte;
+        if (read & bit) {
+            return false;
+        } else {
+            *byte = read | bit;
+            return true;
+        }
+    }
       
     static bool unmarked(Block* b) {
         int32_t* start = (int32_t*)mark_byte((char*)b);
@@ -385,62 +403,12 @@ public:
     // LARGE must be the same as cards are marked with.
     static const int LARGE = 1; 
     static const int MATURE = 2;
+    static const int INTERNAL = 3;
         
     static inline bool is_young(Address a) {
         return Block::space_of(a) < 0;
     }
    
-};
-
-class Memory {
-    
-    static inline GVMT_Object forwarding_address(Address p) {
-        uintptr_t bits = p.read_word() & (~FORWARDING_BIT);
-        return Address::from_bits(bits).as_object();
-    } 
-    
-    static inline void set_forwarding_address(Address p, Address f) {
-        p.write_word(f.bits() | FORWARDING_BIT);
-    }
-   
-public:
- 
-    static inline int forwarded(Address p) {
-        return p.read_word() & FORWARDING_BIT; 
-    }
-       
-    static inline void move(Address from, Address to, size_t size) {
-        assert(from.is_aligned());
-        assert(to.is_aligned());
-        assert(is_aligned(size));
-        assert(!Block::containing(from)->is_pinned());
-        assert(Block::containing(from)->is_valid());
-        assert(Block::containing(to)->is_valid());
-        Address to_ptr, from_ptr, end;
-        to_ptr = to;
-        from_ptr = from;
-        end = to.plus_bytes(size);
-        do {
-            to_ptr.write_word(from_ptr.read_word());
-            to_ptr = to_ptr.next_word();
-            from_ptr = from_ptr.next_word();
-        } while (to_ptr < end);
-    }
-    
-    template <class Policy> static inline GVMT_Object copy(Address a) {
-        if (forwarded(a)) {
-            return forwarding_address(a);
-        }
-        size_t size = align(gvmt_user_length(a.as_object()));
-        Address result = Policy::allocate(size);
-        move(a, result, size);
-        set_forwarding_address(a, result);
-        Zone::mark(result);
-        GC::push_mark_stack(result);
-        return result.as_object();
-    }
-    
-    
 };
 
 class Heap {
@@ -708,6 +676,119 @@ public:
     }
     
     static void print_blocks();
+    
+};
+
+namespace GC {
+    
+    extern std::vector<Block*> mark_stack_blocks;
+    extern Address* mark_stack_pointer;
+    extern Block* mark_stack_reserve;
+    
+    inline void push_mark_stack(Address addr) {
+#ifndef NDEBUG
+        int shape_buffer[GVMT_MAX_SHAPE_SIZE];
+        assert(size_from_shape(gvmt_user_shape(addr.as_object(), shape_buffer)) == 
+               gvmt_user_length(addr.as_object())); 
+#endif
+        if (Block::starts_at(mark_stack_pointer)) {
+            mark_stack_blocks.push_back((Block*)mark_stack_pointer);
+            if (mark_stack_reserve) {
+                mark_stack_pointer = (Address*)mark_stack_reserve;
+                mark_stack_reserve = 0;
+            } else {
+                Block* b = Heap::get_block(Space::INTERNAL, true);
+                mark_stack_pointer = (Address*)b;
+            }
+        }
+        *mark_stack_pointer = addr;
+        mark_stack_pointer++;
+    }
+ 
+    inline bool mark_stack_is_empty() {
+        return mark_stack_pointer == 0;
+    }
+    
+    inline Address pop_mark_stack() {
+        assert(!mark_stack_is_empty());
+        mark_stack_pointer--;
+        Address obj = *mark_stack_pointer;
+        if (Block::starts_at(mark_stack_pointer)) {
+            assert(Block::containing(mark_stack_pointer)->space() == Space::INTERNAL);
+            if (mark_stack_reserve) {
+                Heap::free_blocks(Block::containing(mark_stack_pointer), 1);
+            } else {
+                mark_stack_reserve = Block::containing(mark_stack_pointer);
+            }
+            Block* b = mark_stack_blocks.back();
+            mark_stack_blocks.pop_back();
+            mark_stack_pointer = ((Address*)b);
+        }
+        return obj;
+    }
+    
+};
+
+namespace gc {
+    
+    template <class Collection> void transitive_closure() {
+        while (!GC::mark_stack_is_empty()) {
+            Address obj = GC::pop_mark_stack();
+            Address end = scan_object<Collection>(obj);
+            Collection::scanned(obj, end);
+        }
+    }
+
+};
+
+class Memory {
+    
+    static inline GVMT_Object forwarding_address(Address p) {
+        uintptr_t bits = p.read_word() & (~FORWARDING_BIT);
+        return Address::from_bits(bits).as_object();
+    } 
+    
+    static inline void set_forwarding_address(Address p, Address f) {
+        p.write_word(f.bits() | FORWARDING_BIT);
+    }
+   
+public:
+ 
+    static inline int forwarded(Address p) {
+        return p.read_word() & FORWARDING_BIT; 
+    }
+       
+    static inline void move(Address from, Address to, size_t size) {
+        assert(from.is_aligned());
+        assert(to.is_aligned());
+        assert(is_aligned(size));
+        assert(!Block::containing(from)->is_pinned());
+        assert(Block::containing(from)->is_valid());
+        assert(Block::containing(to)->is_valid());
+        Address to_ptr, from_ptr, end;
+        to_ptr = to;
+        from_ptr = from;
+        end = to.plus_bytes(size);
+        do {
+            to_ptr.write_word(from_ptr.read_word());
+            to_ptr = to_ptr.next_word();
+            from_ptr = from_ptr.next_word();
+        } while (to_ptr < end);
+    }
+    
+    template <class Policy> static inline GVMT_Object copy(Address a) {
+        if (forwarded(a)) {
+            return forwarding_address(a);
+        }
+        size_t size = align(gvmt_user_length(a.as_object()));
+        Address result = Policy::allocate(size);
+        move(a, result, size);
+        set_forwarding_address(a, result);
+        Zone::mark(result);
+        GC::push_mark_stack(result);
+        return result.as_object();
+    }
+    
     
 };
 

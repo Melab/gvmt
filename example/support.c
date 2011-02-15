@@ -618,7 +618,7 @@ GVMT_Object execute(R_bytes code, R_frame literals) {
 GVMT_Object interpreter_trace(uint8_t* ip) {
     int i, n, printed;  
     char* opname = gvmt_opcode_names_interpreter[*ip];
-    GVMT_StackItem *stack = gvmt_stack_top();
+    GVMT_Value *stack = gvmt_stack_top();
     n = gvmt_stack_depth(); 
     printed = fprintf(stderr, indent);
     fprintf(stderr, "[");
