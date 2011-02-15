@@ -1,0 +1,90 @@
+
+letter: [A-Za-z_]
+
+digit: [0-9]
+
+int_type: 'u'?'int'('8'|'16'|'32'|'64')
+
+legal_ascii = Any ascii char from code 32 to 126, except '\n', '\t', '\', ''', and '"'.
+
+char: legal_ascii | ''\n', '\t', '\\', '\'', '\"', '\'[0-3][0-7][0-7]
+
+Tokens
+======
+
+ID: letter(letter|digit)*
+
+number: digit+
+
+float_number: digit ('.' digit)? ('e' ('+'|'-') digit+)?
+
+text: '"' char* '"'
+
+int_type: 'u'?'int'('8'|'16'|'32'|'64')
+
+float_type: 'float'('32'|'64')
+
+bytecode_directive: '.local' | '.name' ID | '.master' 
+
+heap_directive: '.public' ID | '.object' ID | '.end'
+
+data_directive: '.public' ID | '.label' ID
+
+
+           
+new_lines: '\n'((' '|'\t')*'\n')*
+           
+Ignored Tokens
+==============
+
+whitespace: ' '|'\t'
+
+comment: '/' '/' .* '\n'
+
+Rules
+=====
+
+instruction: ID ( '(' ( ID ( ',' ID)* )? ')' )?
+
+bytecode: ID ( '=' digit+ )? ( '[' qualifier* ']' )?  ':' instruction* ';'
+
+function: ID ( '[' qualifier* ']' )? ':' instruction* ';'
+
+data_declaration: integral_value | float_value | string_value | address
+
+integral_value: int_type number
+
+float_value: float_type float_number
+
+string_value: 'string' text
+
+address: 'address' (0 | ID)
+
+section: (bytecode_section | code_section | heap_section | opaque_section | root_section)
+
+file: section+ debug_info?
+
+bytecode_section: '.bytecodes' new_lines ((bytecode_directive | bytecode) new_lines)*
+
+code_section: '.code' new_lines ((code_directive | function) new_lines)*
+
+heap_section: '.heap' new_lines ((heap_directive | data_declaration) new_lines)*
+
+data_section: '.opaque' new_lines ((data_directive | data_declaration) new_lines)*
+
+roots_section: '.roots' new_lines ((data_directive |  address) new_lines)*
+
+debug_info: ((type_directive | member_directive) new_lines)*
+
+type_directive: '.type' ('struct'|'object') ID
+
+struct_type: 'S(' ID ')'
+
+pointer_type: 'P(' (member_type | '?' | struct_type) ')'
+
+reference_type: 'R(' ID ')'
+
+member_type: int_type | float_type | pointer_type | reference_type
+
+member_directive: '.member' ID member_type '@' number
+
