@@ -10,7 +10,7 @@ import lex
 from common import struct, GVMTException
 
 _tkn_list = 'C{list} of L{lex.Token}'
-_code = 'L{CCode} or a C{list} of GSC instruction names'
+_code = 'L{CCode} or a C{list} of abstract machine or compound instruction names'
 Declaration = struct('Declaration', ('type', 'C{str}'), ('name', 'C{str}'), 
                      ('location', 'L{lex.Location}'))
 
@@ -327,11 +327,11 @@ def parse_interpreter(lexer):
                 instructions.append(_parse_interpreter_inst(t, lexer))
         else:
             _syntax_error(t, "a name")
-            
+
 def parse_transformation_file(lexer):
     '''
     Parses a transformation definition file.
-    @return: The syntax tree for the file
+    @return: The syntax tree for the file.
     @rtype: C{list} of L{Transformation}
     '''
     header = []

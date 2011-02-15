@@ -43,8 +43,8 @@ GVMT_Object gvmt___tag__(void* o);
 
 #define gvmt_is_tagged(o) (((intptr_t)gvmt___untag__((GVMT_Object)o)) & 3)
 
-/** Intrinsic function for DISCARD_STATE */
-void gvmt_discard_state(void);
+/** Intrinsic function for POP_STATE */
+void gvmt_pop_state(void);
 
 /** Intrinsic for RAISE */
 void gvmt_raise(GVMT_Object ex);
@@ -144,7 +144,7 @@ void gvmt_compiler_init(void);
 
 #define GVMT_TRY(ex) (ex) = (void*)gvmt_push_current_state(); if ((ex) == 0) {
     
-#define GVMT_CATCH gvmt_discard_state(); } else { gvmt_discard_state();
+#define GVMT_CATCH gvmt_pop_state(); } else { gvmt_pop_state();
 
 #define GVMT_END_TRY }
 

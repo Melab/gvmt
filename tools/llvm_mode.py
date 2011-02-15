@@ -184,7 +184,7 @@ class Expr(object):
                                                              self.pcast(tipe))
         
     def load(self, tipe):
-        return Simple(tipe, 'new LoadInst(%s, "", current_block)' % 
+        return Simple(tipe, 'new LoadInst(%s, "", true, current_block)' % 
                       self.pcast(tipe))
       
     def const(self):
@@ -342,7 +342,7 @@ class LAddr(Expr):
         return 'laddr_%s' % self.name
         
     def load(self, tipe):
-        load = 'new LoadInst(%s, "", current_block)' % self.pcast(tipe)
+        load = 'new LoadInst(%s, "", true, current_block)' % self.pcast(tipe)
         value = 'lvalue_%s' % self.name
         return Simple(tipe, '(%s ? %s : %s)' % (value, value, load))
         
@@ -455,7 +455,7 @@ class PointerAdd(Binary):
         
     def load(self, tipe):
         gep = self._gep(tipe)
-        return Simple(tipe, 'new LoadInst(%s, "", current_block)' % gep)
+        return Simple(tipe, 'new LoadInst(%s, "", true, current_block)' % gep)
               
     def pstore(self, tipe, value):
         gep = self._gep(tipe)
@@ -495,7 +495,7 @@ class LlvmPassMode(object):
         if tipe == gtypes.r:
             assert index in self.in_mem or index in self.in_regs
             if index in self.in_mem and index not in self.in_regs:
-                fmt = ' %s = new LoadInst(ref_temp(%d, current_block), "", current_block);\n'
+                fmt = ' %s = new LoadInst(ref_temp(%d, current_block), "", true, current_block);\n'
                 self.out << fmt % (tmp, self.mem_temps.index(index))
                 self.in_regs.add(index)
         return Simple(tipe, tmp)
@@ -757,7 +757,7 @@ class LlvmPassMode(object):
             for l in loaded:
                 self.out << 'if (lvalue_%s == 0) ' % l
                 ptr = 'new BitCastInst(laddr_%s, PointerType::get(ltype_%s, 0), "x", current_block)' % (l, l)
-                self.out << 'lvalue_%s = new LoadInst(%s, "", current_block);\n' % (l, ptr)
+                self.out << 'lvalue_%s = new LoadInst(%s, "", true, current_block);\n' % (l, ptr)
         for bb in graph: 
             for i in bb:
                 if i.__class__ is builtin.TStore:
@@ -1010,17 +1010,7 @@ class LlvmPassMode(object):
         
     def far_jump(self, addr):
         raise common.UnlocatedException("FAR_JUMP is not allowed in compiled code")
-    
-    def push_state(self, value):
-        fmt = ' push_state(%s, current_block);\n'
-        self.out << fmt % value.cast(gtypes.p)
-        
-    def pop_state(self):
-        global _uid
-        _uid += 1
-        self.out << ' Value* popped_%d = pop_state(current_block);\n' % _uid
-        return Simple(gtypes.p, 'popped_%d' % _uid)
-        
+       
     def push_current_state(self):
         global _uid
         _uid += 1
