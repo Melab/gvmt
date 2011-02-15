@@ -69,6 +69,78 @@ namespace gc {
         }
     }
     
+//Should refactor this, to allow custom scanners for different VMs.
+#ifdef HOTPY_SPECIFIC
+    
+    /****** HotPy specific version ***/
+        
+    struct var_object_head {
+        struct type_head* klass;
+        uintptr_t ref_count;
+        uintptr_t length;
+    };
+    
+    struct type_head {
+        struct type_head* klass;
+        uintptr_t ref_count;
+        uint32_t flags;
+        char* tp_name;
+        int32_t shape[5];
+        int32_t variable;
+        uint32_t length;
+        intptr_t dict_offset;
+    };
+    
+    template <class Collection> inline Address scan_object(Address addr) {
+        GVMT_Object* item = reinterpret_cast<GVMT_Object*>(addr.bits());
+        struct var_object_head* var_obj = reinterpret_cast<var_object_head*>(item);
+        GVMT_Object field = *item;
+        struct type_head* klass = var_obj->klass;
+        if (Collection::wants(field)) {
+            *item = Collection::apply(field);
+        }
+        assert(klass->shape[0] == 1);
+        assert(klass->shape[1] < 0);
+        item += 1-klass->shape[1];
+        assert(klass->shape[2] >= 0);
+        GVMT_Object* end_chunk = item + klass->shape[2];
+        for (; item < end_chunk; item++) {
+            GVMT_Object field = *item;
+            if (Collection::wants(field)) {
+                *item = Collection::apply(field);
+            }
+        }
+        assert(item == end_chunk);
+        assert(klass->shape[3] <= 0);
+        item -= klass->shape[3];
+        assert(klass->shape[4] == 0);
+        if (klass->variable) {
+            if (klass->variable > 0) {
+                end_chunk = item + var_obj->length;
+                for (; item < end_chunk; item++) {
+                    GVMT_Object field = *item;
+                    if (Collection::wants(field)) {
+                        *item = Collection::apply(field);
+                    }
+                }
+            } else {
+                intptr_t size = klass->variable * var_obj->length;
+                size >>= (sizeof(void*)==8?3:2);
+                item -= size;
+            }
+            if (klass->dict_offset) {
+                GVMT_Object field = *item;
+                if (Collection::wants(field)) {
+                    *item = Collection::apply(field);
+                }
+                item += 2; // dict & lock.
+            }
+        }
+        return Address(item);
+    }
+
+#else
+    
     template <class Collection> inline Address scan_object(Address addr) {
         int shape_buffer[GVMT_MAX_SHAPE_SIZE];
         GVMT_Object* start = reinterpret_cast<GVMT_Object*>(addr.bits());
@@ -92,14 +164,7 @@ namespace gc {
         return Address(item);
     }
     
-    template <class Collection> void transitive_closure() {
-        while (!GC::mark_stack.empty()) {
-            Address obj = GC::mark_stack.back();
-            GC::mark_stack.pop_back();
-            Address end = scan_object<Collection>(obj);
-            Collection::scanned(obj, end);
-        }
-    }
+#endif
 
 }
 
