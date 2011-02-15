@@ -145,8 +145,7 @@ public:
     
     static inline GVMT_Object grey(Address addr) {
         assert(in(addr));
-        if (!Zone::marked(addr)) {
-            Zone::mark(addr);
+        if (Zone::mark_if_unmarked(addr)) {
             assert(Zone::marked(addr));
             GC::push_mark_stack(addr);
         }

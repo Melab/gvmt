@@ -2175,8 +2175,8 @@ static void emit_subtree(Node p) {
                 intrinsic("PUSH_CURRENT_STATE ");
                 return;
             } 
-            if (strcmp(name, "discard_state") == 0) {
-                intrinsic("DISCARD_STATE ");
+            if (strcmp(name, "pop_state") == 0) {
+                intrinsic("POP_STATE ");
                 return;
             }
             if (strcmp(name, "alloca") == 0) {

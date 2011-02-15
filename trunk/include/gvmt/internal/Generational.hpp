@@ -232,8 +232,7 @@ public:
         if (Block::containing(p)->space() == Space::PINNED) {
             assert(gc::is_address(p));
             Address addr = Address(p);
-            if (!Zone::marked(addr)) {
-                Zone::mark(addr);
+            if (Zone::mark_if_unmarked(addr)) {
                 GC::push_mark_stack(addr);
             }
             return p;
@@ -407,7 +406,7 @@ public:
             Nursery::add_block(Heap::get_block(Space::NURSERY, true));
             --nursery_shortfall; 
         }
-        assert(GC::mark_stack.empty());
+        assert(GC::mark_stack_is_empty());
         t1 = high_res_time();
         gvmt_minor_collections++;
         gvmt_minor_collection_time += (t1 - t0);
@@ -429,8 +428,8 @@ public:
         HugeObjectSpace::sweep();
         Policy::reclaim();
         Heap::done_collection();
-        assert(GC::mark_stack.empty());
-        size_t nursery = std::min(gvmt_real_heap_size / 4, gvmt_nursery_size *2);
+        assert(GC::mark_stack_is_empty());
+        size_t nursery = std::min(gvmt_real_heap_size / 4, gvmt_nursery_size *3/2);
         Nursery::resize(std::min(nursery, 8*MB));
         Heap::ensure_space(gvmt_nursery_size - Policy::available_space());
         t1 = high_res_time();            

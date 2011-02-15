@@ -459,22 +459,12 @@ class Stack {
 extern "C" size_t size_from_shape(int* shape);
 
 namespace GC {
-    
-    extern std::vector<Address> mark_stack;
+
     extern std::deque<GVMT_Object> finalization_queue;
     extern std::vector<Stack> stacks;
     extern std::vector<FrameStack> frames;
     extern std::deque<GVMT_Object> finalizables;
     extern Root::List weak_references;
-    
-    inline void push_mark_stack(Address addr) {
-#ifndef NDEBUG
-        int shape_buffer[GVMT_MAX_SHAPE_SIZE];
-        assert(size_from_shape(gvmt_user_shape(addr.as_object(), shape_buffer)) == 
-               gvmt_user_length(addr.as_object())); 
-#endif
-        mark_stack.push_back(addr);
-    }
 
 };
 

@@ -23,7 +23,6 @@ Root::Block* Root::allocateBlock() {
 
 namespace GC {
     
-    std::vector<Address> mark_stack;
     std::deque<GVMT_Object> finalization_queue;
     std::vector<Stack> stacks;
     std::vector<FrameStack> frames;

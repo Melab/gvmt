@@ -734,6 +734,7 @@ void* BaseCompiler::jit_compile(Function* func, char* name) {
         // func_pass_manager->add(createCFGPrinterPass());            
     }
     func_pass_manager->run(*func);
+    // verifyFunction(*func, PrintMessageAction);
     t1 = high_res_time();
     gvmt_total_optimisation_time += (t1 - t0);
     code = execution_engine->getPointerToFunction(func);

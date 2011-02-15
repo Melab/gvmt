@@ -98,7 +98,7 @@ public:
         Policy::reclaim();
         Heap::done_collection();
         allocator::zero_limit_pointers();
-        assert(GC::mark_stack.empty());
+        assert(GC::mark_stack_is_empty());
         t1 = high_res_time();
         gvmt_major_collections++;
         gvmt_major_collection_time += (t1 - t0);

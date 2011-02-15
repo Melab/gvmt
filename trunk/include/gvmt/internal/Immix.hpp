@@ -472,8 +472,7 @@ public:
             assert(!Block::containing(addr)->is_pinned());
             return Memory::copy<Immix>(addr);
         } else {
-            if (!Zone::marked(addr)) {
-                Zone::mark(addr);
+            if (Zone::mark_if_unmarked(addr)) {
                 GC::push_mark_stack(addr);
             }
             return addr.as_object();
