@@ -22,7 +22,8 @@ LIBRARY = build/gvmt.o build/gvmt_compiler.o build/gvmt_debug.o \
 	   build/gvmt_gc_gen_copy.a build/gvmt_gc_copy_tagged.a \
 	   build/gvmt_gc_gen_copy_tagged.a build/gvmt_gc_copy2.a \
 	   build/gvmt_gc_gencopy2.a build/gvmt_gc_genimmix2.a \
-	   build/gvmt_gc_genimmix2_tagged.a build/gvmt_gc_none.o
+	   build/gvmt_gc_genimmix2_tagged.a build/gvmt_gc_none.o \
+	   build/gvmt_gc_hotpy.a
 
 all: prepare $(LIBRARY) lcc
    
@@ -107,9 +108,9 @@ build/gvmt_gc_genimmix2_tagged.a: build/gc/GenImmix_tagged.o build/gc/gc_threads
 	ar rcs  build/gvmt_gc_genimmix2_tagged.a build/gc/GenImmix_tagged.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o
 	touch build/gvmt_gc_genimmix2_tagged.a
 	
-build/hotpy_collector.a: build/gc/HotPy_collector.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o  
-	ar rcs  build/hotpy_collector.a build/gc/HotPy_collector.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o
-	touch build/hotpy_collector.a
+build/gvmt_gc_hotpy.a: build/gc/HotPy_collector.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o  
+	ar rcs  build/gvmt_gc_hotpy.a build/gc/HotPy_collector.o build/gc/gc_threads.o build/gc/gc.o build/gc/memory.o
+	touch build/gvmt_gc_hotpy.a
 	
 build/gc/GenImmix.o : gc/GenImmix.cpp $I/Immix.hpp $I/Generational.hpp $(HEADERS) $(GC_HEADERS)  
 	$(CPP) $(NDBG) -g -o $@ $<
@@ -187,6 +188,7 @@ install: prepare $(LIBRARY) lcc
 	cp build/gvmt_gc_gencopy2.a /usr/local/lib/
 	cp build/gvmt_gc_genimmix2.a /usr/local/lib/
 	cp build/gvmt_gc_genimmix2_tagged.a /usr/local/lib/
+	cp build/gvmt_gc_hotpy.a /usr/local/lib/
 	cp tools/*.py /usr/local/lib/gvmt
 	cp gc/*.gsc /usr/local/lib/gvmt
 	cp scripts/* /usr/local/bin
