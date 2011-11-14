@@ -7,7 +7,7 @@ enum {
     STRUCT_TYPE,
     OPAQUE_TYPE,
     INTEGER_TYPE,
-    MEMBER, // This is equivalent to ERROR* 
+    MEMBER, // This is equivalent to ERROR*
 };
 
 #define OPAQUE_POINTERS  0xccccccc0
@@ -29,7 +29,7 @@ static char **n_args = N_ARGS;
 static int insert_gc_safe_point = 0;
 static int emit_dot_file = 0;
 
-/** Do not insert GC_SAFE and use N_CALL_NO_GC rather than N_CALL */ 
+/** Do not insert GC_SAFE and use N_CALL_NO_GC rather than N_CALL */
 static int requested_no_gc = 0;
 
 static List type_info_list;
@@ -39,7 +39,7 @@ static int opaque_struct(Type t) {
     int l = strlen(name);
     if (strcmp(name, "gvmt_reference_types") == 0)
         return 0;
-    else if (strncmp("gvmt_object_", name, 12)) 
+    else if (strncmp("gvmt_object_", name, 12))
         return 1;
     else {
         return 0;
@@ -76,10 +76,10 @@ static print_typename(Type t) {
         print_typename(t->type);
         print(")");
     } else if (isunsigned(t)) {
-        print ("uint%d", t->size*8); 
+        print ("uint%d", t->size*8);
     } else if (isint(t) || isenum(t)) {
-        print("int%d", t->size*8); 
-    } else if (isfloat(t)) { 
+        print("int%d", t->size*8);
+    } else if (isfloat(t)) {
         print("float%d", t->size*8);
     } else {
         print("?");
@@ -96,7 +96,7 @@ static void print_member(Field f) {
     } else {
         print("   .member %s ", f->name);
         print_typename(f->type);
-        print(" @ %d\n", f->offset);     
+        print(" @ %d\n", f->offset);
     }
 }
 
@@ -121,7 +121,7 @@ static void print_type_info(void) {
     if (type_info_list) {
         List item = type_info_list;
         do {
-            Type t = (Type)item->x; 
+            Type t = (Type)item->x;
             item = item->link;
             print_type(t);
             t->x.printed = 0;
@@ -133,7 +133,7 @@ static int valid_type(int t) {
     int v;
     if (t > 31 || t < 0)
         v = 0;
-    else 
+    else
         v = (((1 << t) & 0xeeeeeefe) != 0);
 //    if (v == 0)
 //        printf("Invalid type: %d", t);
@@ -154,7 +154,7 @@ small_set OPAQUE_SET = { 1 << OPAQUE_TYPE }; // OPAQUE
 small_set INTEGER_SET = { 1 << INTEGER_TYPE  }; // INTEGER
 small_set EMPTY_SET = { 0 };
 small_set MEMBERS_SET = { (1 << REFERENCE_TYPE) | (1 << INTEGER_TYPE) | (1 << OPAQUE_TYPE) };
-small_set NULL_SET = { (1 << REFERENCE_TYPE) | (1 << INTEGER_TYPE) | (1 << POINTER(OPAQUE_TYPE)) }; 
+small_set NULL_SET = { (1 << REFERENCE_TYPE) | (1 << INTEGER_TYPE) | (1 << POINTER(OPAQUE_TYPE)) };
 
 #define NON_OPAQUES 0x33333333
 #define ALL_OPAQUES 0xcccccccc
@@ -187,7 +187,7 @@ static small_set make_set(int t) {
     return result;
 }
 
-#define is_empty(s) (s.bits == 0)   
+#define is_empty(s) (s.bits == 0)
 
 static char *type_names[] = { "error", "struct", "opaque", "int", "member", "ref" };
 
@@ -195,7 +195,7 @@ char* type_name(int t) {
     assert(t >= 0);
     if (t > 5)
         return stringf("%s*", type_name(DEREF(t)));
-    else 
+    else
         return type_names[t];
 }
 
@@ -205,13 +205,13 @@ char* long_type_name(int t) {
     assert (t > 1);
     if (t > 5)
         return stringf("Pointer-to-%s", long_type_name(DEREF(t)));
-    else 
+    else
         return long_type_names[t];
 }
 
-static const int MultiplyDeBruijnBitPosition[32] = 
+static const int MultiplyDeBruijnBitPosition[32] =
 {
-  0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8, 
+  0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8,
   31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9
 };
 
@@ -229,7 +229,7 @@ static int next_set_bit(small_set s, int i) {
     unsigned int x = (s.bits >> i)  & (~(-1 << (32-i)));
     if (x)
         return TRAILING_ZEROES(x) + i;
-    else 
+    else
         return -1;
 }
 
@@ -238,7 +238,7 @@ static int next_set_bit(small_set s, int i) {
 void print_type_set(small_set s) {
     int i;
     print("{ ");
-    FOR_EACH(i, s) 
+    FOR_EACH(i, s)
         print("%s ", type_name(i));
     print("}");
 }
@@ -254,24 +254,24 @@ static int is_null(Node p) {
         }
     }
     return 0;
-} 
+}
 
 int legal_bits_for_node(Node n) {
     switch(optype(n->op)) {
     case I: case U:
-        if (is_null(n)) 
+        if (is_null(n))
             return NULL_SET.bits;
         else
-            return (1 << OPAQUE_TYPE) | (1 << INTEGER_TYPE);        
+            return (1 << OPAQUE_TYPE) | (1 << INTEGER_TYPE);
     case F:
         return 1 << OPAQUE_TYPE;
     case P:
         return ALL_POINTERS;
     case B:
-        n->x.error = stringf("Cannot handle structs as values, use pointers instead.\n");    
+        n->x.error = stringf("Cannot handle structs as values, use pointers instead.\n");
         n->x.exact_type = ERROR;
         return 0;
-    case V: default: 
+    case V: default:
         assert(0);
     }
 }
@@ -299,7 +299,7 @@ int disambiguate(small_set s, Node n) {
 int type_match(int t, small_set options) {
     if ((1 << t) & options.bits)
         return t;
-    if (((1 << t) & ALL_OPAQUES) && (options.bits & ALL_OPAQUES))  
+    if (((1 << t) & ALL_OPAQUES) && (options.bits & ALL_OPAQUES))
         return OPAQUE_TYPE;
     return ERROR;
 }
@@ -310,7 +310,7 @@ typedef small_set (*binary_func)(int i1, int i2, Type t);
 
 char *c_op(int op) {
     switch(generic(op)) {
-    case BCOM: 
+    case BCOM:
         return "~";
     case NEG:
         return "-";
@@ -320,31 +320,31 @@ char *c_op(int op) {
         return "-";
 	case ADD:
         return "+";
-    case BOR: 
+    case BOR:
         return "|";
-    case BAND: 
+    case BAND:
         return "&";
-    case BXOR: 
+    case BXOR:
         return "^";
-    case RSH: 
+    case RSH:
         return ">>";
     case LSH:
         return "<<";
-    case DIV: 
+    case DIV:
         return "/";
-    case MUL: 
+    case MUL:
         return "*";
     case MOD:
         return "%";
- 	case EQ: 
+ 	case EQ:
         return "==";
-    case NE: 
+    case NE:
         return "!=";
-    case GT: 
+    case GT:
         return ">";
-    case GE: 
+    case GE:
         return ">=";
-    case LE: 
+    case LE:
         return "<=";
     case LT:
         return ">";
@@ -383,16 +383,16 @@ small_set bottom_up1(Node n, unary_func f) {
     if (s.bits == 0)
         return EMPTY_SET;
     FOR_EACH(i, s) {
-        result.bits |= f(i, t).bits;      
+        result.bits |= f(i, t).bits;
     }
     if (result.bits == 0) {
         n->x.error = "Cannot find a type for";
         FOR_EACH(i, s) {
            if (or)
-               n->x.error = stringf("%s or '%s'", n->x.error, c_expr1(n->op, i)); 
+               n->x.error = stringf("%s or '%s'", n->x.error, c_expr1(n->op, i));
            else
                n->x.error = stringf("%s '%s'", n->x.error, c_expr1(n->op, i));
-           or = 1;        
+           or = 1;
         }
         n->x.error = stringf("%s\n", n->x.error);
     }
@@ -440,7 +440,7 @@ small_set bottom_up2(Node n, binary_func f) {
                 }
             }
         }
-        n->x.exact_type == ERROR; 
+        n->x.exact_type == ERROR;
         n->x.error = stringf("%s\n", n->x.error);
     }
     return result;
@@ -494,7 +494,7 @@ void top_down2(Node n, int type, binary_func f) {
     Node kid2 = n->kids[1];
     if (type == ERROR) {
         kid1->x.exact_type = ERROR;
-        kid2->x.exact_type = ERROR;       
+        kid2->x.exact_type = ERROR;
     }
     small_set possibles1 = EMPTY_SET;
     small_set possibles2 = EMPTY_SET;
@@ -520,7 +520,7 @@ void top_down2(Node n, int type, binary_func f) {
     }
 }
 
-static small_set addition_sets[] = {     
+static small_set addition_sets[] = {
     { 0 }, // ERROR
     { 0 }, // STRUCT (Cannot add to struct)
     { 1 << OPAQUE_TYPE }, // OPAQUE
@@ -529,7 +529,7 @@ static small_set addition_sets[] = {
     { (1 << MEMBER) } // REFERENCE
 };
 
-static small_set subtraction_sets[] = {     
+static small_set subtraction_sets[] = {
     { 0 }, // ERROR
     { 0 }, // STRUCT (Cannot subtract from struct)
     { 1 << OPAQUE_TYPE }, // OPAQUE
@@ -554,7 +554,7 @@ static small_set equals(int t1, int t2, Type type) {
 }
 
 static small_set comp_func(int t1, int t2, Type t) {
-    if (t1 == t2 || 
+    if (t1 == t2 ||
         (t1 == INTEGER_TYPE && t2 == OPAQUE_TYPE) ||
         (t1 == OPAQUE_TYPE && t2 == INTEGER_TYPE) ||
         (t1 >= REFERENCE_TYPE && t2 >= REFERENCE_TYPE))
@@ -610,10 +610,10 @@ static small_set indir(int t, Type type) {
 static small_set convert(int t, Type type) {
     small_set s;
     switch(t) {
-    case MEMBER: 
+    case MEMBER:
         s.bits = 1 << MEMBER;
         return s;
-    case REFERENCE_TYPE: case OPAQUE_TYPE: 
+    case REFERENCE_TYPE: case OPAQUE_TYPE:
         return make_set(t);
     case INTEGER_TYPE:
         s.bits = 1 << OPAQUE_TYPE | 1 << INTEGER_TYPE;
@@ -641,10 +641,10 @@ static small_set binary_op(int t1, int t2, Type type) {
         return OPAQUE_SET;
     return EMPTY_SET;
 }
-  
+
 static void emit_store(Symbol s, char* type);
 static void label_tree(Node root);
- 
+
 static void preamble(Symbol f, Symbol caller[], Symbol callee[], int ncalls);
 
 static int makeTemp(Symbol p) {
@@ -652,13 +652,13 @@ static int makeTemp(Symbol p) {
 		if (p->addressed || isstruct(p->type)) {
 			return 0;
 		} else {
-            p->sclass = REGISTER;                     
+            p->sclass = REGISTER;
           	return 1;
 		}
 	} else if (p->sclass == REGISTER) {
 		return 1;
 	} else {
-		return 0;	
+		return 0;
 	}
 }
 static int c_offset = 0;
@@ -671,10 +671,10 @@ int bytecodes = 0;
 static char* local_names[100];
 static int local_offsets[100];
 
-char *local_name(Symbol p) { 
+char *local_name(Symbol p) {
     int i;
     if (p->sclass == REGISTER) {
-        return stringd(temps++);        
+        return stringd(temps++);
     } else {
         //assert(p->x.type);
         for (i = 0; local_names[i]; i++)
@@ -692,7 +692,7 @@ char *local_name(Symbol p) {
         }
     }
 }
-     
+
 int get_type(Type t);
 static Type local_struct = 0;
 
@@ -704,7 +704,7 @@ int is_local(char* name) {
     return 0;
 }
 
-void gvmt_local(Symbol p) {  
+void gvmt_local(Symbol p) {
     if (strcmp(p->name, "__gvmt_bytecode_locals") == 0) {
         int names = 0;
         int size = 0;
@@ -723,7 +723,7 @@ void gvmt_local(Symbol p) {
             assert(names <= 100);
         }
         local_names[names] = 0;
-        return;   
+        return;
     }
     if (p->temporary)
         p->x.type = 0;
@@ -753,7 +753,7 @@ static char* return_type_ext(Type t) {
     else if (isint(t) || isenum(t))
         return stringf("I%d", size);
     else {
-        fprint(stderr, "Unexpected type: %t\n", t);   
+        fprint(stderr, "Unexpected type: %t\n", t);
         assert(0);
     }
 }
@@ -764,10 +764,10 @@ void gvmt_function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
 	int i, size, varargs;
     char* shadows = 0;
     if (unqual(freturn(f->type)) == voidtype) {
-        ret_type = 0;   
+        ret_type = 0;
     } else {
         ret_type = get_type(freturn(f->type));
-    }   
+    }
     c_offset = 0;
     r_offset = 0;
     temps = 0;
@@ -790,7 +790,7 @@ void gvmt_function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
     }
 	gencode(caller, callee);
 	preamble(f, caller, callee, ncalls);
-	emitcode();  
+	emitcode();
 	if (!emit_dot_file) {
         if (bytecodes)
             print("DROP ");
@@ -809,7 +809,7 @@ static int is_native(Type t) {
     if (!hasproto(t))
         return 1;
     Type* p;
-    for (p = t->u.f.proto; *p; p++) 
+    for (p = t->u.f.proto; *p; p++)
         if (!opaque_type(*p))
             return 0;
     return 1;
@@ -821,7 +821,7 @@ static void preamble(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
     Symbol *p;
     if (emit_dot_file)
         print("//");
-    else 
+    else
         print("\n");
     if (is_native(f->type) && !bytecodes) {
         currentline = f->src.y;
@@ -832,7 +832,7 @@ static void preamble(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
         print("%s", f->x.name+9);
     else
     	print("%s", f->x.name);
-    if (f->sclass == STATIC) 
+    if (f->sclass == STATIC)
         print(" [private] ");
     print(": ");
     if (c_offset) {
@@ -955,7 +955,7 @@ int opaque_type(Type t) {
         assert(0);
         return 0;
     }
-}  
+}
 
 print_locals(Type t) {
     Field f;
@@ -977,13 +977,13 @@ print_locals(Type t) {
             else
                 print(" float ");
         } else {
-            fprint(stderr, "%t %s\n", f->type, f->name);   
+            fprint(stderr, "%t %s\n", f->type, f->name);
             assert(0);
         }
-        print("%s\n", f->name);   
+        print("%s\n", f->name);
         f = f->link;
     }
-    return;   
+    return;
 }
 
 static void gvmt_import(Symbol p) {
@@ -1019,7 +1019,7 @@ void gvmt_global(Symbol p) {
         int new_segment;
         char* segment_title;
         if (isstruct(t) && !opaque_struct(t)) {
-            new_segment = LIT;  
+            new_segment = LIT;
             segment_title = ".heap\n"; //  ...
         } else if (is_ref(t) || isarray(t) && is_ref(t->type)) {
             new_segment = ROOTS;
@@ -1039,7 +1039,7 @@ void gvmt_global(Symbol p) {
         if (p->x.export)
             print (".public %s\n", p->x.name);
         if (isstruct(t) && !opaque_struct(t)) {
-            print (".object %s\n", p->x.name);   
+            print (".object %s\n", p->x.name);
             in_object = 1;
         } else {
             print (".label %s\n", p->x.name);
@@ -1057,11 +1057,11 @@ static void gvmt_segment(int n) {
             }
             segment = CODE;
             if (bytecodes)
-                print(".bytecodes\n");            
+                print(".bytecodes\n");
             else
-                print(".code\n");  
+                print(".code\n");
             break;
-        case LIT: case DATA: case BSS: 
+        case LIT: case DATA: case BSS:
             segment = 0;
             break;
         }
@@ -1074,7 +1074,7 @@ static small_set typeset_from_type(Type t) {
     result.bits = 1 << i;
     return result;
 }
-         
+
 static small_set typeset_from_symbol(Symbol s, char** msg) {
     small_set result;
     if (s->temporary && s->u.t.cse) {
@@ -1132,7 +1132,7 @@ void gvmt_stabline(Coordinate *cp) {
 /* stabsym - output a stab entry for symbol p */
 void gvmt_stabsym(Symbol p) {
 }
- 
+
 static void gvmt_progbeg(int argc, char *argv[]) {
     int i;
     int one = 1;
@@ -1198,7 +1198,7 @@ char * pointer_type(int t) {
     switch(t) {
     case ERROR:
         return "E";
-    case STRUCT_TYPE: 
+    case STRUCT_TYPE:
         return "?";
     case MEMBER:
         return "X";
@@ -1211,7 +1211,7 @@ char * pointer_type(int t) {
 
 char* type_char(Node p) {
     switch(optype(p->op)) {
-    case I: 
+    case I:
         return stringf("I%d", opsize(p->op));
     case U:
         return stringf("U%d", opsize(p->op));
@@ -1224,7 +1224,7 @@ char* type_char(Node p) {
         assert("VOID!" && 0);
     case B:
         assert("STRUCT!" && 0);
-    default: 
+    default:
         assert(0);
     }
 }
@@ -1264,7 +1264,7 @@ int get_type(Type t) {
         result = 0;
     }
     return result;
-}  
+}
 
 void legal_arg(Node p) {
     int t = disambiguate(p->x.type_set, p);
@@ -1273,9 +1273,9 @@ void legal_arg(Node p) {
     } else if (t == ERROR) {
         label_error(p, p->x.type_set);
     } else {
-        p->x.error = stringf("Illegal type for parameter: %s\n", long_type_name(t));    
+        p->x.error = stringf("Illegal type for parameter: %s\n", long_type_name(t));
         p->x.exact_type = ERROR;
-    } 
+    }
 }
 
 void legal_return(Node p) {
@@ -1285,7 +1285,7 @@ void legal_return(Node p) {
     } else if (t == ERROR) {
         label_error(p, p->x.type_set);
     } else {
-        p->x.error = stringf("Illegal return type: %s\n", long_type_name(t));    
+        p->x.error = stringf("Illegal return type: %s\n", long_type_name(t));
         p->x.exact_type = ERROR;
     }
 }
@@ -1328,7 +1328,7 @@ static Node undoCSE(Node p) {
     }
     p->kids[0] = undoCSE(p->kids[0]);
     p->kids[1] = undoCSE(p->kids[1]);
-    return p; 
+    return p;
 }
 
 static void top_down_node(Node p) {
@@ -1362,13 +1362,13 @@ static void top_down_node(Node p) {
             top_down2(p, p->x.exact_type, check_assign);
         }
         break;
-	case CNST: 
+	case CNST:
     case ADDRG: case ADDRF: case ADDRL:
         break;
 	case CVF: case CVI: case CVP: case CVU:
         top_down1(p, p->x.exact_type, convert);
 		break;
-	case ARG: 
+	case ARG:
         if (p->x.ptype) {
             int t = get_type(p->x.ptype);
             t = type_match(t, p->x.type_set);
@@ -1415,14 +1415,14 @@ static void top_down_node(Node p) {
  	case EQ: case NE:
 		//Special case for comparison to 0/NULL.
 		if (is_null(p->kids[0]))
-		     p->kids[0]->x.type_set = NULL_SET;   
+		     p->kids[0]->x.type_set = NULL_SET;
 		if (is_null(p->kids[1]))
 		     p->kids[1]->x.type_set = NULL_SET;
     case GT: case GE: case LE: case LT:
 		p->x.exact_type = OPAQUE_TYPE;
         top_down2(p, p->x.exact_type, comp_func);
         break;
-    case JUMP: 
+    case JUMP:
         break;
     case LABEL:
         assert(p->x.exact_type);
@@ -1437,7 +1437,7 @@ static void top_down_node(Node p) {
 }
 
 int is_ref(Type t) {
-    if (!isptr(t)) 
+    if (!isptr(t))
         return 0;
     t = deref(t);
     return isstruct(t) && !opaque_struct(t);
@@ -1446,7 +1446,7 @@ int is_ref(Type t) {
 static void print_ref_name(char* name, Type t) {
     char* tname;
     assert(is_ref(t));
-    t = deref(t); 
+    t = deref(t);
     tname = t->u.sym->name;
     if (strcmp(tname, "gvmt_reference_types")) {
         print("TYPE_NAME(%s,\"", name);
@@ -1490,9 +1490,9 @@ static void symbolise_node(Node p) {
                 p->kids[0]->syms[0]->x.ptype = t;
                 p->kids[0]->x.ptype = ptr(t);
             }
-        } 
+        }
         break;
-	case CNST: 
+	case CNST:
         break;
     case ADDRG: case ADDRF: case ADDRL:
         if (p->syms[0]->x.ptype)
@@ -1503,7 +1503,7 @@ static void symbolise_node(Node p) {
 	case CVF: case CVI: case CVP: case CVU:
         p->x.ptype = p->kids[0]->x.ptype;
 		break;
-	case ARG: 
+	case ARG:
         break;
     case BCOM: case NEG:
         p->x.ptype = p->kids[0]->x.ptype;
@@ -1549,7 +1549,7 @@ static void symbolise_node(Node p) {
 		break;
     case JUMP: case LABEL:
         break;
-     case RET:   
+     case RET:
         break;
     default:
         gvmt_error("Unknown node: %d\n", gen);
@@ -1565,7 +1565,7 @@ static void bottom_up_node(Node p) {
 		assert(p->kids[1]);
         p->x.type_set = bottom_up2(p, check_assign);
         break;
-	case CNST: 
+	case CNST:
         switch(optype(p->op)) {
         case I: case U:
 //            if (p->syms[0]->u.c.v.i == 0) {
@@ -1582,7 +1582,7 @@ static void bottom_up_node(Node p) {
             p->x.type_set = OPAQUE_SET;
         }
         break;
-    case ADDRG: 
+    case ADDRG:
         if (strcmp(p->syms[0]->name, "NULL") == 0) {
             p->x.type_set.bits = 1 << REFERENCE_TYPE | 1 << POINTER(OPAQUE_TYPE);
             break;
@@ -1591,7 +1591,7 @@ static void bottom_up_node(Node p) {
     case ADDRF: case ADDRL:
 		assert(!p->kids[0]);
 		assert(!p->kids[1]);
-        if (p->x.ptype) 
+        if (p->x.ptype)
             p->x.type_set = typeset_from_type(p->x.ptype);
         else
             p->x.type_set = pointer_set(typeset_from_symbol(p->syms[0], &p->x.error));
@@ -1601,7 +1601,7 @@ static void bottom_up_node(Node p) {
 		assert(!p->kids[1]);
         p->x.type_set = bottom_up1(p, convert);
 		break;
-	case ARG: 
+	case ARG:
         p->x.type_set = p->kids[0]->x.type_set;
         p->x.error = p->kids[0]->x.error;
         break;
@@ -1625,12 +1625,12 @@ static void bottom_up_node(Node p) {
         p->x.type_set = bottom_up2(p, sub_func);
         break;
 	case ADD:
-        if (p->kids[0]->x.type_set.bits == (1 << INTEGER_TYPE) && 
-            generic(p->kids[1]->op) == ADDRG && 
+        if (p->kids[0]->x.type_set.bits == (1 << INTEGER_TYPE) &&
+            generic(p->kids[1]->op) == ADDRG &&
             p->kids[1]->x.type_set.bits == (1 << REFERENCE_TYPE)) {
             p->x.type_set.bits = (1 << REFERENCE_TYPE);
-        } else if (p->kids[1]->x.type_set.bits == (1 << INTEGER_TYPE) && 
-            generic(p->kids[0]->op) == ADDRG && 
+        } else if (p->kids[1]->x.type_set.bits == (1 << INTEGER_TYPE) &&
+            generic(p->kids[0]->op) == ADDRG &&
             p->kids[0]->x.type_set.bits == (1 << REFERENCE_TYPE)) {
             p->x.type_set.bits = (1 << REFERENCE_TYPE);
         } else {
@@ -1651,7 +1651,7 @@ static void bottom_up_node(Node p) {
         p->x.type_set = OPAQUE_SET;
         p->x.exact_type = OPAQUE_TYPE;
         break;
-     case RET:   
+     case RET:
         p->x.type_set = p->kids[0]->x.type_set;
         break;
     default:
@@ -1684,7 +1684,7 @@ static void top_down_tree(Node root) {
 }
 
 static int is_temp(Symbol s) {
-    return s->sclass == REGISTER;   
+    return s->sclass == REGISTER;
 }
 
 static void emit_tree(Node p);
@@ -1718,10 +1718,10 @@ static void emit_store(Symbol s, char* type) {
         }
         if (type[1] == '1' || type[1] == '2') {
             print("TSTORE_%c4(%s) ", type[0], s->x.name);
-        } else { 
+        } else {
             print("TSTORE_%s(%s) " , type, s->x.name);
         }
-    } else {   
+    } else {
         local_address(s);
         print("PSTORE_%s ", type);
     }
@@ -1733,7 +1733,7 @@ void emit_r_recursive(Node p) {
     int temp;
     assert(p->x.exact_type == MEMBER);
     if (generic(p->op) != ADD && generic(p->op) != SUB) {
-        fprintf(stderr, "%s\n", opname(p->op));   
+        fprintf(stderr, "%s\n", opname(p->op));
     }
     assert(generic(p->op) == ADD || generic(p->op) == SUB);
     if (left->x.exact_type == MEMBER) {
@@ -1747,7 +1747,7 @@ void emit_r_recursive(Node p) {
         temp = temps++;
         emit_subtree(left);
         print("TSTORE_%s(%d) ", type_char(left), temp);
-        emit_r_recursive(right);        
+        emit_r_recursive(right);
         print("TLOAD_%s(%d) ", type_char(left), temp);
         print("ADD_%s ", type_char(left));
     } else if (right->x.exact_type == REFERENCE_TYPE) {
@@ -1761,7 +1761,7 @@ void emit_r_recursive(Node p) {
         return;
         gvmt_error("Unexpected types: %s and %s\n", type_name(left->x.exact_type), type_name(right->x.exact_type));
         fprintf(stderr, "Unexpected types: %s and %s\n", type_name(left->x.exact_type), type_name(right->x.exact_type));
-        assert(0);   
+        assert(0);
     }
 }
 
@@ -1790,7 +1790,7 @@ void emit_lhs(Node p, char* type) {
     } else if (p->x.exact_type == REFERENCE_TYPE) {
         emit_subtree(p);
         print("0 RSTORE_%s ", type);
-    } else {  
+    } else {
         emit_subtree(p);
         print("PSTORE_%s ", type);
     }
@@ -1808,7 +1808,7 @@ static void emit_indir(Node p, char* type) {
         emit_r_recursive(p);
         print("RLOAD_%s ", type);
         return;
-    }   
+    }
     if (p->x.exact_type == REFERENCE_TYPE) {
         emit_subtree(p);
         print("0 RLOAD_%s ", type);
@@ -1828,7 +1828,7 @@ static void emit_indir(Node p, char* type) {
             }
             if (type[1] == '1' || type[1] == '2') {
                 print("TLOAD_%c4(%s) ", type[0], p->syms[0]->x.name);
-            } else { 
+            } else {
                 print("TLOAD_%s(%s) ", type, p->syms[0]->x.name);
             }
         } else {
@@ -1861,7 +1861,7 @@ void gvmt_address(Symbol q, Symbol p, long n) {
     if (p->scope == GLOBAL || p->sclass == STATIC || p->sclass == EXTERN) {
         if (n)
             q->x.name = stringf("%s  %d ADD_%s", p->x.name, n, pointer_type(make_pointer(get_type(q->type))));
-        else 
+        else
             q->x.name = p->x.name;
     } else {
 		q->x.name = stringd(atoi(p->x.name) + n);
@@ -1895,7 +1895,7 @@ static void print_conversion(Node p) {
                     print("EXT_%s " , type_char(p));
                 }
             } else {
-                assert(to == 8);   
+                assert(to == 8);
             }
         }
         break;
@@ -1921,22 +1921,22 @@ static void emit_comp(Node p) {
     assert((1 << opsize(p->op)) & set48);
     char* name;
     switch(gen) {
-    case EQ: 
+    case EQ:
         name = "EQ";
         break;
-    case NE: 
+    case NE:
         name = "NE";
         break;
-    case LT: 
+    case LT:
         name = "LT";
         break;
-    case GT: 
+    case GT:
         name = "GT";
         break;
-    case LE: 
+    case LE:
         name = "LE";
         break;
-    case GE: 
+    case GE:
         name = "GE";
         break;
     }
@@ -1956,28 +1956,28 @@ static void emit_binary(Node p) {
     case SUB:
         name = "SUB";
         break;
-    case BOR: 
+    case BOR:
         name = "OR";
         break;
-    case BAND: 
+    case BAND:
         name = "AND";
         break;
-    case BXOR: 
+    case BXOR:
         name = "XOR";
         break;
-    case LSH: 
+    case LSH:
         name = "LSH";
         break;
-    case RSH: 
+    case RSH:
         name = "RSH";
         break;
-    case MUL: 
+    case MUL:
         name = "MUL";
         break;
-    case DIV: 
+    case DIV:
         name = "DIV";
         break;
-    case MOD: 
+    case MOD:
         name = "MOD";
         break;
     }
@@ -1998,7 +1998,7 @@ static int is_nullable_field_access(Node p) {
     switch(generic(p->op)) {
     case INDIR:
         break;
-    case CVU: case CVI: case CVP: 
+    case CVU: case CVI: case CVP:
         if (opsize(p->op) != p->syms[0]->u.c.v.i)
             return 0;
         return is_nullable_field_access(p->kids[0]);
@@ -2047,7 +2047,7 @@ static void emit_is_null(Node p, int eq) {
 
 static void emit_subtree(Node p) {
     int narg_count = 0;
-    int gen = generic(p->op);  
+    int gen = generic(p->op);
     if (p->x.exact_type == ERROR && p->x.error) {
         gvmt_error("%s", p->x.error);
         return;
@@ -2056,19 +2056,19 @@ static void emit_subtree(Node p) {
         gvmt_warning("%s", p->x.error);
     }
     switch(gen) {
-    case ADD: case BOR: case BAND: case BXOR: case RSH: 
+    case ADD: case BOR: case BAND: case BXOR: case RSH:
     case LSH: case SUB: case DIV: case MUL: case MOD:
         emit_subtree(p->kids[0]);
         emit_subtree(p->kids[1]);
         emit_binary(p);
         return;
-    case CNST: 
+    case CNST:
         switch(optype(p->op)) {
         case U: case I:
             print("%d ", p->syms[0]->u.c.v.i);
             if (opsize(p->op) > sizeof(void*)) {
                 gvmt_warning("Large (double word) integer may be truncated\n");
-                if (optype(p->op) == I) 
+                if (optype(p->op) == I)
                     print("SIGN ");
                 else
                     print("ZERO ");
@@ -2088,7 +2088,7 @@ static void emit_subtree(Node p) {
     case ADDRG:
         {
             Type t = p->syms[0]->type;
-            if (isstruct(t) && !opaque_struct(t)) {  
+            if (isstruct(t) && !opaque_struct(t)) {
                 gvmt_error("Cannot use address of heap object %s in code\n", p->syms[0]->name);
             } else {
                 // Could be a name, or a complex address like: name 8 ADD_P
@@ -2102,11 +2102,11 @@ static void emit_subtree(Node p) {
             }
         }
         break;
-    case BCOM: 
+    case BCOM:
         emit_subtree(p->kids[0]);
         print("INV_%s ", type_char(p));
         break;
-    case NEG: 
+    case NEG:
         emit_subtree(p->kids[0]);
         print("NEG_%s ", type_char(p));
         break;
@@ -2115,7 +2115,7 @@ static void emit_subtree(Node p) {
         print_conversion(p);
         return;
     case CALL:
-        if (generic(p->kids[0]->op) == ADDRG && 
+        if (generic(p->kids[0]->op) == ADDRG &&
             strncmp(p->kids[0]->syms[0]->x.name, "gvmt_", 5) == 0) {
             char* name = p->kids[0]->syms[0]->x.name + 5;
             if (strcmp(name, "insert") == 0) {
@@ -2142,12 +2142,19 @@ static void emit_subtree(Node p) {
             }
             if (strncmp(name, "ireturn_", 8) == 0 && name[9] == 0) {
                 if (name[8] == 'i') {
-                    intrinsic("RETURN_I");
-                    print("%d ", sizeof(void*));
+                    intrinsic("RETURN_I4 ");
+                } else if (name[8] == 'l') {
+                    intrinsic("RETURN_I8 ");
+                } else if (name[8] == 'f') {
+                    intrinsic("RETURN_F4 ");
+                } else if (name[8] == 'd') {
+                    intrinsic("RETURN_F8 ");
                 } else if (name[8] == 'p') {
                     intrinsic("RETURN_P ");
-                } else if (name[5] == 'r') {
+                } else if (name[8] == 'r') {
                     intrinsic("RETURN_R ");
+                } else if (name[8] == 'v') {
+                    intrinsic("RETURN_V ");
                 }
                 return;
             }
@@ -2165,16 +2172,16 @@ static void emit_subtree(Node p) {
             }
             if (strcmp(name, "stack_read_object") == 0) {
                 intrinsic("PLOAD_R ");
-                return;              
+                return;
             }
             if (strcmp(name, "stack_write_object") == 0) {
                 intrinsic("PSTORE_R ");
-                return;              
+                return;
             }
             if (strcmp(name, "push_current_state") == 0) {
                 intrinsic("PUSH_CURRENT_STATE ");
                 return;
-            } 
+            }
             if (strcmp(name, "pop_state") == 0) {
                 intrinsic("POP_STATE ");
                 return;
@@ -2198,7 +2205,7 @@ static void emit_subtree(Node p) {
             if (strcmp(name, "refer") == 0) {
                 intrinsic("DROP ");
                 return;
-            }            
+            }
             if (strncmp(name, "fetch", 5) == 0) {
                 if (name[5] =='\0') {
                     intrinsic("#@ ");
@@ -2242,30 +2249,30 @@ static void emit_subtree(Node p) {
             }
             if (strcmp(name, "fully_initialized") == 0) {
                 intrinsic("FULLY_INITIALIZED ");
-                return;   
+                return;
             }
             if (strcmp(name, "lock") == 0) {
-                intrinsic("LOCK "); 
+                intrinsic("LOCK ");
                 return;
             }
             if (strcmp(name, "unlock") == 0) {
-                intrinsic("UNLOCK "); 
+                intrinsic("UNLOCK ");
                 return;
             }
             if (strcmp(name, "lock_internal") == 0) {
-                intrinsic("LOCK_INTERNAL "); 
+                intrinsic("LOCK_INTERNAL ");
                 return;
             }
             if (strcmp(name, "unlock_internal") == 0) {
-                intrinsic("UNLOCK_INTERNAL "); 
+                intrinsic("UNLOCK_INTERNAL ");
                 return;
             }
             if (strcmp(name, "pin") == 0) {
-                intrinsic("PIN "); 
+                intrinsic("PIN ");
                 return;
             }
             if (strcmp(name, "pinned_object") == 0) {
-                intrinsic("PINNED_OBJECT "); 
+                intrinsic("PINNED_OBJECT ");
                 return;
             }
         }
@@ -2283,11 +2290,11 @@ static void emit_subtree(Node p) {
                 inst = "N_CALL_NO_GC";
             else
                 inst = "N_CALL";
-            print("%s_%s(%d) ", inst, 
+            print("%s_%s(%d) ", inst,
                   return_type_ext(freturn(p->syms[0]->type)), narg_count);
         } else {
             if (variadic(p->syms[0]->type))
-                print("#%d V_CALL_%s ", arg_count, 
+                print("#%d V_CALL_%s ", arg_count,
                       return_type_ext(freturn(p->syms[0]->type)));
             else
                 print("CALL_%s ",
@@ -2299,15 +2306,15 @@ static void emit_subtree(Node p) {
         assert(p->syms[0]->sclass == AUTO);
         assert(p->syms[0]->type);
         local_address(p->syms[0]);
-        return;    
+        return;
     default:
         fprintf(stderr, opname(p->op));
         assert(0);
     }
-}        
+}
 
 static void emit_link(int from, int to) {
-    print ("node_%d -> node_%d\n", from, to);   
+    print ("node_%d -> node_%d\n", from, to);
 }
 
 static int emit_dot_node(Node p) {
@@ -2330,9 +2337,9 @@ static int emit_dot_tree(Node p) {
          emit_link(label, emit_dot_tree(p->kids[1]));
     return label;
 }
-        
+
 static void emit_tree(Node p) {
-    int gen = generic(p->op);  
+    int gen = generic(p->op);
     if (p->x.eliminated)
         return;
     if (p->x.exact_type == ERROR && p->x.error) {
@@ -2344,11 +2351,11 @@ static void emit_tree(Node p) {
     }
     char* name;
     switch(gen) {
-    case ASGN:   
+    case ASGN:
         emit_subtree(p->kids[1]);
         emit_lhs(p->kids[0], type_char(p));
 		return;
-    case EQ: case NE: 
+    case EQ: case NE:
 		//Special case for comparison to 0/NULL.
 		if (is_null(p->kids[0]) && is_nullable_field_access(p->kids[1])) {
             emit_is_null(p->kids[1], gen == EQ);
@@ -2366,7 +2373,7 @@ static void emit_tree(Node p) {
         emit_subtree(p->kids[1]);
         emit_comp(p);
         return;
-    case CALL: 
+    case CALL:
         emit_subtree(p);
         if (freturn(p->syms[0]->type) != voidtype) {
             if (freturn(p->syms[0]->type)->size > IR->ptrmetric.size)
@@ -2378,7 +2385,7 @@ static void emit_tree(Node p) {
         emit_subtree(p->kids[0]);
         if (p->x.native) {
             if (p->x.exact_type == REFERENCE_TYPE) {
-                gvmt_error("Reference parameter for a native function\n");                
+                gvmt_error("Reference parameter for a native function\n");
             } else {
                 *n_args = type_char(p);
                 n_args++;
@@ -2391,17 +2398,17 @@ static void emit_tree(Node p) {
         else
             arg_count++;
         return;
-    case JUMP: 
+    case JUMP:
         if (generic(p->kids[0]->op) ==  ADDRG) {
             if (insert_gc_safe_point && p->kids[0]->syms[0]->x.emitted
                 && !requested_no_gc)
                 print("GC_SAFE ");
             print("HOP(%s)\n", p->kids[0]->syms[0]->x.name);
         } else {
-            gvmt_error("Cannot handle computed jumps\n");   
+            gvmt_error("Cannot handle computed jumps\n");
         }
         return;
-    case LABEL: 
+    case LABEL:
         print("TARGET(%s)\n", p->syms[0]->x.name);
         p->syms[0]->x.emitted = 1;
         return;
@@ -2420,8 +2427,8 @@ void gvmt_emit(Node forest) {
     Node p;
     assert(forest);
     for (p = forest; p; p = p->link) {
-        if (emit_dot_file) 
-            emit_dot_tree(p);  
+        if (emit_dot_file)
+            emit_dot_tree(p);
         else
             emit_tree(p);
     }
